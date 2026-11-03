@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <span class="text-muted">
+            Instance <code th:text="${instance.businessRefType} + '-' + ${instance.businessRefId}">BADGE_REQUEST-1</code>
+            — <span th:text="${instance.chainName}">SECURITY / BADGE_REQUEST</span>
+        </span>
+        <div class="d-flex gap-2 align-items-center">
+            <a th:if="${instance.status.name() == 'APPROVED' and instance.businessRefType == 'SES_REQUEST'}"
+               th:href="@{/request/{id}/document.pdf(id=${instance.businessRefId})}"
+               target="_blank"
+               class="btn btn-primary btn-sm">
+                <i class="bi bi-file-earmark-pdf me-1"></i>Generate Dokumen
+            </a>
+            <a th:href="@{/approval}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>Back
+            </a>
+        </div>
+    </div>
+
+    <!-- Request details + attachments, when the source module exposes them -->
+    <!-- Template path and fragment selector are two SEPARATE model attributes (not one
+         combined "template :: selector" string) — Thymeleaf only recognises the "::"
+         separator when it's literally present in this tag's own markup, not inside a
+         runtime string value; see ApprovalController#addDetailFragment's javadoc. -->
+    <th:block th:if="${detailFragmentTemplate != null}" th:insert="${detailFragmentTemplate} :: ${detailFragmentSelector}"></th:block>
+
+    <div class="row g-4">
+
+        <!-- Summary -->
+        <div class="col-12" id="action-panel" style="scroll-margin-top: 80px;">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light"><strong>Summary</strong></div>
+                <div class="card-body">
+                    <dl class="row mb-0 small">
+                        <dt class="col-5">Status</dt>
+                        <dd class="col-7">
+                            <span th:if="${instance.status.name() == 'PENDING'}" class="badge bg-warning text-dark">PENDING</span>
+                            <span th:if="${instance.status.name() == 'APPROVED'}" class="badge bg-success">APPROVED</span>
+                            <span th:if="${instance.status.name() == 'REJECTED'}" class="badge bg-danger">REJECTED</span>
+                            <span th:if="${instance.status.name() == 'CANCELLED'}" class="badge bg-secondary">CANCELLED</span>
+                        </dd>
+                        <dt class="col-5">Business Ref</dt>
+                        <dd class="col-7" th:text="${instance.businessRefType + ' #' + instance.businessRefId}">REF</dd>
+                        <dt class="col-5">Requestor</dt>
+                        <dd class="col-7" th:text="${requestorDisplayName} ?: ${instance.requestorUserId}">user</dd>
+                        <dt class="col-5">Created</dt>
+                        <dd class="col-7" th:text="${#dates.format(instance.createdDate, 'dd-MM-yyyy HH:mm')}">date</dd>
+                    </dl>
+
+                    <!-- Approve / Reject (only for current assignees) -->
+                    <div th:if="${canAct and instance.status.name() == 'PENDING'}" class="mt-3 d-grid gap-2">
+                        <div th:if="${hasPendingCheckpoints}" class="alert alert-warning small mb-0">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i>Tombol <b>Approve</b> terkunci sampai checkpoint berikut selesai:
+                            <span th:each="lbl, it : ${blockingCheckpoints}"><b th:text="${lbl}">checkpoint</b><span th:if="${!it.last}">, </span></span>.
+                            Selesaikan langsung di kartu <b>Checkpoint Tasks</b> di bawah.
+                        </div>
+                        <!-- Approve and Reject are the same shape on purpose:
+                             a note and a button. Approve used to open a modal
+                             because that is where a signature was drawn; with
+                             no signature to capture, the modal was a dialog
+                             that asked for one optional text field. -->
+                        <form th:if="${!hasPendingCheckpoints}"
+                              th:action="@{/approval/{id}/approve(id=${instance.instanceId})}" method="post">
+                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                            <div class="input-group input-group-sm">
+                                <input type="text" name="note" class="form-control" maxlength="2000"
+                                       placeholder="Catatan (opsional)"/>
+                                <button type="submit" class="btn btn-success">
+                                    <i class="bi bi-check-lg me-1"></i>Approve
+                                </button>
+                            </div>
+                        </form>
+                        <form th:action="@{/approval/{id}/reject(id=${instance.instanceId})}" method="post">
+                            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                            <div class="input-group input-group-sm">
+                                <input type="text" name="note" class="form-control" placeholder="Rejection reason"/>
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="bi bi-x-lg me-1"></i>Reject
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Checkpoint Tasks (current step only) -->
+        <div class="col-12"
+             th:if="${canAct and checkpointsByTask.get(instance.currentTaskId) != null and !checkpointsByTask.get(instance.currentTaskId).isEmpty()}">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light"><strong>Checkpoint Tasks</strong></div>
+                <div class="card-body">
+                    <div th:each="cp : ${checkpointsByTask.get(instance.currentTaskId)}"
+                         class="d-flex flex-wrap justify-content-between align-items-center gap-2 border-bottom py-2">
+                        <div>
+                            <div th:text="${cp.taskLabel}">Screening scheduled</div>
+                            <div class="small text-muted" th:if="${cp.sourceRef}" th:text="'Verified via ' + ${cp.sourceRef}">ref</div>
+                            <div class="small text-muted" th:if="${cp.note}" th:text="${cp.note}">note</div>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span th:if="${cp.status.name() == 'PENDING'}" class="badge bg-warning text-dark">PENDING</span>
+                            <span th:if="${cp.status.name() == 'DONE'}" class="badge bg-success">DONE</span>
+                            <span th:if="${cp.status.name() == 'SKIPPED'}" class="badge bg-secondary">SKIPPED</span>
+                        </div>
+                        <!-- The owning module's own form, so the work that closes
+                             this checkpoint happens here. Doing it there (verify a
+                             payment, mark a schedule attended) already completes the
+                             checkpoint via completeCheckpointByKey. Template and selector
+                             are separate model values; see ApprovalController#addDetailFragment
+                             for why a single "a :: b" string cannot work here. -->
+                        <th:block th:if="${cp.status.name() == 'PENDING' and checkpointActions.get(cp.checkpointId) != null}"
+                                  th:with="act=${checkpointActions.get(cp.checkpointId)},
+                                           m=${checkpointActions.get(cp.checkpointId).model}">
+                            <th:block th:insert="${act.fragmentTemplate} :: ${act.fragmentSelector}"></th:block>
+                        </th:block>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Steps + checkpoints + audit trail. Shared with the payment
+             verification screen, which needs exactly the same answer to
+             "who already approved this?" — see the fragment's own contract
+             comment for the model attributes it expects. -->
+        <div class="col-12">
+            <th:block th:insert="~{approval/fragments/approval-summary :: card(${approvalSummary})}"></th:block>
+        </div>
+
+    </div>
+
+</div>
+
+<th:block layout:fragment="scripts-extra">
+<script>
+// Confirm rejection (destructive, ends the flow)
+document.querySelectorAll('form[action*="/reject"]').forEach(function(f) {
+    f.addEventListener('submit', function(e) {
+        if (!confirm('Rejecting ends this approval process. Continue?')) {
+            e.preventDefault();
+        }
+    });
+});
+</script>
+
+</th:block>
+</body>
+</html>

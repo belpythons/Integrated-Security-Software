@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Shared read-only view of one approval instance: which chain routed it,
+  every step and who closed it, the checkpoint gates, and the audit trail.
+
+  Extracted from approval/detail.html, which had all of this inline and
+  therefore unusable anywhere else — the payment verification screen showed
+  the officer a proof of payment with no way to see who had already approved
+  the request it belongs to.
+
+  CONTRACT — insert with ONE argument, the map ApprovalService#summaryModel
+  returns:   ~{approval/fragments/approval-summary :: card(${approvalSummary})}
+  Keys: instance, tasks, checkpointsByTask, assigneeNamesByTask,
+  signoffsByTask, approverTitlesByTask, completedByNames, history,
+  historyActorNames. Passed as a single map rather
+  than nine loose model attributes on purpose — payment/detail.html already publishes its own
+  `historyActorNames` for the PAYMENT history card, and two different maps
+  sharing one attribute name is a silent wrong-name bug.
+  A null ap.instance renders a single "no approval flow" line, so a caller
+  whose business record was never routed through a chain can insert this
+  unconditionally. Note summaryModel seeds EVERY key on that branch too,
+  including the empty assigneeNamesByTask and signoffsByTask — the map lookups
+  below would otherwise NPE on a record with no approval flow.
+
+  signoffsByTask is empty for every ANY-rule step, which is every step of every
+  chain except the Staf Security consensus one. A step with no entry simply
+  renders no sub-rows, so this costs nothing on the flows that do not use it.
+
+  "Ditujukan Kepada" vs "Diselesaikan Oleh" answer two different questions and
+  will legitimately disagree. The first is who the step was aimed at; the
+  second is who actually pressed the button. They differ whenever a PJS or an
+  incoming position holder acts on a task frozen to someone else — which is
+  exactly the case the pair exists to make visible.
+-->
+<th:block th:fragment="card(ap)">
+
+    <div th:if="${ap.instance == null}" class="card shadow-sm border-0">
+        <div class="card-header bg-light"><strong>Alur Persetujuan</strong></div>
+        <div class="card-body small text-muted mb-0">
+            Belum ada alur persetujuan yang berjalan untuk data ini.
+        </div>
+    </div>
+
+    <div th:if="${ap.instance != null}" class="card shadow-sm border-0">
+        <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <strong>Alur Persetujuan</strong>
+            <!-- Chain + routing tier, straight off the columns the instance
+                 froze at trigger time. This is the answer to "is the Approval
+                 Chain / Form Mapping configuration actually used?" — it names
+                 the chain that was resolved and whether it came from a
+                 per-match_key override or the form's default. -->
+            <span class="small text-muted">
+                Chain: <b th:text="${ap.instance.chainName} ?: ${ap.instance.chainKey}">chain</b>
+                <span th:if="${ap.instance.resolutionTier != null}">
+                    (<span th:text="${ap.instance.resolutionTier.name() == 'OVERRIDE'} ? 'override' : 'default'">tier</span><span
+                        th:if="${ap.instance.matchKey != null}" th:text="' · ' + ${ap.instance.matchKey}"></span>)
+                </span>
+            </span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+            <!--
+              APPROVAL ROUTE
+              Columns follow the agreed layout: # / Approver / Status /
+              Actioned By / Remarks, with checkpoints folded under Remarks
+              rather than given a column of their own — most steps have none,
+              and a mostly-empty column costs width the Approver cell needs.
+
+              A consensus step (completion_rule = ALL) renders ONE sub-row per
+              person it is waiting on. That is the whole reason the step exists:
+              "who has signed and who has not" is unanswerable from a single
+              aggregated row, and it is the question everyone in the queue is
+              actually asking.
+            -->
+            <table class="table table-hover table-sm align-middle mb-0 approval-route">
+                <thead class="table-light text-secondary text-uppercase fw-semibold">
+                    <tr>
+                        <th style="width:4rem">#</th>
+                        <th style="width:32%">Approver</th>
+                        <th style="width:12rem">Status</th>
+                        <th style="width:24%">Actioned By</th>
+                        <th>Remarks</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!--
+                      visibleTasks, not tasks: a step the request type switched
+                      off (or an Additional Routing step the requestor named
+                      nobody for) is dropped, because nobody was ever asked and
+                      nobody decided anything. A step a REVIEWER skipped, or one
+                      SKIPPED by a cancellation, stays — those are records of a
+                      decision, and hiding them would leave an outcome with no
+                      visible explanation. The rule lives in
+                      ApprovalService#visibleTasks; ap.tasks is still available
+                      and is what the action panel keys on.
+
+                      The # column shows iterStat.count, NOT t.stepOrder. The
+                      frozen step_order is the position in the CONFIGURED chain,
+                      so with rows removed it reads 2,3,5 — holes that look like
+                      missing history rather than steps that never applied.
+                    -->
+                    <th:block th:each="t, iterStat : ${ap.visibleTasks} ?: ${ap.tasks}">
+                    <tr th:classappend="${ap.instance.currentTaskId != null and ap.instance.currentTaskId == t.taskId} ? 'table-warning' : ''">
+                        <td class="fw-semibold" th:text="${iterStat.count}">1</td>
+
+                        <!-- Approver: the JOB in bold, then the people, then the
+                             step's role as a badge. The role badge is what SES
+                             actually knows; there is no HR job-level field in any
+                             view granted to this application, so inventing one
+                             from the org chart would be a guess printed as fact. -->
+                        <td>
+                            <!-- 1. Jabatan (Bold) -->
+                            <div class="fw-bold text-uppercase small text-dark"
+                                 th:text="${ap.approverTitlesByTask != null} ? ${ap.approverTitlesByTask[t.taskId]} : ${t.stepName}">
+                                MANAGER, INFORMATION TECHNOLOGY
+                            </div>
+                            <!-- 2. Departemen -->
+                            <div th:if="${ap.approverDepartmentsByTask != null and ap.approverDepartmentsByTask[t.taskId] != null}"
+                                 class="small text-muted fw-semibold">
+                                <i class="bi bi-building me-1 opacity-75"></i><span th:text="${ap.approverDepartmentsByTask[t.taskId]}">INFORMATION TECHNOLOGY</span>
+                            </div>
+                            <!-- 3. Nama PIC Lengkap -->
+                            <div th:if="${ap.assigneeNamesByTask != null and ap.assigneeNamesByTask[t.taskId] != null and !ap.assigneeNamesByTask[t.taskId].isEmpty()}"
+                                 class="small text-primary mt-1">
+                                <i class="bi bi-person-check me-1 opacity-75"></i><span th:text="${#strings.listJoin(ap.assigneeNamesByTask[t.taskId], ', ')}">NAMA LENGKAP</span>
+                            </div>
+                            <div th:if="${ap.assigneeNamesByTask == null or ap.assigneeNamesByTask[t.taskId] == null or ap.assigneeNamesByTask[t.taskId].isEmpty()}"
+                                 class="small text-muted">—</div>
+                            <!-- Badges -->
+                            <span th:if="${t.stepRole != null}"
+                                  class="badge bg-warning text-dark mt-1"
+                                  th:text="${t.stepRole.name()}">SECURITY_STAFF</span>
+                            <span th:if="${t.completionRule != null and t.completionRule.name() == 'ALL'}"
+                                  class="badge bg-dark mt-1" title="Semua approver harus menyetujui">ALL APPROVED</span>
+                        </td>
+
+                        <td>
+                            <span th:if="${t.status.name() == 'PENDING'}" class="badge bg-warning text-dark">Menunggu</span>
+                            <span th:if="${t.status.name() == 'APPROVED'}" class="badge bg-success">Approved</span>
+                            <span th:if="${t.status.name() == 'REJECTED'}" class="badge bg-danger">Rejected</span>
+                            <span th:if="${t.status.name() == 'SKIPPED'}" class="badge bg-secondary">Dilewati</span>
+                        </td>
+
+                        <!-- Actioned By answers a DIFFERENT question from Approver,
+                             and the two will legitimately disagree: the first is who
+                             the step was aimed at, the second is who actually pressed
+                             the button. They differ whenever a PJS or an incoming
+                             position holder acts on a task frozen to someone else —
+                             exactly the case this pair exists to make visible. -->
+                        <td>
+                            <div th:if="${t.completedDate != null}">
+                                <div th:text="${ap.completedByNames != null} ? (${ap.completedByNames[t.taskId]} ?: '—') : '—'">NAMA</div>
+                                <div class="small text-muted"
+                                     th:text="${#dates.format(t.completedDate, 'dd-MM-yyyy HH:mm')}">28-09-2026 09:03</div>
+                            </div>
+                            <span th:if="${t.completedDate == null}" class="text-muted">-</span>
+                        </td>
+
+                        <td class="small">
+                            <span th:if="${t.note != null and !#strings.isEmpty(t.note)}" th:text="${t.note}">catatan</span>
+                            <span th:if="${t.note == null or #strings.isEmpty(t.note)}" class="text-muted">-</span>
+                            <div th:if="${ap.checkpointsByTask.get(t.taskId) != null
+                                           and !ap.checkpointsByTask.get(t.taskId).isEmpty()}" class="mt-1">
+                                <span th:each="cp : ${ap.checkpointsByTask.get(t.taskId)}"
+                                      class="badge me-1 mb-1"
+                                      th:classappend="${cp.status.name() == 'PENDING'} ? 'bg-warning text-dark' : (${cp.status.name() == 'DONE'} ? 'bg-success' : 'bg-secondary')"
+                                      th:text="${cp.taskLabel}">label</span>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- One sub-row per signatory of a consensus step. -->
+                    <tr th:each="so : ${ap.signoffsByTask != null and ap.signoffsByTask[t.taskId] != null}
+                                      ? ${ap.signoffsByTask[t.taskId]} : null"
+                        class="approval-route-signoff">
+                        <td></td>
+                        <td class="ps-4">
+                            <i class="bi bi-chevron-right text-muted me-1"></i>
+                            <span th:text="${so.displayName != null} ? ${so.displayName} : ${so.emplId}">NAMA</span>
+                            <div class="small text-muted ps-3"
+                                 th:text="${so.posTitle != null} ? ${so.posTitle} : ${so.posId}">JABATAN</div>
+                        </td>
+                        <td>
+                            <span th:if="${so.status.name() == 'PENDING'}" class="badge bg-light text-dark border">Menunggu</span>
+                            <span th:if="${so.status.name() == 'APPROVED'}" class="badge bg-success">Approved</span>
+                            <span th:if="${so.status.name() == 'REJECTED'}" class="badge bg-danger">Rejected</span>
+                        </td>
+                        <td>
+                            <div th:if="${so.completedDate != null}" class="small"
+                                 th:text="${#dates.format(so.completedDate, 'dd-MM-yyyy HH:mm')}">28-09-2026 09:03</div>
+                            <span th:if="${so.completedDate == null}" class="text-muted">-</span>
+                        </td>
+                        <td class="small">
+                            <span th:if="${so.note != null and !#strings.isEmpty(so.note)}" th:text="${so.note}">catatan</span>
+                            <span th:if="${so.note == null or #strings.isEmpty(so.note)}" class="text-muted">-</span>
+                        </td>
+                    </tr>
+                    </th:block>
+                </tbody>
+            </table>
+            </div>
+        </div>
+
+        <!-- Audit trail. ses_approval_history has been written at every
+             transition since the module existed and loaded into the model
+             since then too, but no page ever rendered it. -->
+        <div th:if="${ap.history != null and !ap.history.isEmpty()}" class="card-body border-top">
+            <div class="fw-semibold small mb-2">Riwayat Status</div>
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0 small align-middle">
+                    <thead class="table-light text-secondary text-uppercase fw-semibold">
+                        <tr>
+                            <th style="width:16%">Waktu</th>
+                            <th style="width:22%">Kejadian</th>
+                            <th style="width:20%">Oleh</th>
+                            <th style="width:8%">Tahap</th>
+                            <th>Keterangan</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="h : ${ap.history}">
+                            <td class="text-muted" th:text="${#dates.format(h.createdDate, 'dd-MM-yyyy HH:mm')}">date</td>
+                            <td>
+                                <!-- Plain th:switch rather than a label column on
+                                     HistoryAction: the enum is shared with code paths
+                                     that have no UI, and the Indonesian wording is a
+                                     presentation concern. -->
+                                <span th:switch="${h.action.name()}">
+                                    <span th:case="'START'" class="badge bg-info text-dark">Pengajuan dimulai</span>
+                                    <span th:case="'APPROVE'" class="badge bg-success">Disetujui</span>
+                                    <span th:case="'REJECT'" class="badge bg-danger">Ditolak</span>
+                                    <span th:case="'SKIP'" class="badge bg-secondary">Tahap dilewati</span>
+                                    <span th:case="'ADVANCE'" class="badge bg-primary">Lanjut ke tahap berikutnya</span>
+                                    <span th:case="'COMPLETE'" class="badge bg-success">Seluruh tahap selesai</span>
+                                    <span th:case="'CANCEL'" class="badge bg-secondary">Dibatalkan</span>
+                                    <span th:case="'TASK_COMPLETE'" class="badge bg-success">Checkpoint selesai</span>
+                                    <span th:case="'TASK_SKIP'" class="badge bg-warning text-dark">Checkpoint dilewati</span>
+                                    <span th:case="*" class="badge bg-light text-dark" th:text="${h.action.name()}">action</span>
+                                </span>
+                            </td>
+                            <td th:text="${ap.historyActorNames != null} ? (${ap.historyActorNames[h.historyId]} ?: '—') : '—'">—</td>
+                            <td class="text-muted" th:text="${h.toStepOrder} ?: '—'">—</td>
+                            <td class="text-muted" th:text="${h.note} ?: '—'">—</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</th:block>
+</body>
+</html>

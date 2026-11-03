@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title th:text="'Bad Request | ' + (${appName} ?: 'Security Suite')">Bad Request</title>
+</head>
+<body>
+<div layout:fragment="content" class="container-fluid py-5 text-center animate__animated animate__fadeIn">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-warning">
+                <div class="card-body py-5">
+                    <i data-lucide="alert-circle" class="h-16 w-16 mx-auto text-warning"></i>
+                    <h1 class="display-4 fw-bold text-warning mt-3">400</h1>
+                    <h5 class="text-muted mb-4">This request can't be completed right now.</h5>
+                    <div th:if="${errorMessage}" class="alert alert-warning text-start small mx-auto" style="max-width:480px;">
+                        <span th:text="${errorMessage}">details</span>
+                    </div>
+                    <a th:href="@{/}" class="btn btn-primary">
+                        <i data-lucide="home" class="h-4 w-4 inline-block me-1"></i> Back to Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

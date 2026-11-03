@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content" class="space-y-4">
+
+    <!-- Top Action Bar -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-1">
+        <div class="flex items-center gap-2">
+            <span class="text-sm font-medium text-slate-500">Antrean Penjadwalan:</span>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                <strong th:text="${rows.size()}">0</strong>&nbsp;menunggu tindakan
+            </span>
+        </div>
+        <a th:href="@{/scheduling/calendar}" class="shadcn-btn shadcn-btn-outline shadcn-btn-sm text-slate-700">
+            <i data-lucide="calendar" class="h-3.5 w-3.5"></i>
+            <span>Kalender</span>
+        </a>
+    </div>
+
+    <!-- Main Table Card with Embedded Filter Toolbar -->
+    <div class="shadcn-card overflow-hidden">
+        <!-- Filter Bar Toolbar (Matches Dashboard pattern) -->
+        <div class="bg-light border-bottom py-2 px-3">
+            <form id="filterSchedQueueForm" onsubmit="event.preventDefault(); applySchedQueueFilter();">
+                <div class="d-flex flex-wrap flex-lg-nowrap align-items-center gap-2">
+                    <div class="input-group input-group-sm flex-grow-1" style="min-width: 180px;">
+                        <span class="input-group-text bg-white border-end-0"><i data-lucide="search" class="h-3.5 w-3.5 text-slate-400"></i></span>
+                        <input type="text" id="filterSchedSearch" class="form-control border-start-0"
+                               placeholder="Cari pemohon, nama, no. permohonan..."/>
+                    </div>
+                    <div style="width: 180px;" class="shrink-0">
+                        <select id="filterSchedAgenda" class="form-select form-select-sm">
+                            <option value="">Semua Agenda</option>
+                            <option value="SCREENING_SCHEDULE">Screening</option>
+                            <option value="BADGE_RETRIEVAL_SCHEDULE">Pengambilan Badge</option>
+                        </select>
+                    </div>
+                    <div style="width: 180px;" class="shrink-0">
+                        <select id="filterSchedStatus" class="form-select form-select-sm">
+                            <option value="">Semua Status</option>
+                            <option value="NEW">Belum Dijadwalkan</option>
+                            <option value="SCHEDULED">Terjadwal</option>
+                        </select>
+                    </div>
+                    <div class="shrink-0">
+                        <button type="button" id="btnResetSchedFilter" class="btn btn-sm btn-outline-secondary inline-flex items-center gap-1.5 text-nowrap px-3" title="Reset seluruh filter">
+                            <i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i>
+                            <span>Reset</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="p-0">
+            <div class="table-responsive" th:if="${!rows.isEmpty()}">
+                <table id="schedulingQueueTable" class="w-full text-left text-sm js-shadcn-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 48px;" class="no-sort">#</th>
+                            <th>Pemohon</th>
+                            <th>Nama</th>
+                            <th>No. Permohonan</th>
+                            <th>Jenis Agenda</th>
+                            <th>Jadwal Saat Ini</th>
+                            <th class="text-center" style="width: 140px;">Status</th>
+                            <th class="col-actions text-right no-sort" style="width: 110px;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="r, iter : ${rows}" class="sched-queue-row"
+                            th:attr="data-agenda=${r.scheduleType.name()}, data-status=${r.schedule == null ? 'NEW' : r.schedule.status.name()}">
+                            <td class="text-slate-400 font-medium text-xs" th:text="${iter.count}">1</td>
+                            <td class="text-slate-500 font-mono text-xs" th:text="${r.requestorUserId}">jdoe</td>
+                            <td class="text-slate-700 font-medium" th:text="${requestorNames != null} ? (${requestorNames[r.requestorUserId]} ?: ${r.requestorUserId}) : ${requestorUserId}">Siti Aminah</td>
+                            <td>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-md font-mono text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200/60" th:text="${r.requestNo}">REQ-2026-0001</span>
+                            </td>
+                            <td>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200" th:text="${r.scheduleType.label}">Screening</span>
+                            </td>
+                            <td>
+                                <div class="flex items-center gap-1.5 font-medium text-slate-700" th:if="${r.schedule != null}">
+                                    <i data-lucide="clock" class="h-3.5 w-3.5 text-slate-400 shrink-0"></i>
+                                    <span th:text="${#dates.format(r.schedule.scheduledDate, 'dd-MM-yyyy HH:mm')}">18-08-2026 10:00</span>
+                                </div>
+                                <span th:if="${r.schedule == null}" class="text-slate-400 italic text-xs">Belum dijadwalkan</span>
+                            </td>
+                            <td class="text-center">
+                                <span th:if="${r.schedule == null}" class="shadcn-badge shadcn-badge-secondary">
+                                    <i data-lucide="asterisk" class="h-3 w-3"></i>Baru
+                                </span>
+                                <span th:if="${r.schedule != null and r.schedule.status.name() == 'SCHEDULED'}" class="shadcn-badge shadcn-badge-info">
+                                    <i data-lucide="clock" class="h-3 w-3"></i>Terjadwal
+                                </span>
+                                <span th:if="${r.schedule != null and r.schedule.status.name() == 'NO_SHOW' and r.schedule.isNoClearedScreening()}" class="shadcn-badge shadcn-badge-danger">
+                                    <i data-lucide="users" class="h-3 w-3"></i>Tidak Lolos
+                                </span>
+                                <span th:if="${r.schedule != null and r.schedule.status.name() == 'NO_SHOW' and !r.schedule.isNoClearedScreening()}" class="shadcn-badge shadcn-badge-danger">
+                                    <i data-lucide="user-x" class="h-3 w-3"></i>Tidak Hadir
+                                </span>
+                                <span th:if="${r.schedule != null and r.schedule.status.name() == 'CANCELLED'}" class="shadcn-badge shadcn-badge-secondary">
+                                    <i data-lucide="ban" class="h-3 w-3"></i>Dibatalkan
+                                </span>
+                            </td>
+                            <td class="col-actions text-right text-nowrap">
+                                <a th:href="@{/scheduling/manage/{id}/{type}(id=${r.requestId},type=${r.scheduleType})}"
+                                   class="shadcn-btn shadcn-btn-outline shadcn-btn-sm text-blue-600 hover:bg-blue-50/50 hover:border-blue-200"
+                                   title="Kelola Jadwal">
+                                    <i data-lucide="calendar-check" class="h-3.5 w-3.5"></i>
+                                    <span>Kelola</span>
+                                </a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div th:if="${rows.isEmpty()}" class="flex flex-col items-center justify-center py-12 text-center text-slate-400">
+                <i data-lucide="check-circle-2" class="h-10 w-10 text-emerald-400 mb-2"></i>
+                <p class="text-sm font-medium text-slate-600">Tidak ada agenda yang menunggu penjadwalan saat ini</p>
+                <p class="text-xs text-slate-400 mt-0.5">Semua permohonan telah dijadwalkan dengan tepat.</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<th:block layout:fragment="scripts-extra">
+<script th:inline="none">
+document.addEventListener('DOMContentLoaded', function () {
+    const searchInput = document.getElementById('filterSchedSearch');
+    const agendaSelect = document.getElementById('filterSchedAgenda');
+    const statusSelect = document.getElementById('filterSchedStatus');
+    const resetBtn = document.getElementById('btnResetSchedFilter');
+    const table = document.getElementById('schedulingQueueTable');
+
+    function applySchedQueueFilter() {
+        if (!table) return;
+        const searchTerm = (searchInput ? searchInput.value : '').toLowerCase().trim();
+        const selectedAgenda = (agendaSelect ? agendaSelect.value : '').toUpperCase().trim();
+        const selectedStatus = (statusSelect ? statusSelect.value : '').toUpperCase().trim();
+
+        const rows = table.querySelectorAll('tbody tr.sched-queue-row');
+        let visibleCount = 0;
+        rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            const rowAgenda = (row.getAttribute('data-agenda') || '').toUpperCase().trim();
+            const rowStatus = (row.getAttribute('data-status') || '').toUpperCase().trim();
+
+            let matchSearch = !searchTerm || text.includes(searchTerm);
+            let matchAgenda = !selectedAgenda || rowAgenda === selectedAgenda;
+            let matchStatus = !selectedStatus || rowStatus === selectedStatus;
+
+            if (matchSearch && matchAgenda && matchStatus) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        let noMatchRow = document.getElementById('schedNoMatchRow');
+        if (visibleCount === 0 && rows.length > 0) {
+            if (!noMatchRow) {
+                noMatchRow = document.createElement('tr');
+                noMatchRow.id = 'schedNoMatchRow';
+                noMatchRow.innerHTML = '<td colspan="8" class="text-center py-8 text-slate-400"><div class="flex flex-col items-center justify-center gap-2"><i data-lucide="search-x" class="h-8 w-8 opacity-40"></i><span class="text-xs">Tidak ada antrean yang sesuai filter</span></div></td>';
+                table.querySelector('tbody').appendChild(noMatchRow);
+                if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                    window.lucide.createIcons();
+                }
+            } else {
+                noMatchRow.style.display = '';
+            }
+        } else if (noMatchRow) {
+            noMatchRow.style.display = 'none';
+        }
+    }
+
+    if (searchInput) searchInput.addEventListener('input', applySchedQueueFilter);
+    if (agendaSelect) agendaSelect.addEventListener('change', applySchedQueueFilter);
+    if (statusSelect) statusSelect.addEventListener('change', applySchedQueueFilter);
+    if (resetBtn) {
+        resetBtn.addEventListener('click', function () {
+            if (searchInput) searchInput.value = '';
+            if (agendaSelect) agendaSelect.value = '';
+            if (statusSelect) statusSelect.value = '';
+            applySchedQueueFilter();
+        });
+    }
+});
+</script>
+</th:block>
+</body>
+</html>

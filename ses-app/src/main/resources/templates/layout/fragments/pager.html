@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Server-side pagination toolbar + pager, shared by every list screen.
+
+  Replaces ShadcnTable/DataTables client-side paging. The difference that
+  matters is not the buttons: it is that the server now renders one page of
+  rows instead of the whole table. At ~2.8 KB of HTML per row, /history was
+  107 KB for 37 rows and would have been megabytes once the ledger grew --
+  and the browser had to parse all of it before showing the first ten.
+
+  Search moved server-side with it. Client-side search could filter rows the
+  server no longer sends, so leaving it in place would have quietly turned
+  "search everything" into "search this page" with no sign to the reader.
+
+  Usage, from a list template:
+
+    <div th:replace="~{layout/fragments/pager :: toolbar(${page}, 'Cari nomor pengajuan, pemohon...')}"></div>
+    ... table rendering ${page.content} ...
+    <div th:replace="~{layout/fragments/pager :: pager(${page})}"></div>
+
+  Both fragments read the current URL's query string, so they carry whatever
+  filters a screen adds (status, date range) across page links without each
+  screen having to thread them through.
+-->
+
+<!-- ============================ TOOLBAR ============================= -->
+<th:block th:fragment="toolbar(page, placeholder)">
+    <form method="get" th:action="${#httpServletRequest.requestURI}"
+          class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 py-2 border-b border-slate-200 bg-slate-50/60">
+
+        <div class="relative w-full sm:max-w-xs">
+            <i data-lucide="search" class="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400"></i>
+            <input type="text" name="q" th:value="${param.q}" th:placeholder="${placeholder}"
+                   class="shadcn-input pl-9 text-xs w-full"/>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <!-- Every other filter the screen already carries, so submitting a
+                 search does not silently drop the status or date it was
+                 filtered by. 'page' is deliberately NOT carried: a new search
+                 must land on page 1, not on page 7 of the previous result. -->
+            <th:block th:each="e : ${param}">
+                <input type="hidden" th:if="${e.key != 'q' and e.key != 'page' and e.key != 'size'}"
+                       th:name="${e.key}" th:value="${e.value[0]}"/>
+            </th:block>
+
+            <select name="size" onchange="this.form.submit()" class="shadcn-input text-xs py-1 w-auto">
+                <option th:each="s : ${ {10, 25, 50, 100} }" th:value="${s}"
+                        th:text="${s} + ' / halaman'"
+                        th:selected="${s == page.size}">25 / halaman</option>
+            </select>
+
+            <a th:if="${param.q != null and !#strings.isEmpty(param.q[0])}"
+               th:href="${#httpServletRequest.requestURI}"
+               class="shadcn-btn shadcn-btn-ghost shadcn-btn-sm" title="Bersihkan pencarian">
+                <i data-lucide="x" class="h-3.5 w-3.5"></i>
+            </a>
+        </div>
+    </form>
+</th:block>
+
+<!-- ============================= PAGER ============================== -->
+<th:block th:fragment="pager(page)">
+    <div th:if="${page.totalElements > 0}"
+         class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 py-2 border-t border-slate-200 bg-slate-50/60 text-xs text-slate-600">
+
+        <div>
+            Menampilkan
+            <strong th:text="${page.number * page.size + 1}">1</strong>&ndash;<strong
+                th:text="${page.number * page.size + page.numberOfElements}">25</strong>
+            dari <strong th:text="${page.totalElements}">0</strong>
+            <span th:if="${param.q != null and !#strings.isEmpty(param.q[0])}">
+                hasil pencarian &quot;<span th:text="${param.q[0]}">kata</span>&quot;
+            </span>
+        </div>
+
+        <div th:if="${page.totalPages > 1}" class="flex items-center gap-1">
+            <!-- th:href keeps the current query string and swaps only 'page',
+                 so a filtered, searched, resized list stays that way while
+                 paging. -->
+            <a th:href="@{${#httpServletRequest.requestURI}(page=0, size=${page.size}, q=${param.q})}"
+               th:classappend="${page.first} ? 'pointer-events-none opacity-40'"
+               class="shadcn-btn shadcn-btn-outline shadcn-btn-sm" title="Halaman pertama">
+                <i data-lucide="chevron-left" class="h-3.5 w-3.5"></i>
+            </a>
+            <a th:href="@{${#httpServletRequest.requestURI}(page=${page.number - 1}, size=${page.size}, q=${param.q})}"
+               th:classappend="${page.first} ? 'pointer-events-none opacity-40'"
+               class="shadcn-btn shadcn-btn-outline shadcn-btn-sm">Sebelumnya</a>
+
+            <span class="px-2">
+                Halaman <strong th:text="${page.number + 1}">1</strong>
+                dari <strong th:text="${page.totalPages}">1</strong>
+            </span>
+
+            <a th:href="@{${#httpServletRequest.requestURI}(page=${page.number + 1}, size=${page.size}, q=${param.q})}"
+               th:classappend="${page.last} ? 'pointer-events-none opacity-40'"
+               class="shadcn-btn shadcn-btn-outline shadcn-btn-sm">Berikutnya</a>
+            <a th:href="@{${#httpServletRequest.requestURI}(page=${page.totalPages - 1}, size=${page.size}, q=${param.q})}"
+               th:classappend="${page.last} ? 'pointer-events-none opacity-40'"
+               class="shadcn-btn shadcn-btn-outline shadcn-btn-sm" title="Halaman terakhir">
+                <i data-lucide="chevron-right" class="h-3.5 w-3.5"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- Only the no-results-for-this-search case. The genuinely-empty case
+         stays with each screen, which has its own illustrated prompt telling
+         the reader how to create the first record -- advice that would be
+         wrong to show someone who simply mistyped a search term. -->
+    <div th:if="${page.totalElements == 0 and param.q != null and !#strings.isEmpty(param.q[0])}"
+         class="px-3 py-6 text-center text-xs text-slate-500 border-t border-slate-200">
+        Tidak ada hasil untuk &quot;<span th:text="${param.q[0]}">kata</span>&quot;.
+        <a th:href="${#httpServletRequest.requestURI}" class="text-blue-600 hover:underline ms-1">Bersihkan pencarian</a>
+    </div>
+</th:block>
+
+</body>
+</html>

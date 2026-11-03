@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content" class="space-y-4">
+
+    <!-- KPI Summary & Status Info -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+        <div class="flex items-center gap-2">
+            <span class="text-sm font-medium text-slate-500">Verified Payments:</span>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                <strong th:text="${page.totalElements}">0</strong>&nbsp;transaksi
+            </span>
+            <span th:if="${filtered}" class="shadcn-badge shadcn-badge-info text-xs">periode terfilter</span>
+        </div>
+        <div class="p-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-sm flex items-center gap-3">
+            <div class="h-8 w-8 rounded-lg bg-white/20 flex items-center justify-center">
+                <i data-lucide="wallet" class="h-4 w-4 text-white"></i>
+            </div>
+            <div>
+                <span class="text-[10px] text-emerald-100 uppercase tracking-wider font-semibold block" th:text="${filtered} ? 'Cash Inflow (Periode Ini)' : 'Total Cash Inflow'">Total Cash Inflow</span>
+                <div class="text-base font-bold font-mono tracking-tight" th:text="'Rp ' + ${#numbers.formatInteger(totalAmount, 1, 'POINT')}">Rp 0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Table Card with Embedded Filter Toolbar -->
+    <div class="shadcn-card overflow-hidden">
+        <!-- Filter Bar Toolbar (Matches Dashboard pattern) -->
+        <div class="bg-light border-bottom py-2 px-3">
+            <form method="get" th:action="@{/payment/recap}">
+                <div class="d-flex flex-wrap flex-lg-nowrap align-items-center gap-2">
+                    <div class="input-group input-group-sm flex-grow-1" style="min-width: 180px;">
+                        <span class="input-group-text bg-white border-end-0"><i data-lucide="search" class="h-3.5 w-3.5 text-slate-400"></i></span>
+                        <input type="text" name="q" th:value="${param.q}" class="form-control border-start-0"
+                               placeholder="Cari no. transaksi, jenis, pemohon, verifikator..."/>
+                    </div>
+                    <div class="d-flex align-items-center gap-1.5 shrink-0">
+                        <span class="text-xs text-slate-500 font-medium">Dari:</span>
+                        <input type="date" name="from" class="form-control form-control-sm text-xs" style="width: 140px;"
+                               th:value="${from != null} ? ${#dates.format(from, 'yyyy-MM-dd')} : ''"
+                               onchange="this.form.submit()"/>
+                    </div>
+                    <div class="d-flex align-items-center gap-1.5 shrink-0">
+                        <span class="text-xs text-slate-500 font-medium">Sampai:</span>
+                        <input type="date" name="to" class="form-control form-control-sm text-xs" style="width: 140px;"
+                               th:value="${to != null} ? ${#dates.format(to, 'yyyy-MM-dd')} : ''"
+                               onchange="this.form.submit()"/>
+                    </div>
+                    <div class="shrink-0">
+                        <a th:href="@{/payment/recap}" class="btn btn-sm btn-outline-secondary inline-flex items-center gap-1.5 text-nowrap px-3" title="Reset seluruh filter">
+                            <i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i>
+                            <span>Reset</span>
+                        </a>
+                    </div>
+                    <div class="shrink-0 ms-lg-auto">
+                        <a class="btn btn-sm btn-success inline-flex items-center gap-1.5 text-nowrap px-3"
+                           th:href="@{/payment/recap/report.xlsx(from=${from != null} ? ${#dates.format(from, 'yyyy-MM-dd')} : null,
+                                                                  to=${to != null} ? ${#dates.format(to, 'yyyy-MM-dd')} : null)}"
+                           title="Download Laporan Rekapitulasi Kas (Excel)">
+                            <i data-lucide="sheet" class="h-3.5 w-3.5"></i>
+                            <span>Export Excel</span>
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="p-0">
+            <div class="table-responsive">
+                <table id="recapTable" class="w-full text-left text-sm">
+                    <thead>
+                        <tr>
+                            <th style="width: 48px;" class="no-sort">#</th>
+                            <th>No. Transaksi</th>
+                            <th>Jenis Pengajuan</th>
+                            <th>Pemohon</th>
+                            <th>Nama</th>
+                            <th>Nominal (IDR)</th>
+                            <th>Tanggal Verifikasi</th>
+                            <th>Diverifikasi Oleh</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="r, iter : ${rows}">
+                            <td class="text-slate-400 font-medium text-xs" th:text="${iter.count}">1</td>
+                            <td>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-md font-mono text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200/60" th:text="${r.requestNo}">REQ-2026-0001</span>
+                            </td>
+                            <td class="text-slate-700 font-medium" th:text="${r.typeName}">Badge (new)</td>
+                            <td class="text-slate-500 font-mono text-xs" th:text="${r.requestorUserId}">jdoe</td>
+                            <td class="text-slate-700 font-medium" th:text="${requestorNames != null} ? (${requestorNames[r.requestorUserId]} ?: ${r.requestorUserId}) : ${r.requestorUserId}">Siti Aminah</td>
+                            <td class="font-semibold text-slate-800" th:text="'Rp ' + ${#numbers.formatInteger(r.paidAmount, 1, 'POINT')}">Rp 150.000</td>
+                            <td class="text-xs text-slate-500" th:text="${#dates.format(r.reviewedDate, 'dd-MM-yyyy HH:mm')}">18-08-2026 10:00</td>
+                            <td class="text-xs font-medium text-slate-700" th:text="${r.reviewedByName}">admin</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div th:replace="~{layout/fragments/pager :: pager(${page})}"></div>
+            <div th:if="${page.totalElements == 0 and (param.q == null or #strings.isEmpty(param.q[0])) and !filtered}" class="flex flex-col items-center justify-center py-12 text-center text-slate-400">
+                <i data-lucide="receipt" class="h-10 w-10 text-slate-300 mb-2"></i>
+                <p class="text-sm font-medium text-slate-600">Tidak ada data rekap pembayaran</p>
+                <p class="text-xs text-slate-400 mt-0.5">Belum ada transaksi pembayaran yang terverifikasi.</p>
+            </div>
+            <div th:if="${page.totalElements == 0 and ((param.q != null and !#strings.isEmpty(param.q[0])) or filtered)}" class="flex flex-col items-center justify-center py-12 text-center text-slate-400">
+                <i data-lucide="search-x" class="h-10 w-10 text-slate-300 mb-2"></i>
+                <p class="text-sm font-medium text-slate-600">Tidak ada transaksi yang sesuai filter</p>
+                <p class="text-xs text-slate-400 mt-0.5">Coba ubah kata kunci pencarian atau rentang tanggal verifikasi.</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<th:block layout:fragment="scripts-extra">
+<script th:inline="none">
+document.addEventListener('DOMContentLoaded', function () {
+    var tableEl = document.getElementById('recapTable');
+    if (tableEl && tableEl.querySelectorAll('tbody tr').length > 0) {
+        // serverPaged: the server sends one page and searches the whole
+        // table (layout/fragments/pager.html). Client-side search here
+        // could only filter the rows it was given.
+        new ShadcnTable(tableEl, { serverPaged: true });
+    }
+});
+</script>
+</th:block>
+</body>
+</html>

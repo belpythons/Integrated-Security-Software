@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <span class="text-muted">Total: <strong th:text="${chains.size()}">0</strong> approval chains</span>
+        <a th:if="${pageActions['/approval/chain/form'] != null and pageActions['/approval/chain/form'].contains('CREATE')}"
+           th:href="@{/approval/chain/new}" class="btn btn-primary btn-sm">
+            <i data-lucide="plus" class="h-4 w-4 inline-block me-1"></i>New Chain
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table id="chainTable" class="table table-hover table-sm w-100 align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>#</th>
+                            <th>Chain Key</th>
+                            <th>Chain Name</th>
+                            <th>Description</th>
+                            <th>Steps</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-center">In Use</th>
+                            <th class="col-actions text-end">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="c, iter : ${chains}">
+                            <td th:text="${iter.count}">1</td>
+                            <td><code class="fw-bold text-primary" th:text="${c.chainKey}">DISPOSISI_STD</code></td>
+                            <td th:text="${c.chainName}">Chain name</td>
+                            <td class="text-muted small" th:text="${c.description}">desc</td>
+                            <td><span class="badge bg-secondary rounded-pill px-2" th:text="${c.stepCount}">3</span></td>
+                            <td class="text-center">
+                                <span th:if="${c.activeFlag == 'Y'}" class="badge bg-success badge-status">
+                                    <i data-lucide="check-circle-2" class="h-4 w-4 inline-block me-1"></i>Active
+                                </span>
+                                <span th:if="${c.activeFlag != 'Y'}" class="badge bg-danger badge-status">
+                                    <i data-lucide="x-circle" class="h-4 w-4 inline-block me-1"></i>Inactive
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span th:if="${c.inUse}" class="badge bg-warning text-dark badge-status">
+                                    <i data-lucide="link" class="h-4 w-4 inline-block me-1"></i>In Use
+                                </span>
+                                <span th:if="${!c.inUse}"></span>
+                            </td>
+                            <td class="col-actions text-end text-nowrap">
+                                <a th:if="${pageActions['/approval/chain/form'] != null and pageActions['/approval/chain/form'].contains('UPDATE')}"
+                                   th:href="@{/approval/chain/{id}(id=${c.chainId})}"
+                                   class="btn btn-sm btn-outline-primary me-1" title="Edit">
+                                    <i data-lucide="pencil" class="h-4 w-4 inline-block me-1"></i>
+                                </a>
+                                <button th:if="${pageActions['/approval/chain/form'] != null and pageActions['/approval/chain/form'].contains('UPDATE')}"
+                                        type="button" class="btn btn-sm btn-outline-secondary me-1"
+                                        th:data-id="${c.chainId}"
+                                        th:data-key="${c.chainKey}"
+                                        th:data-active="${c.activeFlag}"
+                                        th:title="${c.activeFlag == 'Y'} ? 'Deactivate' : 'Activate'"
+                                        onclick="confirmToggle(this)">
+                                    <i th:if="${c.activeFlag == 'Y'}" data-lucide="toggle-right" class="h-4 w-4 inline-block text-success"></i>
+                                    <i th:if="${c.activeFlag != 'Y'}" data-lucide="toggle-left" class="h-4 w-4 inline-block text-muted"></i>
+                                </button>
+                                <button th:if="${pageActions['/approval/chain/form'] != null and pageActions['/approval/chain/form'].contains('DELETE')}"
+                                        class="btn btn-sm btn-outline-danger"
+                                        th:disabled="${c.inUse}"
+                                        th:title="${c.inUse} ? 'Cannot delete: chain is in use' : 'Delete'"
+                                        th:data-id="${c.chainId}"
+                                        th:data-key="${c.chainKey}"
+                                        onclick="confirmDelete(this)">
+                                    <i data-lucide="trash-2" class="h-4 w-4 inline-block me-1"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <form id="deleteForm" method="post" style="display:none;">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+    </form>
+    <form id="toggleForm" method="post" style="display:none;">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+    </form>
+
+</div>
+
+<th:block layout:fragment="scripts-extra">
+<script th:inline="javascript">
+    var contextPath = /*[[@{/}]]*/ '/';
+</script>
+<script th:inline="none">
+$(document).ready(function () {
+    $('#chainTable').DataTable({
+        pageLength: 10,
+        lengthChange: false,
+        columnDefs: [{ targets: [0, -1], orderable: false, searchable: false }]
+    });
+});
+
+function confirmDelete(btn) {
+    if (btn.disabled) {
+        return;
+    }
+    Swal.fire({
+        title: 'Delete Approval Chain?',
+        text: btn.dataset.key + ' — this cannot be undone.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Delete'
+    }).then(function (r) {
+        if (r.isConfirmed) {
+            var f = document.getElementById('deleteForm');
+            f.action = contextPath + 'approval/chain/' + btn.dataset.id + '/delete';
+            f.submit();
+        }
+    });
+}
+
+function confirmToggle(btn) {
+    var activating = btn.dataset.active !== 'Y';
+    Swal.fire({
+        title: (activating ? 'Activate' : 'Deactivate') + ' chain?',
+        text: btn.dataset.key,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: activating ? 'Activate' : 'Deactivate'
+    }).then(function (r) {
+        if (r.isConfirmed) {
+            var f = document.getElementById('toggleForm');
+            f.action = contextPath + 'approval/chain/' + btn.dataset.id + '/toggle';
+            f.submit();
+        }
+    });
+}
+</script>
+</th:block>
+</body>
+</html>

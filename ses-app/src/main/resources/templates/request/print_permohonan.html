@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title th:text="'Permohonan ' + ${request.requestNo}">Permohonan</title>
+    <!--
+      XHTML-STRICT. OpenHTMLtoPDF parses this with an XML parser: every tag must
+      be closed and every attribute quoted.
+
+      All images are inlined as data: URIs (the Badak LNG logo and the verification QR code),
+      and all CSS styles are inline below.
+    -->
+    <style>
+        @page { size: A4; margin: 8mm 16mm 14mm 16mm; }
+        body { font-family: "Times New Roman", Times, serif; font-size: 10.5pt; line-height: 1.3; color: #000; }
+
+        /* Header Dokumen: Logo dan Barcode */
+        table.header-table { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+        table.header-table td { padding: 0; }
+        .header-logo { height: 22mm; }
+        .header-logo img { height: 22mm; width: auto; max-width: 65mm; display: block; }
+
+        .header-qr { display: inline-block; text-align: center; width: 28mm; }
+        .header-qr img { width: 20mm; height: 20mm; display: block; margin: 0 auto; }
+        .header-qr-text { font-size: 6.5pt; margin-top: 2px; color: #222; line-height: 1.1; }
+
+        /* Meta block: nomor request + tanggal */
+        .meta-date-no { margin-bottom: 2px; font-size: 10.5pt; }
+
+        /* Fields Kepada, Dari, Lampiran, Perihal */
+        table.memo-fields { width: 100%; border-collapse: collapse; margin: 10px 0 10px 0; }
+        table.memo-fields td { padding: 1px 0; vertical-align: top; }
+        table.memo-fields td.lbl { width: 22mm; }
+        table.memo-fields td.sep { width: 4mm; text-align: center; }
+
+        /* Body content */
+        p { margin: 0 0 6px 0; text-align: justify; }
+
+        /* Table workers */
+        table.workers { width: 100%; border-collapse: collapse; margin: 8px 0 10px 0; }
+        table.workers th, table.workers td { border: 1px solid #000; padding: 4px 5px; font-size: 9.5pt; }
+        table.workers th { text-align: center; font-weight: bold; background-color: #f5f5f5; }
+        table.workers td.no { text-align: center; width: 8mm; }
+
+        /* Signatures: Mengetahui, PT. Badak NGL - Semua yang approve */
+        .sig-section { margin-top: 14px; }
+        table.sig-table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+        table.sig-table td { vertical-align: top; text-align: center; font-size: 9.5pt; padding: 0 8px; }
+        .sig-space { height: 18mm; }
+        .sig-name { font-weight: bold; text-decoration: underline; margin-top: 3px; }
+        .sig-role { margin-top: 2px; font-weight: normal; }
+    </style>
+</head>
+<body>
+
+<!-- Header Dokumen: Logo di kiri (ukuran normal tanpa distorsi), QR barcode di kanan atas -->
+<table class="header-table">
+    <tr>
+        <td style="vertical-align: top; text-align: left;">
+            <div class="header-logo" th:if="${logoDataUri != null}">
+                <img th:src="${logoDataUri}" alt="PT Badak NGL"/>
+            </div>
+        </td>
+        <td style="vertical-align: top; text-align: right; width: 35mm;">
+            <div class="header-qr" th:if="${qrDataUri != null}">
+                <img th:src="${qrDataUri}" alt="QR Verifikasi Dokumen"/>
+                <div class="header-qr-text" th:text="${txt.qrCaption}">Scan untuk Verifikasi Dokumen</div>
+            </div>
+        </td>
+    </tr>
+</table>
+
+<div class="meta-date-no">
+    <strong>No <span th:text="${request.requestNo}">REQ-2026-0001</span></strong>
+</div>
+<div class="meta-date-no">
+    <span th:text="${txt.city}">Bontang</span>, <span th:text="${letterDate}">1 Januari 2026</span>
+</div>
+
+<table class="memo-fields">
+    <tr>
+        <td class="lbl" th:text="${txt.labelTo}">Kepada</td>
+        <td class="sep">:</td>
+        <td th:text="${txt.addressee}">Manager Security</td>
+    </tr>
+    <tr>
+        <td class="lbl" th:text="${txt.labelFrom}">Dari</td>
+        <td class="sep">:</td>
+        <td th:text="${managerUserPosition}">Manager Pemohon</td>
+    </tr>
+    <tr>
+        <td class="lbl" th:text="${txt.labelAttachment}">Lampiran</td>
+        <td class="sep">:</td>
+        <td>&#160;</td>
+    </tr>
+    <tr>
+        <td class="lbl" th:text="${txt.labelSubject}">Perihal</td>
+        <td class="sep">:</td>
+        <td th:text="${txt.subject}">Permohonan Badge Kerja PT Kontraktor</td>
+    </tr>
+</table>
+
+<!-- utext: the stored sentence carries the <span>/<strong> emphasis around
+     the contractor name and the contract label, and an administrator editing
+     the clause must be able to keep it. RequestDocumentService.letterText()
+     substitutes {0}/{1} before this renders; the value is administrator
+     configuration, not user input. -->
+<p th:utext="${txt.body}">
+    Sehubungan dengan pelaksanaan kontrak kerja sama dengan kami <span>PT Kontraktor</span>
+    terkait <strong>Nama Kontrak CA-00000</strong>
+    bersama surat ini kami mengajukan permohonan penerbitan kartu identitas (badge) akses area kerja untuk personel
+    pelaksana kami sebagaimana terinci di bawah ini ;
+</p>
+
+<table class="workers">
+    <thead>
+        <tr>
+            <th class="no" th:text="${txt.colNo}">NO</th>
+            <th th:text="${txt.colName}">NAMA</th>
+            <th th:text="${txt.colId}">NO. IDENTITAS (KTP/PASSPORT)</th>
+            <th th:text="${txt.colRole}">JABATAN</th>
+            <th th:text="${txt.colPeriod}">PERIODE</th>
+            <th th:text="${txt.colZone}">ZONE</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr th:each="w, it : ${workers}">
+            <td class="no" th:text="${it.count}">1</td>
+            <td th:text="${w.workerName}">Nama Pekerja</td>
+            <td th:text="${w.nik}">0000000000000000</td>
+            <td th:text="${w.jabatan}"></td>
+            <td th:text="${startPeriod} + ' s/d ' + ${finishPeriod}">01-01-2026 s/d 31-12-2026</td>
+            <td th:text="${zoneName}">Zone</td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(workers)}">
+            <td class="no">-</td>
+            <td colspan="5" th:text="${txt.emptyWorkers}">Tidak ada data pekerja.</td>
+        </tr>
+    </tbody>
+</table>
+
+<p th:text="${txt.closing}">Demikian surat permohonan ini kami sampaikan, atas bantuannya kami ucapkan terimakasih.</p>
+
+<!-- Mengetahui, PT. Badak NGL — semua yang approve -->
+<div class="sig-section">
+    <div style="font-size: 9.5pt;" th:text="${txt.signCaption}">Mengetahui,</div>
+    <div style="font-size: 9.5pt; font-weight: bold; margin-bottom: 4px;"
+         th:text="${txt.companyFormal}">PT. Badak NGL</div>
+
+    <table class="sig-table">
+        <tr>
+            <td th:each="s : ${approvedSigners}">
+                <div class="sig-space"></div>
+                <div class="sig-name" th:text="${s.signerName}">( ................... )</div>
+                <div class="sig-role" th:text="${s.roleTitle}">Jabatan</div>
+            </td>
+            <td th:if="${#lists.isEmpty(approvedSigners)}">
+                <div class="sig-space"></div>
+                <div class="sig-name" th:text="${txt.signPlaceholder}">( ................... )</div>
+                <div class="sig-role" th:text="${txt.signRoleFallback}">Approver</div>
+            </td>
+        </tr>
+    </table>
+</div>
+
+</body>
+</html>

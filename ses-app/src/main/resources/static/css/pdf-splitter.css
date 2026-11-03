@@ -1,0 +1,195 @@
+/* ==========================================================================
+   SES — PDF Splitter Tool & Bundle Upload Workbench Styling
+   ========================================================================== */
+
+:root {
+    --ps-primary: #003B73;
+    --ps-primary-light: #0054a6;
+    --ps-accent: #059669;
+    --ps-border: #e2e8f0;
+    --ps-bg: #f8fafc;
+}
+
+/* Mode Switcher Segmented Control */
+.ps-mode-switch {
+    display: inline-flex;
+    background: #e2e8f0;
+    border-radius: 9999px;
+    padding: 3px;
+    gap: 2px;
+}
+.ps-mode-btn {
+    border: none;
+    background: transparent;
+    padding: 6px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    border-radius: 9999px;
+    transition: all .2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+.ps-mode-btn:hover {
+    color: var(--ps-primary);
+}
+.ps-mode-btn.active {
+    background: #ffffff;
+    color: var(--ps-primary);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Workbench Container */
+.ps-workbench {
+    background: #ffffff;
+    border: 1px solid var(--ps-border);
+    border-radius: 12px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+
+.ps-workbench-header {
+    background: linear-gradient(135deg, #001e3c 0%, #003B73 100%);
+    color: #ffffff;
+    padding: 12px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.ps-bundle-dropzone {
+    border: 2px dashed #94a3b8;
+    background: var(--ps-bg);
+    border-radius: 10px;
+    padding: 24px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s ease;
+    position: relative;
+}
+.ps-bundle-dropzone:hover, .ps-bundle-dropzone.dragover {
+    border-color: var(--ps-primary-light);
+    background: #eff6ff;
+    transform: scale(1.002);
+}
+.ps-bundle-dropzone .dz-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e293b;
+}
+.ps-bundle-dropzone .dz-subtitle {
+    font-size: 12px;
+    color: #64748b;
+}
+
+/* Viewer Section */
+.ps-viewer-container {
+    background: #334155;
+    border-radius: 8px;
+    position: relative;
+    min-height: 420px;
+    max-height: 580px;
+    overflow: auto;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 16px;
+}
+.ps-viewer-canvas {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    background: #ffffff;
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+}
+
+.ps-viewer-toolbar {
+    background: #f1f5f9;
+    border: 1px solid var(--ps-border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* Split Controls Bar */
+.ps-split-bar {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 12px 16px;
+}
+
+/* Temporary Shelf */
+.ps-shelf {
+    background: #f8fafc;
+    border: 1px solid var(--ps-border);
+    border-radius: 10px;
+    padding: 12px;
+    min-height: 110px;
+}
+.ps-shelf-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #475569;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.ps-shelf-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.ps-shelf-item {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 8px 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+    cursor: grab;
+    transition: all .15s ease;
+    user-select: none;
+}
+.ps-shelf-item:active {
+    cursor: grabbing;
+}
+.ps-shelf-item:hover {
+    border-color: var(--ps-primary-light);
+    box-shadow: 0 4px 10px rgba(0, 59, 115, 0.12);
+    transform: translateY(-1px);
+}
+.ps-shelf-item.dragging {
+    opacity: 0.4;
+    border-style: dashed;
+}
+.ps-shelf-item.is-used {
+    border-left: 4px solid var(--ps-accent);
+}
+
+/* Drop targets on requirement columns */
+.req-drop-zone {
+    border: 2px dashed #cbd5e1;
+    border-radius: 8px;
+    transition: all .2s ease;
+}
+.req-drop-zone.drag-active {
+    border-color: var(--ps-primary-light) !important;
+    background-color: #eff6ff !important;
+    box-shadow: 0 0 0 3px rgba(0, 84, 166, 0.15);
+}
+

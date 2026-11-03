@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+    Read-only "Scheduled Event" card for the requestor's own request detail
+    page. Reads ${schedules} (List<SesRequestSchedule>, any type, most
+    recently created first) straight off the calling template's model — see
+    com.badaklng.scheduling.spi.SchedulingRequestBridge, which supplies it
+    via request.spi.RequestDetailContributor so request/view.html can insert
+    this fragment with zero compile-time coupling to the scheduling module.
+-->
+<th:block th:fragment="detail">
+    <div class="card shadow-sm mb-4" th:if="${schedules != null and !schedules.isEmpty()}">
+        <div class="card-header bg-light"><strong>Scheduled Event</strong></div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Type</th>
+                        <th>Date &amp; Time</th>
+                        <th>Status</th>
+                        <th>Note</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="s : ${schedules}">
+                        <td th:text="${s.scheduleType.label}">Screening</td>
+                        <td th:text="${#dates.format(s.scheduledDate, 'dd-MM-yyyy HH:mm')}">18-08-2026 10:00</td>
+                        <td>
+                            <span th:if="${s.status.name() == 'SCHEDULED'}" class="badge bg-info text-dark">Scheduled</span>
+                            <span th:if="${s.status.name() == 'ATTENDED'}" class="badge bg-success">Attended</span>
+                            <span th:if="${s.status.name() == 'NO_SHOW' and s.isNoClearedScreening()}" class="badge bg-danger">Tidak ada peserta yang lolos</span>
+                            <span th:if="${s.status.name() == 'NO_SHOW' and !s.isNoClearedScreening()}" class="badge bg-danger">No-Show — will be rescheduled</span>
+                            <span th:if="${s.status.name() == 'CANCELLED'}" class="badge bg-secondary">Cancelled</span>
+                        </td>
+                        <td class="text-muted small" th:text="${s.note}"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</th:block>
+</body>
+</html>

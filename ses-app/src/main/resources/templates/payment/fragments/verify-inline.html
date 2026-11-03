@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Payment verification, rendered inside the approval detail page's
+  "Checkpoint Tasks" card so the approver never leaves that page.
+
+  Posts to the SAME endpoints as /payment/verify/{id} — no duplicated
+  controller, no second code path to keep in sync — and passes `returnTo`
+  so PaymentVerificationController redirects back here instead of to its
+  own screen. Verifying the payment closes the PAYMENT_VERIFICATION
+  checkpoint on its own (PaymentService#approve ->
+  ApprovalService#completeCheckpointByKey), so the approver does not also
+  have to press "Mark Done".
+
+  Model arrives as the local `m` (declared by the including page via
+  th:with, because th:insert is processed before a same-tag th:with).
+  Model supplied by PaymentApprovalBridge#actionFor: payment, amountDue, returnTo.
+-->
+<th:block th:fragment="form">
+    <div class="border rounded p-2 mt-2 bg-white w-100">
+
+        <div class="small mb-2">
+            <span class="text-muted">Status pembayaran:</span>
+            <span th:if="${m.payment.status.name() == 'PENDING'}" class="badge bg-warning text-dark">Belum dibayar</span>
+            <span th:if="${m.payment.status.name() == 'VERIFYING'}" class="badge bg-info text-dark">Menunggu verifikasi</span>
+            <span th:if="${m.payment.status.name() == 'VERIFIED'}" class="badge bg-success">Terverifikasi</span>
+            <span th:if="${m.payment.status.name() == 'REJECTED'}" class="badge bg-danger">Ditolak</span>
+            <span th:if="${m.payment.status.name() == 'CANCELLED'}" class="badge bg-secondary">Dibatalkan</span>
+            <span th:if="${m.amountDue != null}" class="text-muted ms-2"
+                  th:text="'Tagihan: Rp ' + ${#numbers.formatInteger(m.amountDue, 1, 'POINT')}">Rp 0</span>
+        </div>
+
+        <div th:if="${m.payment.proofFileId != null}" class="mb-2">
+            <div th:replace="~{layout/fragments/attachment :: card(${m.payment.proofFileId}, 'Bukti Bayar')}"></div>
+        </div>
+        <div th:if="${m.payment.proofFileId == null}" class="alert alert-warning py-1 px-2 small mb-2">
+            Requestor belum mengunggah bukti bayar.
+        </div>
+
+        <div th:if="${m.payment.status.name() == 'REJECTED' and m.payment.rejectionReason != null}"
+             class="alert alert-danger py-1 px-2 small mb-2">
+            <strong>Alasan penolakan:</strong> <span th:text="${m.payment.rejectionReason}">reason</span>
+        </div>
+
+        <!-- Only VERIFYING is actionable; PaymentService#approve rejects any
+             other status, so offering the buttons then would only produce an
+             error flash. Authorized either via active approval task (canAct) or SUBMIT grant. -->
+        <div th:if="${m.payment.status.name() == 'VERIFYING'
+                      and ((canAct != null and canAct) or (pageActions['/payment/verify/form'] != null
+                      and pageActions['/payment/verify/form'].contains('SUBMIT')))}">
+            <form th:action="@{/payment/verify/{id}/approve(id=${m.payment.paymentId})}" method="post" class="mb-2">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <input type="hidden" name="returnTo" th:value="${m.returnTo}"/>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text">Rp</span>
+                    <input type="number" name="paidAmount" class="form-control" min="0" step="1" required
+                           th:value="${m.amountDue}" placeholder="Jumlah diterima"/>
+                    <input type="text" name="note" class="form-control" placeholder="Catatan (opsional)"/>
+                    <button type="submit" class="btn btn-success">Verifikasi Bayar</button>
+                </div>
+            </form>
+            <form th:action="@{/payment/verify/{id}/reject(id=${m.payment.paymentId})}" method="post">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <input type="hidden" name="returnTo" th:value="${m.returnTo}"/>
+                <div class="input-group input-group-sm">
+                    <input type="text" name="reason" class="form-control" placeholder="Alasan tolak bukti bayar" required/>
+                    <button type="submit" class="btn btn-outline-danger">Tolak Bukti</button>
+                </div>
+            </form>
+        </div>
+
+        <div th:if="${m.payment.status.name() != 'VERIFYING'}" class="small text-muted">
+            <a th:href="@{/payment/{id}(id=${m.payment.paymentId})}">Buka halaman pembayaran</a>
+            untuk mengunggah atau membayarkan atas nama pemohon.
+        </div>
+    </div>
+</th:block>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <span class="text-muted">Total: <strong th:text="${types.size()}">0</strong> jenis sticker</span>
+        <a th:if="${pageActions['/admin/sticker-type/form'] != null and pageActions['/admin/sticker-type/form'].contains('CREATE')}"
+           th:href="@{/admin/sticker-type/new}" class="btn btn-primary btn-sm">
+            <i data-lucide="plus" class="h-4 w-4 inline-block me-1"></i>Jenis Sticker Baru
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table id="typeTable" class="table table-hover table-sm w-100 align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>#</th>
+                            <th>Kode</th>
+                            <th>Nama Jenis</th>
+                            <th>Harga</th>
+                            <th>Urutan</th>
+                            <th class="text-center">Status</th>
+                            <th class="col-actions text-end">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="t, iter : ${types}">
+                            <td th:text="${iter.count}">1</td>
+                            <td><code class="fw-bold text-primary" th:text="${t.stickerTypeCode}">REGULER</code></td>
+                            <td th:text="${t.stickerTypeName}">Reguler</td>
+                            <td class="fw-semibold" th:text="'Rp ' + ${#numbers.formatInteger(t.price, 1, 'POINT')}">Rp 50.000</td>
+                            <td th:text="${t.orderBy}">10</td>
+                            <td class="text-center">
+                                <span th:if="${t.activeFlag == 'Y'}" class="badge bg-success badge-status">
+                                    <i data-lucide="check-circle-2" class="h-4 w-4 inline-block me-1"></i>Aktif
+                                </span>
+                                <span th:if="${t.activeFlag != 'Y'}" class="badge bg-danger badge-status">
+                                    <i data-lucide="x-circle" class="h-4 w-4 inline-block me-1"></i>Nonaktif
+                                </span>
+                            </td>
+                            <td class="col-actions text-end text-nowrap">
+                                <a th:if="${pageActions['/admin/sticker-type/form'] != null and pageActions['/admin/sticker-type/form'].contains('UPDATE')}"
+                                   th:href="@{/admin/sticker-type/{code}(code=${t.stickerTypeCode})}"
+                                   class="btn btn-sm btn-outline-primary me-1" title="Edit">
+                                    <i data-lucide="pencil" class="h-4 w-4 inline-block me-1"></i>
+                                </a>
+                                <button th:if="${pageActions['/admin/sticker-type/form'] != null and pageActions['/admin/sticker-type/form'].contains('DELETE')}"
+                                        type="button" class="btn btn-sm btn-outline-danger"
+                                        th:disabled="${typeInUse[t.stickerTypeCode]}"
+                                        th:title="${typeInUse[t.stickerTypeCode]} ? 'Tidak dapat dihapus: masih digunakan' : 'Hapus'"
+                                        th:data-code="${t.stickerTypeCode}"
+                                        th:data-name="${t.stickerTypeName}"
+                                        onclick="confirmDelete(this)">
+                                    <i data-lucide="trash-2" class="h-4 w-4 inline-block me-1"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <form id="deleteForm" method="post" style="display:none;">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+    </form>
+
+</div>
+<th:block layout:fragment="scripts-extra">
+<script th:inline="javascript">
+    var contextPath = /*[[@{/}]]*/ '/';
+</script>
+<script th:inline="none">
+$(document).ready(function () {
+    $('#typeTable').DataTable({
+        pageLength: 10,
+        lengthChange: false,
+        columnDefs: [{ targets: [0, -1], orderable: false, searchable: false }]
+    });
+});
+
+function confirmDelete(btn) {
+    if (btn.disabled) {
+        return;
+    }
+    Swal.fire({
+        title: 'Hapus Jenis Sticker?',
+        text: btn.dataset.code + ' (' + btn.dataset.name + ') — tidak dapat dibatalkan.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Hapus'
+    }).then(function (r) {
+        if (r.isConfirmed) {
+            var f = document.getElementById('deleteForm');
+            f.action = contextPath + 'admin/sticker-type/' + btn.dataset.code + '/delete';
+            f.submit();
+        }
+    });
+}
+</script>
+</th:block>
+</body>
+</html>

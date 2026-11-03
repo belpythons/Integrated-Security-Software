@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content" class="space-y-4">
+
+    <!-- Top Action Bar -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+            <span class="text-sm font-medium text-slate-500">Pengajuan Saya:</span>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                <strong th:text="${page.totalElements}">0</strong>&nbsp;total permohonan
+            </span>
+        </div>
+    </div>
+
+    <!-- Main Table Card with Embedded Filter Toolbar -->
+    <div class="shadcn-card overflow-hidden">
+        <!-- Filter Bar Toolbar (Matches Dashboard pattern) -->
+        <div class="bg-light border-bottom py-2 px-3">
+            <form method="get" th:action="@{/approval/my-requests}">
+                <div class="d-flex flex-wrap flex-lg-nowrap align-items-center gap-2">
+                    <div class="input-group input-group-sm flex-grow-1" style="min-width: 180px;">
+                        <span class="input-group-text bg-white border-end-0"><i data-lucide="search" class="h-3.5 w-3.5 text-slate-400"></i></span>
+                        <input type="text" name="q" th:value="${param.q}" class="form-control border-start-0"
+                               placeholder="Cari no. transaksi, deskripsi..."/>
+                    </div>
+                    <div style="min-width: 180px;" class="shrink-0">
+                        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="" th:selected="${param.status == null or #strings.isEmpty(param.status[0])}">Semua Status</option>
+                            <option value="WAITING_APPROVAL" th:selected="${param.status != null and param.status[0] == 'WAITING_APPROVAL'}">Menunggu Approval</option>
+                            <option value="APPROVED" th:selected="${param.status != null and param.status[0] == 'APPROVED'}">Disetujui</option>
+                            <option value="REJECTED" th:selected="${param.status != null and param.status[0] == 'REJECTED'}">Ditolak</option>
+                            <option value="CANCELLED" th:selected="${param.status != null and param.status[0] == 'CANCELLED'}">Dibatalkan</option>
+                        </select>
+                    </div>
+                    <div style="width: 180px;" class="shrink-0">
+                        <select name="module" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="" th:selected="${param.module == null or #strings.isEmpty(param.module[0])}">Semua Modul</option>
+                            <option value="SES_REQUEST" th:selected="${param.module != null and param.module[0] == 'SES_REQUEST'}">Badge Karyawan</option>
+                            <option value="SES_STICKER_REQUEST" th:selected="${param.module != null and param.module[0] == 'SES_STICKER_REQUEST'}">Stiker Kendaraan</option>
+                        </select>
+                    </div>
+                    <div class="shrink-0">
+                        <a th:href="@{/approval/my-requests}" class="btn btn-sm btn-outline-secondary inline-flex items-center gap-1.5 text-nowrap px-3" title="Reset seluruh filter">
+                            <i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i>
+                            <span>Reset</span>
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="p-0">
+            <div class="table-responsive">
+                <table id="reqTable" class="w-full text-left text-sm">
+                    <thead>
+                        <tr>
+                            <th style="width: 48px;" class="no-sort">#</th>
+                            <th>Modul</th>
+                            <th>No. Transaksi</th>
+                            <th>Deskripsi</th>
+                            <th class="text-center">Status</th>
+                            <th>Tanggal Pengajuan</th>
+                            <th class="col-actions text-right no-sort" style="width: 100px;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="r, iter : ${rows}">
+                            <td class="text-slate-400 font-medium text-xs" th:text="${iter.count}">1</td>
+                            <td>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200" th:text="${r.module}">New Request</span>
+                            </td>
+                            <td>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-md font-mono text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200/60" th:text="${r.transactionId}">REQ-2026-0001</span>
+                            </td>
+                            <td class="font-medium text-slate-800" th:text="${r.description}">Screening</td>
+                            <td class="text-center">
+                                <span th:if="${r.status == 'PENDING' or r.status == 'WAITING_APPROVAL'}" class="shadcn-badge shadcn-badge-warning">
+                                    <i data-lucide="clock" class="h-3 w-3"></i>Menunggu Approval
+                                </span>
+                                <span th:if="${r.status == 'APPROVED'}" class="shadcn-badge shadcn-badge-success">
+                                    <i data-lucide="check-circle-2" class="h-3 w-3"></i>Disetujui
+                                </span>
+                                <span th:if="${r.status == 'REJECTED'}" class="shadcn-badge shadcn-badge-danger">
+                                    <i data-lucide="x-circle" class="h-3 w-3"></i>Ditolak
+                                </span>
+                                <span th:if="${r.status == 'CANCELLED'}" class="shadcn-badge shadcn-badge-secondary">
+                                    <i data-lucide="ban" class="h-3 w-3"></i>Dibatalkan
+                                </span>
+                            </td>
+                            <td class="text-xs text-slate-500" th:text="${#dates.format(r.requestDate, 'dd-MM-yyyy HH:mm')}">18-08-2026 10:00</td>
+                            <td class="col-actions text-right">
+                                <a th:href="@{/approval/detail/{id}(id=${r.instanceId})}"
+                                   class="shadcn-btn shadcn-btn-outline shadcn-btn-sm text-slate-600 hover:text-blue-600 hover:bg-slate-50" title="Detail Pengajuan">
+                                    <i data-lucide="eye" class="h-3.5 w-3.5"></i>
+                                    <span>Detail</span>
+                                </a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div th:replace="~{layout/fragments/pager :: pager(${page})}"></div>
+            <div th:if="${page.totalElements == 0 and (param.q == null or #strings.isEmpty(param.q[0]))}" class="flex flex-col items-center justify-center py-12 text-center text-slate-400">
+                <i data-lucide="folder-open" class="h-10 w-10 text-slate-300 mb-2"></i>
+                <p class="text-sm font-medium text-slate-600">Anda belum mengajukan permohonan persetujuan</p>
+                <p class="text-xs text-slate-400 mt-0.5">Permohonan izin atau tanda pengenal yang Anda buat akan tercatat di sini.</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<th:block layout:fragment="scripts-extra">
+<script th:inline="none">
+document.addEventListener('DOMContentLoaded', function() {
+    var tableEl = document.getElementById('reqTable');
+    if (tableEl && tableEl.querySelectorAll('tbody tr').length > 0) {
+        // serverPaged: the server sends one page and searches the whole
+        // table (layout/fragments/pager.html). Client-side search here
+        // could only filter the rows it was given.
+        new ShadcnTable(tableEl, { serverPaged: true });
+    }
+});
+</script>
+</th:block>
+</body>
+</html>

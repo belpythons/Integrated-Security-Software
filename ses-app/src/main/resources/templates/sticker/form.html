@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<th:block layout:fragment="head-extra">
+<link rel="stylesheet" th:href="@{/css/pdf-splitter.css}"/>
+<style>
+    #stickerForm .table th,
+    #stickerForm .table td {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    /* Worker / Driver lookup combobox dropdown inside modal */
+    .worker-name-suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 1065;
+        background: #fff;
+        border: 1px solid #ced4da;
+        overflow-y: auto;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, .15);
+        border-radius: 6px;
+        max-height: 220px;
+        display: none;
+    }
+    .worker-name-suggestion-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .worker-name-suggestion-item:last-child {
+        border-bottom: none;
+    }
+    .worker-name-suggestion-item:hover,
+    .worker-name-suggestion-item.active {
+        background: #f1f5f9;
+    }
+
+    .vehicle-row:hover {
+        background-color: rgba(241, 245, 249, 0.6);
+    }
+
+    .card.applicant-banner {
+        background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%) !important;
+        border: 1px solid rgba(0, 84, 166, 0.15) !important;
+        border-left: 5px solid #003B73 !important;
+        border-radius: var(--radius);
+    }
+</style>
+</th:block>
+<body>
+<div layout:fragment="content">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <span class="text-muted">
+            <span th:if="${stickerForm.stickerRequestId == null}">Pengajuan Baru</span>
+            <span th:if="${stickerForm.stickerRequestId != null}">Mengubah Pengajuan</span>
+        </span>
+        <a th:href="@{/sticker}" class="btn btn-outline-secondary btn-sm">
+            <i data-lucide="arrow-left" class="h-4 w-4 inline-block me-1"></i>Kembali ke daftar
+        </a>
+    </div>
+
+    <!-- Hard gate: no active Jenis Sticker -->
+    <div th:if="${stickerTypes == null or stickerTypes.isEmpty()}" class="alert alert-danger py-2 mb-3">
+        <i data-lucide="alert-triangle" class="h-4 w-4 inline-block me-1"></i>
+        Belum ada Jenis Sticker yang aktif. Hubungi administrator untuk menambahkan Jenis Sticker sebelum mengajukan.
+    </div>
+
+    <form th:action="@{/sticker/save}" method="post" th:object="${stickerForm}"
+          enctype="multipart/form-data" id="stickerForm">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <input type="hidden" th:field="*{stickerRequestId}"/>
+        <input type="hidden" id="existingPaymentFileIdVal" th:field="*{existingPaymentFileId}"/>
+
+        <!-- Logged-in Requestor Data (Hidden inputs for Spring binding & validation) -->
+        <input type="hidden" th:field="*{requestorName}"/>
+        <input type="hidden" th:field="*{badge}"/>
+        <input type="hidden" th:field="*{department}"/>
+        <input type="hidden" th:field="*{section}"/>
+
+        <!-- ==================== BANNER PEMOHON (READ-ONLY SESUAI SESI LOGIN) ==================== -->
+        <div class="card shadow-sm mb-4 border-0 applicant-banner">
+            <div class="card-body p-4">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center bg-primary text-white shadow-sm" style="width: 52px; height: 52px; min-width: 52px;">
+                            <i data-lucide="user-check" class="h-6 w-6"></i>
+                        </div>
+                        <div>
+                            <div class="text-uppercase tracking-wider small fw-bold text-primary mb-1">
+                                <i data-lucide="shield-check" class="h-4 w-4 inline-block me-1"></i>Pemohon Pengajuan (Akun Login)
+                            </div>
+                            <h4 class="mb-1 fw-bold text-dark" th:text="${stickerForm.requestorName}">Nama Pemohon</h4>
+                            <div class="mt-1 d-flex flex-wrap align-items-center gap-2 small">
+                                <span class="badge bg-light text-dark border px-2 py-1" th:if="${stickerForm.badge != null and !#strings.isEmpty(stickerForm.badge)}">
+                                    <i data-lucide="badge-check" class="h-3.5 w-3.5 inline-block text-primary me-1"></i>Badge: <strong class="font-mono text-dark" th:text="${stickerForm.badge}">-</strong>
+                                </span>
+                                <span class="badge bg-light text-secondary border px-2 py-1" th:if="${stickerForm.department != null and !#strings.isEmpty(stickerForm.department)}">
+                                    Dept: <strong class="text-dark" th:text="${stickerForm.department}">-</strong>
+                                </span>
+                                <span class="badge bg-light text-secondary border px-2 py-1" th:if="${stickerForm.section != null and !#strings.isEmpty(stickerForm.section)}">
+                                    Seksi: <strong class="text-dark" th:text="${stickerForm.section}">-</strong>
+                                </span>
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                    <i data-lucide="lock" class="h-3 w-3 inline-block me-1"></i>Identitas Terverifikasi
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-md-end bg-white rounded px-3 py-2 border shadow-sm" style="border-color: rgba(0, 84, 166, 0.12) !important;">
+                        <div class="text-muted small fw-semibold">Nomor Pengajuan</div>
+                        <div class="fw-bold font-mono text-primary fs-6" th:text="${stickerForm.stickerRequestId != null ? ('STK-' + stickerForm.stickerRequestId) : 'Otomatis dibuat saat disimpan'}">STK-NEW</div>
+                        <span class="badge bg-warning text-dark mt-1" th:if="${requestStatus != null}" th:text="${requestStatus}">DRAFT</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SECTION 1: INFORMASI PERMOHONAN & KATEGORI STIKER ==================== -->
+        <div class="card shadow-sm mb-4 bt-primary">
+            <div class="card-header bg-white py-3">
+                <h6 class="mb-0 fw-bold" style="color: var(--navy);">
+                    <i data-lucide="layers" class="h-4 w-4 inline-block text-primary me-2"></i>1. Kategori Stiker &amp; Data Tambahan
+                </h6>
+                <small class="text-muted">Tentukan jenis stiker batch dan lengkapi kontak atau identitas penugasan pemohon.</small>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <!-- Jenis Stiker (Batch Level) -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="stickerTypeCode">Jenis Stiker Permohonan (Batch) <span class="text-danger">*</span></label>
+                        <select class="form-select" id="stickerTypeCode" th:field="*{stickerTypeCode}" required>
+                            <option value="">— Pilih Jenis Stiker —</option>
+                            <option th:each="t : ${stickerTypes}" th:value="${t.stickerTypeCode}"
+                                    th:text="${t.stickerTypeName + ' (Rp ' + #numbers.formatDecimal(t.price, 0, 'POINT', 0, 'COMMA') + ' / unit)'}">
+                                Reguler
+                            </option>
+                        </select>
+                        <div class="form-text">Semua kendaraan dalam permohonan batch ini mendapatkan jenis stiker yang seragam.</div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="instance">Instansi / Perusahaan</label>
+                        <input type="text" class="form-control" id="instance" th:field="*{instance}" maxlength="200" placeholder="contoh: PT Badak NGL"/>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold" for="contractNo">No. Kontrak (Mitra Kerja)</label>
+                        <input type="text" class="form-control font-mono" id="contractNo" th:field="*{contractNo}" maxlength="100" placeholder="contoh: CA-12345"/>
+                        <div class="form-text">Khusus mitra kerja / kontraktor.</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold" for="contractExpiryDate">Masa Berlaku Kontrak</label>
+                        <input type="date" class="form-control" id="contractExpiryDate" th:field="*{contractExpiryDate}"/>
+                        <div class="form-text">Batas akhir kontrak pekerjaan.</div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold" for="phoneNo">No. Telepon / HP</label>
+                        <input type="text" class="form-control" id="phoneNo" th:field="*{phoneNo}" maxlength="50" placeholder="contoh: 08123456789"/>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold" for="workPhoneNo">No. Telepon Kantor (Ext)</label>
+                        <input type="text" class="form-control" id="workPhoneNo" th:field="*{workPhoneNo}" maxlength="50" placeholder="contoh: 2125"/>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-semibold" for="address">Alamat Domisili / Tempat Tinggal</label>
+                        <textarea class="form-control" id="address" th:field="*{address}" rows="2" maxlength="500" placeholder="Alamat lengkap pemohon..."></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SECTION 2: DAFTAR KENDARAAN & PENGEMUDI (BATCH MATRIX) ==================== -->
+        <div class="card shadow-sm mb-4 bt-primary">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <h6 class="mb-0 fw-bold" style="color: var(--navy);">
+                        <i data-lucide="car" class="h-4 w-4 inline-block text-primary me-2"></i>2. Daftar Kendaraan &amp; Pengemudi (Batch Matrix)
+                    </h6>
+                    <small class="text-muted">Satu pengajuan dapat menampung banyak unit kendaraan dan pengemudi sekaligus.</small>
+                </div>
+                <button type="button" class="btn btn-primary btn-sm px-3 shadow-sm" id="btnAddVehicle"
+                        th:disabled="${stickerTypes == null or stickerTypes.isEmpty()}">
+                    <i data-lucide="plus" class="h-4 w-4 inline-block me-1"></i>Tambah Kendaraan
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm w-100 align-middle mb-0" id="vehicleTable">
+                        <thead class="table-dark">
+                            <tr>
+                                <th style="width:3rem" class="text-center">#</th>
+                                <th style="width:32%">Data Kendaraan</th>
+                                <th style="width:28%">Pengemudi / Worker</th>
+                                <th style="width:26%">Dokumen Legalitas</th>
+                                <th style="width:14%" class="text-end">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vehicleTableBody">
+                            <tr id="vehicleEmptyRow" th:style="${#lists.isEmpty(stickerForm.vehicles)} ? '' : 'display:none'">
+                                <td colspan="5" class="text-center text-muted py-5">
+                                    <i data-lucide="car" class="h-10 w-10 d-block mx-auto mb-2 text-slate-300"></i>
+                                    <span class="d-block fw-semibold text-slate-600">Belum ada unit kendaraan yang didaftarkan.</span>
+                                    <span class="small text-muted">Klik tombol <b>Tambah Kendaraan</b> di atas untuk menambahkan kendaraan dan pengemudi.</span>
+                                </td>
+                            </tr>
+                            <!-- Server-rendered rows on edit/renew -->
+                            <tr th:each="v, vIter : *{vehicles}" class="vehicle-row" th:data-index="${vIter.index}">
+                                <td class="vehicle-num text-center fw-semibold text-muted" th:text="${vIter.index + 1}">1</td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-dark font-mono text-uppercase px-2 py-1 vehicle-policeno-display" th:text="${v.policeNo}">KT 1234 AB</span>
+                                        <span class="badge bg-secondary-subtle text-secondary vehicle-vehicletype-display" th:text="${v.vehicleType != null and !v.vehicleType.isEmpty() ? v.vehicleType : 'Kendaraan'}">Mobil</span>
+                                    </div>
+                                    <div class="small text-muted mt-1">
+                                        <span class="vehicle-brand-display fw-semibold text-dark" th:text="${v.brand}">Toyota</span>
+                                        <span th:if="${v.color != null and !v.color.isEmpty()}"> &bull; <span class="vehicle-color-display" th:text="${v.color}">Hitam</span></span>
+                                        <span th:if="${v.yearMade != null and !v.yearMade.isEmpty()}"> (<span class="vehicle-yearmade-display" th:text="${v.yearMade}">2022</span>)</span>
+                                    </div>
+                                    <div class="small text-muted" th:if="${v.ownerName != null and !v.ownerName.isEmpty()}">
+                                        a.n. <span class="vehicle-ownername-display" th:text="${v.ownerName}">Nama Pemilik</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold text-dark vehicle-drivername-display" th:text="${v.driverName}">Nama Driver</div>
+                                    <div class="small text-muted" th:if="${v.driverBadge != null and !v.driverBadge.isEmpty()}">
+                                        Badge: <span class="vehicle-driverbadge-display font-mono" th:text="${v.driverBadge}">-</span>
+                                    </div>
+                                    <div class="small text-muted" th:if="${v.simNo != null and !v.simNo.isEmpty()}">
+                                        SIM <span class="vehicle-simclass-display fw-semibold" th:text="${v.simClass != null ? v.simClass : 'A'}">A</span>: 
+                                        <span class="vehicle-simno-display font-mono" th:text="${v.simNo}">123456</span>
+                                    </div>
+                                </td>
+                                <td class="vehicle-docs-display">
+                                    <div class="d-flex flex-wrap gap-1">
+                                        <!-- STNK badge -->
+                                        <span th:if="${v.existingStnkFileId != null or v.existingLetterFileId != null}" class="badge bg-success-subtle text-success border border-success-subtle">
+                                            <i data-lucide="check" class="h-3 w-3 inline-block me-1"></i>STNK
+                                            <span th:if="${v.stnkExpiryDate != null}" class="fw-normal" th:text="'(' + ${#dates.format(v.stnkExpiryDate, 'dd/MM/yy')} + ')'"></span>
+                                        </span>
+                                        <span th:unless="${v.existingStnkFileId != null or v.existingLetterFileId != null}" class="badge bg-light text-muted border">
+                                            STNK <span th:if="${v.stnkExpiryDate != null}" th:text="'(' + ${#dates.format(v.stnkExpiryDate, 'dd/MM/yy')} + ')'"></span>
+                                        </span>
+
+                                        <!-- SIM badge -->
+                                        <span th:if="${v.existingSimFileId != null}" class="badge bg-success-subtle text-success border border-success-subtle">
+                                            <i data-lucide="check" class="h-3 w-3 inline-block me-1"></i>SIM
+                                            <span th:if="${v.simExpiryDate != null}" class="fw-normal" th:text="'(' + ${#dates.format(v.simExpiryDate, 'dd/MM/yy')} + ')'"></span>
+                                        </span>
+                                        <span th:unless="${v.existingSimFileId != null}" class="badge bg-light text-muted border">
+                                            SIM <span th:if="${v.simExpiryDate != null}" th:text="'(' + ${#dates.format(v.simExpiryDate, 'dd/MM/yy')} + ')'"></span>
+                                        </span>
+
+                                        <!-- KIR badge -->
+                                        <span th:if="${v.existingKirFileId != null or (v.kirNo != null and !v.kirNo.isEmpty())}" class="badge bg-info-subtle text-info border border-info-subtle">
+                                            <i data-lucide="check" class="h-3 w-3 inline-block me-1"></i>KIR
+                                            <span th:if="${v.kirExpiryDate != null}" class="fw-normal" th:text="'(' + ${#dates.format(v.kirExpiryDate, 'dd/MM/yy')} + ')'"></span>
+                                        </span>
+                                    </div>
+                                </td>
+                                <td class="text-end text-nowrap">
+                                    <button type="button" class="btn btn-outline-primary btn-sm me-1 btn-edit-vehicle" title="Ubah kendaraan">
+                                        <i data-lucide="pencil" class="h-3.5 w-3.5"></i> Edit
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm btn-delete-vehicle" title="Hapus kendaraan">
+                                        <i data-lucide="trash-2" class="h-3.5 w-3.5"></i>
+                                    </button>
+                                    <div class="vehicle-hidden-inputs d-none">
+                                        <input type="hidden" class="inp-vehicle-id" th:field="*{vehicles[__${vIter.index}__].stickerVehicleId}"/>
+                                        <input type="hidden" class="inp-sticker-type" th:field="*{vehicles[__${vIter.index}__].stickerTypeCode}"/>
+                                        <input type="hidden" class="inp-police-no" th:field="*{vehicles[__${vIter.index}__].policeNo}"/>
+                                        <input type="hidden" class="inp-vehicle-type" th:field="*{vehicles[__${vIter.index}__].vehicleType}"/>
+                                        <input type="hidden" class="inp-owner-name" th:field="*{vehicles[__${vIter.index}__].ownerName}"/>
+                                        <input type="hidden" class="inp-brand" th:field="*{vehicles[__${vIter.index}__].brand}"/>
+                                        <input type="hidden" class="inp-color" th:field="*{vehicles[__${vIter.index}__].color}"/>
+                                        <input type="hidden" class="inp-year-made" th:field="*{vehicles[__${vIter.index}__].yearMade}"/>
+                                        <input type="hidden" class="inp-driver-badge" th:field="*{vehicles[__${vIter.index}__].driverBadge}"/>
+                                        <input type="hidden" class="inp-driver-name" th:field="*{vehicles[__${vIter.index}__].driverName}"/>
+                                        <input type="hidden" class="inp-sim-no" th:field="*{vehicles[__${vIter.index}__].simNo}"/>
+                                        <input type="hidden" class="inp-sim-class" th:field="*{vehicles[__${vIter.index}__].simClass}"/>
+                                        <input type="hidden" class="inp-stnk-expiry" th:name="'vehicles[' + ${vIter.index} + '].stnkExpiryDate'" th:value="${v.stnkExpiryDate != null ? #dates.format(v.stnkExpiryDate, 'yyyy-MM-dd') : ''}"/>
+                                        <input type="hidden" class="inp-existing-stnk" th:field="*{vehicles[__${vIter.index}__].existingStnkFileId}"/>
+                                        <input type="hidden" class="inp-existing-letter" th:field="*{vehicles[__${vIter.index}__].existingLetterFileId}"/>
+                                        <input type="file" class="inp-stnk-file" th:name="'vehicles[' + ${vIter.index} + '].stnkFile'"/>
+                                        <input type="hidden" class="inp-sim-expiry" th:name="'vehicles[' + ${vIter.index} + '].simExpiryDate'" th:value="${v.simExpiryDate != null ? #dates.format(v.simExpiryDate, 'yyyy-MM-dd') : ''}"/>
+                                        <input type="hidden" class="inp-existing-sim" th:field="*{vehicles[__${vIter.index}__].existingSimFileId}"/>
+                                        <input type="file" class="inp-sim-file" th:name="'vehicles[' + ${vIter.index} + '].simFile'"/>
+                                        <input type="hidden" class="inp-kir-no" th:field="*{vehicles[__${vIter.index}__].kirNo}"/>
+                                        <input type="hidden" class="inp-kir-expiry" th:name="'vehicles[' + ${vIter.index} + '].kirExpiryDate'" th:value="${v.kirExpiryDate != null ? #dates.format(v.kirExpiryDate, 'yyyy-MM-dd') : ''}"/>
+                                        <input type="hidden" class="inp-existing-kir" th:field="*{vehicles[__${vIter.index}__].existingKirFileId}"/>
+                                        <input type="file" class="inp-kir-file" th:name="'vehicles[' + ${vIter.index} + '].kirFile'"/>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SECTION 3: PEMBAYARAN & KONFIRMASI ==================== -->
+        <div class="card shadow-sm mb-4 bt-primary">
+            <div class="card-header bg-white py-3">
+                <h6 class="mb-0 fw-bold" style="color: var(--navy);">
+                    <i data-lucide="clipboard-check" class="h-4 w-4 inline-block text-success me-2"></i>3. Bukti Pembayaran &amp; Konfirmasi Pengajuan
+                </h6>
+                <small class="text-muted">Biaya dihitung otomatis berdasarkan jumlah kendaraan dan tarif jenis stiker yang dipilih.</small>
+            </div>
+            <div class="card-body">
+
+                <!-- QRIS Payment Banner Box -->
+                <div class="card border-primary-subtle bg-light mb-3">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <div class="position-relative text-center">
+                            <img th:src="@{/image/qris-loket-badge.jpg}" alt="QRIS Loket Stiker"
+                                 style="max-width:130px;border-radius:8px;cursor:pointer;" class="shadow-sm border"
+                                 data-bs-toggle="modal" data-bs-target="#qrisDetailModal" title="Klik untuk memperbesar"/>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
+                                <h6 class="fw-bold mb-0" style="color: var(--navy);">
+                                    <i data-lucide="qr-code" class="h-4 w-4 inline-block me-2 text-primary"></i>Pembayaran Retribusi via QRIS
+                                </h6>
+                                <button type="button" class="btn btn-sm btn-primary shadow-sm"
+                                        data-bs-toggle="modal" data-bs-target="#qrisDetailModal">
+                                    <i data-lucide="maximize-2" class="h-4 w-4 inline-block me-1"></i>Perbesar QRIS (Scan Mode)
+                                </button>
+                            </div>
+                            <p class="small text-muted mb-0"
+                               th:utext="${appParams != null and appParams['SES_TXT_FORM_QRIS_HELP'] != null
+                                          ? appParams['SES_TXT_FORM_QRIS_HELP']
+                                          : 'Silakan scan kode QRIS untuk pembayaran biaya permohonan stiker kendaraan (Loket Security PTB). Klik tombol &lt;strong&gt;Perbesar QRIS&lt;/strong&gt; di atas agar kode QR ditampilkan dalam ukuran besar untuk memudahkan scanner kamera ponsel.'}">
+                                Silakan scan kode QRIS untuk pembayaran biaya permohonan stiker kendaraan (Loket Security PTB). Klik tombol <strong>Perbesar QRIS</strong> di atas agar kode QR ditampilkan dalam ukuran besar untuk memudahkan scanner kamera ponsel.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Amount Note -->
+                <div id="paymentAmountNote" class="alert alert-info py-3 px-3 mb-3 fw-semibold"></div>
+
+                <!-- Bukti Pembayaran Input (REQUIRED) -->
+                <div class="mb-4">
+                    <label class="form-label fw-semibold" for="paymentFile">
+                        Bukti Pembayaran <span class="text-danger">* (Wajib diunggah)</span>
+                    </label>
+
+                    <!-- Existing Attachment Preview if present -->
+                    <div th:if="${stickerForm.existingPaymentFileId != null and !#strings.isEmpty(stickerForm.existingPaymentFileId)}"
+                         class="mb-2">
+                        <div th:replace="~{layout/fragments/attachment :: card(${stickerForm.existingPaymentFileId}, 'Bukti Pembayaran')}"></div>
+                        <div class="mt-2">
+                            <a th:href="@{/file/{id}(id=${stickerForm.existingPaymentFileId})}"
+                               data-attachment-preview="true"
+                               class="btn btn-sm btn-outline-primary shadow-sm">
+                                <i data-lucide="eye" class="h-4 w-4 inline-block me-1"></i>Lihat Dokumen
+                            </a>
+                        </div>
+                        <span class="fst-italic small text-muted d-block mt-1">Pilih berkas baru di bawah jika ingin mengganti bukti bayar.</span>
+                    </div>
+
+                    <input type="file" class="form-control" id="paymentFile" th:field="*{paymentFile}"
+                           accept=".pdf,application/pdf,image/*"/>
+                    <div class="form-text text-danger fw-semibold">
+                        Bukti pembayaran wajib diunggah sebelum pengajuan dikirim. Format: PDF atau gambar (JPG, PNG). Maksimal 55MB.
+                    </div>
+
+                    <!-- Selected File Preview Badge -->
+                    <div id="paymentFileSelectedWrap" class="mt-2" style="display:none;">
+                        <div class="alert alert-info py-2 px-3 d-flex align-items-center justify-content-between flex-wrap gap-2 mb-0">
+                            <div>
+                                <i data-lucide="file-check" class="h-4 w-4 inline-block text-primary me-2"></i>
+                                <span class="fw-semibold" id="paymentFileSelectedName">nama-file.pdf</span>
+                                <span class="text-muted small ms-2" id="paymentFileSelectedSize">(0 KB)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statement Alert -->
+                <div class="alert alert-light border p-3 mb-3">
+                    <h6 class="fw-bold mb-2 text-dark"><i data-lucide="info" class="h-4 w-4 inline-block text-primary me-2"></i>Pernyataan Pemohon</h6>
+                    <p class="small text-muted mb-0">
+                        <span th:text="${appParams != null and appParams['SES_TXT_FORM_STICKER_DECLARATION'] != null
+                                         ? appParams['SES_TXT_FORM_STICKER_DECLARATION']
+                                         : 'Dengan mengirimkan formulir ini, Anda menyatakan bahwa data identitas dan seluruh kendaraan serta pengemudi yang didaftarkan adalah benar, sah, serta mematuhi seluruh protokol keselamatan dan keamanan berkendara di area PT Badak NGL.'}">
+                            Dengan mengirimkan formulir ini, Anda menyatakan bahwa data identitas dan seluruh kendaraan serta pengemudi yang didaftarkan adalah benar, sah, serta mematuhi seluruh protokol keselamatan dan keamanan berkendara di area PT Badak NGL.
+                        </span>
+                    </p>
+                </div>
+
+                <!-- Chain warning if any -->
+                <div id="noChainWarning" class="alert alert-warning py-2 mb-3" style="display:none">
+                    <i data-lucide="alert-triangle" class="h-4 w-4 inline-block me-1"></i>
+                    Alur persetujuan untuk pengajuan ini belum dikonfigurasi. Silakan hubungi administrator.
+                    <ul id="noChainWarningReasons" class="mb-0 small"></ul>
+                </div>
+
+            </div>
+
+            <!-- UNIFIED BOTTOM ACTION BAR -->
+            <div class="card-footer bg-light py-3 d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3">
+                <a th:href="@{/sticker}" class="btn btn-outline-secondary">
+                    <i data-lucide="arrow-left" class="h-4 w-4 inline-block me-1"></i>Kembali ke Daftar
+                </a>
+                <div class="d-flex gap-2"
+                     th:if="${pageActions['/sticker/form'] != null and pageActions['/sticker/form'].contains('SUBMIT')}">
+                    <button type="submit" id="saveDraftBtn" th:formaction="@{/sticker/save-draft}" formnovalidate
+                            th:if="${requestStatus == null or requestStatus == 'DRAFT'}"
+                            class="btn btn-outline-primary shadow-sm">
+                        <i data-lucide="save" class="h-4 w-4 inline-block me-1"></i>Simpan sebagai Draft
+                    </button>
+                    <button type="submit" id="submitStickerBtn" class="btn btn-primary px-4 shadow-sm"
+                            th:disabled="${stickerTypes == null or stickerTypes.isEmpty()}">
+                        <i data-lucide="send" class="h-4 w-4 inline-block me-1"></i>Kirim Pengajuan
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- ==================== MODAL POPUP DIALOG: TAMBAH / UBAH KENDARAAN ==================== -->
+    <div class="modal fade" id="vehicleModal" tabindex="-1" aria-labelledby="vehicleModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content shadow border-0">
+                <div class="modal-header bg-light py-3">
+                    <h5 class="modal-title fw-bold" id="vehicleModalTitle" style="color: var(--navy);">
+                        <i data-lucide="car" class="h-5 w-5 inline-block text-primary me-2"></i>Tambah Data Kendaraan
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="alert alert-danger d-none" id="vehicleModalError"></div>
+
+                    <!-- Worker Suggestion / History Banner -->
+                    <div id="vmHistoryAlert" class="alert alert-info py-2 px-3 d-none mb-3 border-info">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <div>
+                                <i data-lucide="sparkles" class="h-4 w-4 inline-block text-warning me-1"></i>
+                                <span class="fw-semibold text-primary">Saran Riwayat Driver:</span>
+                                <span id="vmHistorySummary" class="small ms-1 text-dark"></span>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-primary shadow-sm" id="btnApplyHistory">
+                                <i data-lucide="check-check" class="h-3.5 w-3.5 inline-block me-1"></i>Terapkan Riwayat
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Section 1: Data Pengemudi -->
+                    <div class="card border mb-3">
+                        <div class="card-header bg-light py-2 fw-semibold text-dark">
+                            <i data-lucide="user" class="h-4 w-4 inline-block text-primary me-1"></i>1. Data Pengemudi / Pekerja
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-6 position-relative">
+                                    <label class="form-label fw-semibold" for="vmDriverBadge">No. Badge Pengemudi / Karyawan (LDAP)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-white"><i data-lucide="badge-check" class="h-4 w-4 text-primary"></i></span>
+                                        <input type="text" class="form-control font-mono" id="vmDriverBadge" autocomplete="off" maxlength="30"
+                                               placeholder="Ketik no badge untuk mencari karyawan..."/>
+                                    </div>
+                                    <div id="vmBadgeSuggestions" class="worker-name-suggestions w-100"></div>
+                                    <div class="form-text">Ketik angka badge untuk menampilkan saran data karyawan Badak/LDAP.</div>
+                                </div>
+                                <div class="col-md-6 position-relative">
+                                    <label class="form-label fw-semibold" for="vmDriverName">Nama Pengemudi <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-white"><i data-lucide="user" class="h-4 w-4 text-muted"></i></span>
+                                        <input type="text" class="form-control" id="vmDriverName" autocomplete="off" maxlength="100"
+                                               placeholder="Ketik nama karyawan atau nama pengemudi..." required/>
+                                    </div>
+                                    <div id="vmNameSuggestions" class="worker-name-suggestions w-100"></div>
+                                    <div class="form-text">Bisa pilih dari saran karyawan atau ketik nama pengemudi luar secara manual.</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold" for="vmSimClass">Golongan SIM</label>
+                                    <select class="form-select" id="vmSimClass">
+                                        <option value="A">SIM A (Mobil Pribadi)</option>
+                                        <option value="C">SIM C (Sepeda Motor)</option>
+                                        <option value="B I">SIM B I (Mobil Penumpang/Barang Besar)</option>
+                                        <option value="B II">SIM B II (Alat Berat / Trailer)</option>
+                                        <option value="D">SIM D (Penyandang Disabilitas)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-semibold" for="vmSimNo">Nomor SIM</label>
+                                    <input type="text" class="form-control font-mono" id="vmSimNo" maxlength="30" placeholder="No. SIM pengemudi"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Spesifikasi Kendaraan -->
+                    <div class="card border mb-3">
+                        <div class="card-header bg-light py-2 fw-semibold text-dark">
+                            <i data-lucide="car" class="h-4 w-4 inline-block text-primary me-1"></i>2. Spesifikasi Kendaraan
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold" for="vmPoliceNo">Nomor Polisi (Plat) <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control text-uppercase font-mono fw-bold" id="vmPoliceNo" maxlength="30" placeholder="contoh: KT 1234 AB" required/>
+                                    <div class="form-text">Huruf kapital dan angka plat nomor kendaraan.</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold" for="vmVehicleType">Jenis / Model Kendaraan</label>
+                                    <input type="text" class="form-control" id="vmVehicleType" list="vehicleTypeSuggestions" maxlength="100" placeholder="Pilih atau ketik jenis kendaraan..."/>
+                                    <datalist id="vehicleTypeSuggestions">
+                                        <option value="Mobil Penumpang">
+                                        <option value="Sepeda Motor">
+                                        <option value="Truk">
+                                        <option value="Bus">
+                                        <option value="Pickup / Box">
+                                        <option value="Alat Berat">
+                                        <option value="Trailer">
+                                    </datalist>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold" for="vmOwnerName">Nama Pemilik STNK</label>
+                                    <input type="text" class="form-control" id="vmOwnerName" maxlength="200" placeholder="Nama yang tertera di STNK"/>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold" for="vmBrand">Merk Kendaraan</label>
+                                    <input type="text" class="form-control" id="vmBrand" maxlength="100" placeholder="contoh: Toyota, Honda"/>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold" for="vmColor">Warna Kendaraan</label>
+                                    <input type="text" class="form-control" id="vmColor" maxlength="50" placeholder="contoh: Hitam, Silver"/>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold" for="vmYearMade">Tahun Pembuatan</label>
+                                    <input type="text" class="form-control font-mono" id="vmYearMade" maxlength="4" inputmode="numeric" placeholder="contoh: 2023"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 3: Dokumen Legalitas (STNK, SIM, KIR) -->
+                    <div class="card border mb-3">
+                        <div class="card-header bg-light py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <span class="fw-semibold text-dark"><i data-lucide="file-text" class="h-4 w-4 inline-block text-primary me-1"></i>3. Dokumen Legalitas Kendaraan &amp; Pengemudi</span>
+                            <div class="ps-mode-switch">
+                                <button type="button" class="ps-mode-btn active" id="vmBtnModeRegular">File Terpisah</button>
+                                <button type="button" class="ps-mode-btn" id="vmBtnModeBundle"><i class="fa-solid fa-file-pdf text-danger me-1"></i>Bundle PDF Splitter</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <!-- Bundle Splitter workbench container for vehicle docs -->
+                            <div id="vmPdfSplitterArea" class="d-none mb-3">
+                                <div id="vmPdfSplitterContainer"></div>
+                            </div>
+                            <div class="row g-3">
+                                <!-- STNK -->
+                                <div class="col-md-4 border-end">
+                                    <h6 class="fw-bold text-dark mb-2"><i data-lucide="file-check" class="h-4 w-4 inline-block text-success me-1"></i>Dokumen STNK</h6>
+                                    <div class="mb-2">
+                                        <label class="form-label small fw-semibold" for="vmStnkExpiryDate">Masa Berlaku STNK</label>
+                                        <input type="date" class="form-control form-control-sm" id="vmStnkExpiryDate"/>
+                                    </div>
+                                    <div>
+                                        <label class="form-label small fw-semibold" for="vmStnkFile">Unggah Berkas STNK</label>
+                                        <div id="vmExistingStnkNotice" class="alert alert-light border small py-1 px-2 mb-1 d-none text-success">
+                                            <i data-lucide="check" class="h-3 w-3 inline-block me-1"></i>STNK sudah tersimpan
+                                        </div>
+                                        <div id="vmStnkFileContainer" class="req-drop-zone p-2">
+                                            <input type="file" class="form-control form-control-sm" id="vmStnkFile" accept=".pdf,image/*"/>
+                                            <div id="vmStnkPreview" class="d-none mt-1"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- SIM -->
+                                <div class="col-md-4 border-end">
+                                    <h6 class="fw-bold text-dark mb-2"><i data-lucide="credit-card" class="h-4 w-4 inline-block text-primary me-1"></i>Dokumen SIM</h6>
+                                    <div class="mb-2">
+                                        <label class="form-label small fw-semibold" for="vmSimExpiryDate">Masa Berlaku SIM</label>
+                                        <input type="date" class="form-control form-control-sm" id="vmSimExpiryDate"/>
+                                    </div>
+                                    <div>
+                                        <label class="form-label small fw-semibold" for="vmSimFile">Unggah Berkas SIM</label>
+                                        <div id="vmExistingSimNotice" class="alert alert-light border small py-1 px-2 mb-1 d-none text-success">
+                                            <i data-lucide="check" class="h-3 w-3 inline-block me-1"></i>SIM sudah tersimpan
+                                        </div>
+                                        <div id="vmSimFileContainer" class="req-drop-zone p-2">
+                                            <input type="file" class="form-control form-control-sm" id="vmSimFile" accept=".pdf,image/*"/>
+                                            <div id="vmSimPreview" class="d-none mt-1"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- KIR -->
+                                <div class="col-md-4">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <h6 class="fw-bold text-dark mb-0"><i data-lucide="shield-check" class="h-4 w-4 inline-block text-info me-1"></i>Kartu KIR</h6>
+                                        <span class="badge bg-light text-muted border fs-8">Opsional / Truk</span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label small fw-semibold" for="vmKirNo">Nomor KIR</label>
+                                        <input type="text" class="form-control form-control-sm font-mono" id="vmKirNo" maxlength="50" placeholder="contoh: KIR-9921"/>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label small fw-semibold" for="vmKirExpiryDate">Masa Berlaku KIR</label>
+                                        <input type="date" class="form-control form-control-sm" id="vmKirExpiryDate"/>
+                                    </div>
+                                    <div>
+                                        <label class="form-label small fw-semibold" for="vmKirFile">Unggah Berkas KIR</label>
+                                        <div id="vmExistingKirNotice" class="alert alert-light border small py-1 px-2 mb-1 d-none text-success">
+                                            <i data-lucide="check" class="h-3 w-3 inline-block me-1"></i>KIR sudah tersimpan
+                                        </div>
+                                        <div id="vmKirFileContainer" class="req-drop-zone p-2">
+                                            <input type="file" class="form-control form-control-sm" id="vmKirFile" accept=".pdf,image/*"/>
+                                            <div id="vmKirPreview" class="d-none mt-1"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-2">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-primary px-4 shadow-sm" id="btnSaveVehicleModal">
+                        <i data-lucide="check" class="h-4 w-4 inline-block me-1"></i>Simpan Kendaraan
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- QRIS Modal Detail (Perbesar) -->
+    <div class="modal fade" id="qrisDetailModal" tabindex="-1" aria-labelledby="qrisDetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow border-0">
+                <div class="modal-header bg-primary text-white py-3">
+                    <h5 class="modal-title fw-bold" id="qrisDetailModalLabel">
+                        <i data-lucide="qr-code" class="h-5 w-5 inline-block me-2"></i>QRIS Loket Stiker Security
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center p-4">
+                    <img th:src="@{/image/qris-loket-badge.jpg}" alt="QRIS Loket Stiker Security"
+                         class="img-fluid rounded shadow-sm border mb-3" style="max-height: 480px; width: auto;"/>
+                    <div class="alert alert-info py-2 px-3 small text-start mb-0">
+                        <i data-lucide="info" class="h-4 w-4 inline-block me-1 text-primary"></i>
+                        <span th:text="${appParams != null and appParams['SES_TXT_FORM_QRIS_MODAL_HELP'] != null
+                                        ? appParams['SES_TXT_FORM_QRIS_MODAL_HELP']
+                                        : 'Arahkan kamera aplikasi pembayaran (GoPay, OVO, Dana, BCA, Livin, dll) ke kode QR di atas. Setelah pembayaran berhasil, simpan bukti transfer dan unggah pada kolom Bukti Pembayaran.'}">
+                            Arahkan kamera aplikasi pembayaran (GoPay, OVO, Dana, BCA, Livin, dll) ke kode QR di atas.
+                            Setelah pembayaran berhasil, simpan bukti transfer dan unggah pada kolom Bukti Pembayaran.
+                        </span>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<th:block layout:fragment="scripts-extra">
+<script th:src="@{/vendor/pdfjs/pdf.min.js}"></script>
+<script th:src="@{/vendor/pdf-lib/pdf-lib.min.js}"></script>
+<script th:src="@{/js/pdf-splitter-workbench.js}"></script>
+<script th:inline="javascript">
+    var contextPath = /*[[@{/}]]*/ '/';
+    var isEditOfPendingRequest = /*[[${requestStatus == 'PENDING'}]]*/ false;
+    var stickerBaseAmount = /*[[${stickerBaseAmount}]]*/ 0;
+    var hasStickerTypes = /*[[${stickerTypes != null and !stickerTypes.isEmpty()}]]*/ true;
+    var stickerTypesData = [
+        /*[# th:each="t : ${stickerTypes}"]*/
+        { code: /*[[${t.stickerTypeCode}]]*/ '', name: /*[[${t.stickerTypeName}]]*/ '', price: /*[[${t.price}]]*/ 0 },
+        /*[/]*/
+    ];
+    var stickerTypePrices = {};
+    var stickerTypeNames = {};
+    stickerTypesData.forEach(function (t) {
+        stickerTypePrices[t.code] = t.price;
+        stickerTypeNames[t.code] = t.name;
+    });
+</script>
+<script>
+(function () {
+    var MAX_UPLOAD_BYTES = 55 * 1024 * 1024;
+    var chainAvailable = true;
+    var vehicleModalEl = document.getElementById('vehicleModal');
+    var vehicleModal = vehicleModalEl ? new bootstrap.Modal(vehicleModalEl) : null;
+    var activeEditingRow = null;
+    var currentDriverHistory = null;
+
+    function escapeHtml(s) {
+        return $('<div>').text(s === null || s === undefined ? '' : s).html();
+    }
+
+    function getVehicleRows() {
+        return $('#vehicleTableBody tr.vehicle-row');
+    }
+
+    function vehicleRowCount() {
+        return getVehicleRows().length;
+    }
+
+    function toggleVehicleEmptyRow() {
+        $('#vehicleEmptyRow').toggle(vehicleRowCount() === 0);
+    }
+
+    function updatePaymentAmountNote() {
+        var code = $('#stickerTypeCode').val();
+        var unitPrice = (code && stickerTypePrices.hasOwnProperty(code)) ? Number(stickerTypePrices[code]) : 0;
+        var count = vehicleRowCount();
+        var total = Number(stickerBaseAmount) + (count * unitPrice);
+
+        var text = 'Jumlah yang harus dibayar: <strong>Rp ' + Number(total).toLocaleString('id-ID') + '</strong>';
+        if (count > 0 && unitPrice > 0) {
+            text += ' <span class="text-muted fw-normal">(' + count + ' unit × Rp ' + unitPrice.toLocaleString('id-ID') +
+                (Number(stickerBaseAmount) > 0 ? ' + Adm Rp ' + Number(stickerBaseAmount).toLocaleString('id-ID') : '') + ')</span>';
+        }
+        $('#paymentAmountNote').html('<i data-lucide="receipt" class="h-4 w-4 inline-block text-primary me-2"></i>' + text);
+        if (window.lucide) lucide.createIcons();
+    }
+
+    $('#stickerTypeCode').on('change', function () {
+        updatePaymentAmountNote();
+    });
+
+    function reindexVehicleRows() {
+        var headerTypeCode = $('#stickerTypeCode').val();
+        getVehicleRows().each(function (idx) {
+            var $row = $(this);
+            $row.attr('data-index', idx);
+            $row.find('.vehicle-num').text(idx + 1);
+
+            $row.find('.inp-vehicle-id').attr('name', 'vehicles[' + idx + '].stickerVehicleId');
+            $row.find('.inp-sticker-type').attr('name', 'vehicles[' + idx + '].stickerTypeCode');
+            if (headerTypeCode) {
+                $row.find('.inp-sticker-type').val(headerTypeCode);
+            }
+            $row.find('.inp-police-no').attr('name', 'vehicles[' + idx + '].policeNo');
+            $row.find('.inp-vehicle-type').attr('name', 'vehicles[' + idx + '].vehicleType');
+            $row.find('.inp-owner-name').attr('name', 'vehicles[' + idx + '].ownerName');
+            $row.find('.inp-brand').attr('name', 'vehicles[' + idx + '].brand');
+            $row.find('.inp-color').attr('name', 'vehicles[' + idx + '].color');
+            $row.find('.inp-year-made').attr('name', 'vehicles[' + idx + '].yearMade');
+
+            $row.find('.inp-driver-badge').attr('name', 'vehicles[' + idx + '].driverBadge');
+            $row.find('.inp-driver-name').attr('name', 'vehicles[' + idx + '].driverName');
+            $row.find('.inp-sim-no').attr('name', 'vehicles[' + idx + '].simNo');
+            $row.find('.inp-sim-class').attr('name', 'vehicles[' + idx + '].simClass');
+
+            $row.find('.inp-stnk-expiry').attr('name', 'vehicles[' + idx + '].stnkExpiryDate');
+            $row.find('.inp-existing-stnk').attr('name', 'vehicles[' + idx + '].existingStnkFileId');
+            $row.find('.inp-existing-letter').attr('name', 'vehicles[' + idx + '].existingLetterFileId');
+            $row.find('.inp-stnk-file').attr('name', 'vehicles[' + idx + '].stnkFile');
+
+            $row.find('.inp-sim-expiry').attr('name', 'vehicles[' + idx + '].simExpiryDate');
+            $row.find('.inp-existing-sim').attr('name', 'vehicles[' + idx + '].existingSimFileId');
+            $row.find('.inp-sim-file').attr('name', 'vehicles[' + idx + '].simFile');
+
+            $row.find('.inp-kir-no').attr('name', 'vehicles[' + idx + '].kirNo');
+            $row.find('.inp-kir-expiry').attr('name', 'vehicles[' + idx + '].kirExpiryDate');
+            $row.find('.inp-existing-kir').attr('name', 'vehicles[' + idx + '].existingKirFileId');
+            $row.find('.inp-kir-file').attr('name', 'vehicles[' + idx + '].kirFile');
+        });
+        toggleVehicleEmptyRow();
+        updatePaymentAmountNote();
+    }
+
+    function resetModalFileInputs() {
+        $('#vmStnkFileContainer').removeAttr('data-shelf-item-id').html('<input type="file" class="form-control form-control-sm" id="vmStnkFile" accept=".pdf,image/*"/><div id="vmStnkPreview" class="d-none mt-1"></div>');
+        $('#vmSimFileContainer').removeAttr('data-shelf-item-id').html('<input type="file" class="form-control form-control-sm" id="vmSimFile" accept=".pdf,image/*"/><div id="vmSimPreview" class="d-none mt-1"></div>');
+        $('#vmKirFileContainer').removeAttr('data-shelf-item-id').html('<input type="file" class="form-control form-control-sm" id="vmKirFile" accept=".pdf,image/*"/><div id="vmKirPreview" class="d-none mt-1"></div>');
+
+        setupVehicleDropzone('vmStnkFileContainer', 'vmStnkFile', 'vmStnkPreview', 'STNK');
+        setupVehicleDropzone('vmSimFileContainer', 'vmSimFile', 'vmSimPreview', 'SIM');
+        setupVehicleDropzone('vmKirFileContainer', 'vmKirFile', 'vmKirPreview', 'KIR');
+    }
+
+    // ---- Driver History Lookup -------------------------------------
+    function loadDriverHistory(q) {
+        var term = $.trim(q);
+        if (!term) {
+            $('#vmHistoryAlert').addClass('d-none');
+            currentDriverHistory = null;
+            return;
+        }
+        $.getJSON(contextPath + 'sticker/driver-history', { q: term }, function (res) {
+            if (!res) {
+                $('#vmHistoryAlert').addClass('d-none');
+                currentDriverHistory = null;
+                return;
+            }
+            var hasSim = res.simNo && res.simNo.trim() !== '';
+            var hasVehicles = res.recentVehicles && res.recentVehicles.length > 0;
+            if (hasSim || hasVehicles) {
+                currentDriverHistory = res;
+                var parts = [];
+                if (hasSim) {
+                    parts.push('SIM ' + (res.simClass || 'A') + ': ' + res.simNo);
+                }
+                if (hasVehicles) {
+                    var v0 = res.recentVehicles[0];
+                    parts.push('Kendaraan lampau: ' + v0.policeNo + (v0.brand ? ' (' + v0.brand + (v0.color ? ' ' + v0.color : '') + ')' : ''));
+                }
+                $('#vmHistorySummary').text(parts.join(' | '));
+                $('#vmHistoryAlert').removeClass('d-none');
+                if (window.lucide) lucide.createIcons();
+            } else {
+                $('#vmHistoryAlert').addClass('d-none');
+                currentDriverHistory = null;
+            }
+        }).fail(function () {
+            $('#vmHistoryAlert').addClass('d-none');
+            currentDriverHistory = null;
+        });
+    }
+
+    $('#btnApplyHistory').on('click', function () {
+        if (!currentDriverHistory) return;
+        if (currentDriverHistory.simNo) {
+            $('#vmSimNo').val(currentDriverHistory.simNo);
+        }
+        if (currentDriverHistory.simClass) {
+            $('#vmSimClass').val(currentDriverHistory.simClass);
+        }
+        if (currentDriverHistory.recentVehicles && currentDriverHistory.recentVehicles.length > 0) {
+            var v = currentDriverHistory.recentVehicles[0];
+            if (!$('#vmPoliceNo').val()) $('#vmPoliceNo').val(v.policeNo);
+            if (!$('#vmVehicleType').val() && v.vehicleType) $('#vmVehicleType').val(v.vehicleType);
+            if (!$('#vmBrand').val() && v.brand) $('#vmBrand').val(v.brand);
+            if (!$('#vmColor').val() && v.color) $('#vmColor').val(v.color);
+            if (!$('#vmYearMade').val() && v.modelYear) $('#vmYearMade').val(v.modelYear);
+            if (!$('#vmOwnerName').val() && v.ownerName) $('#vmOwnerName').val(v.ownerName);
+        }
+        $('#vmHistoryAlert').addClass('d-none');
+    });
+
+    // Worker suggestions inside Modal (Dual lookup: by Badge or by Name)
+    function setupWorkerAutocomplete(inputSelector, boxSelector, searchField) {
+        var timer = null;
+        var seq = 0;
+        var $input = $(inputSelector);
+        var $box = $(boxSelector);
+
+        $input.on('input', function () {
+            var term = $.trim($(this).val());
+            clearTimeout(timer);
+            if (term.length < 1) {
+                $box.hide().empty();
+                return;
+            }
+            var currentSeq = ++seq;
+            timer = setTimeout(function () {
+                $.getJSON(contextPath + 'sticker/workers/search', { q: term, field: searchField }, function (list) {
+                    if (currentSeq !== seq) return;
+                    $box.empty();
+                    if (!list || list.length === 0) {
+                        $box.hide();
+                        return;
+                    }
+                    list.forEach(function (w) {
+                        var $item = $('<div class="worker-name-suggestion-item">');
+                        var badgeHtml = w.badge ? ' <span class="badge bg-secondary-subtle text-secondary font-mono">#' + escapeHtml(w.badge) + '</span>' : '';
+                        var line1 = '<div class="d-flex justify-content-between align-items-center"><strong>' + escapeHtml(w.workerName) + '</strong>' + badgeHtml + '</div>';
+                        var metaParts = [];
+                        if (w.jabatan) metaParts.push(escapeHtml(w.jabatan));
+                        if (w.department) metaParts.push(escapeHtml(w.department));
+                        if (w.section) metaParts.push(escapeHtml(w.section));
+                        var line2 = metaParts.length > 0 ? '<div class="small text-muted">' + metaParts.join(' &bull; ') + '</div>' : '';
+                        $item.html(line1 + line2);
+
+                        $item.on('mousedown', function (e) {
+                            e.preventDefault();
+                            $('#vmDriverName').val(w.workerName || '');
+                            $('#vmDriverBadge').val(w.badge || '');
+                            $box.hide().empty();
+                            loadDriverHistory(w.badge || w.workerName);
+                        });
+                        $box.append($item);
+                    });
+                    $box.show();
+                });
+            }, 250);
+        });
+
+        $input.on('blur', function () {
+            setTimeout(function () { $box.hide(); }, 200);
+        });
+    }
+
+    setupWorkerAutocomplete('#vmDriverBadge', '#vmBadgeSuggestions', 'badge');
+    setupWorkerAutocomplete('#vmDriverName', '#vmNameSuggestions', 'name');
+
+    $('#vmDriverBadge').on('blur', function () {
+        var val = $(this).val();
+        if (val && val.trim() !== '') {
+            loadDriverHistory(val);
+        }
+    });
+
+    // Open Modal for Add
+    $('#btnAddVehicle').on('click', function () {
+        activeEditingRow = null;
+        $('#vehicleModalTitle').html('<i data-lucide="car" class="h-5 w-5 inline-block text-primary me-2"></i>Tambah Data Kendaraan');
+        $('#vehicleModalError').addClass('d-none').text('');
+
+        $('#vmDriverName').val('');
+        $('#vmDriverBadge').val('');
+        $('#vmSimClass').val('A');
+        $('#vmSimNo').val('');
+
+        $('#vmPoliceNo').val('');
+        $('#vmVehicleType').val('');
+        $('#vmOwnerName').val('');
+        $('#vmBrand').val('');
+        $('#vmColor').val('');
+        $('#vmYearMade').val('');
+
+        $('#vmStnkExpiryDate').val('');
+        $('#vmSimExpiryDate').val('');
+        $('#vmKirNo').val('');
+        $('#vmKirExpiryDate').val('');
+
+        $('#vmExistingStnkNotice').addClass('d-none');
+        $('#vmExistingSimNotice').addClass('d-none');
+        $('#vmExistingKirNotice').addClass('d-none');
+        $('#vmHistoryAlert').addClass('d-none');
+        currentDriverHistory = null;
+
+        resetModalFileInputs();
+        if (window.lucide) lucide.createIcons();
+        if (vehicleModal) vehicleModal.show();
+    });
+
+    // Open Modal for Edit
+    $(document).on('click', '.btn-edit-vehicle', function () {
+        var $row = $(this).closest('tr.vehicle-row');
+        activeEditingRow = $row;
+        $('#vehicleModalTitle').html('<i data-lucide="car" class="h-5 w-5 inline-block text-primary me-2"></i>Ubah Data Kendaraan');
+        $('#vehicleModalError').addClass('d-none').text('');
+
+        $('#vmDriverName').val($row.find('.inp-driver-name').val() || '');
+        $('#vmDriverBadge').val($row.find('.inp-driver-badge').val() || '');
+        $('#vmSimClass').val($row.find('.inp-sim-class').val() || 'A');
+        $('#vmSimNo').val($row.find('.inp-sim-no').val() || '');
+
+        $('#vmPoliceNo').val($row.find('.inp-police-no').val() || '');
+        $('#vmVehicleType').val($row.find('.inp-vehicle-type').val() || '');
+        $('#vmOwnerName').val($row.find('.inp-owner-name').val() || '');
+        $('#vmBrand').val($row.find('.inp-brand').val() || '');
+        $('#vmColor').val($row.find('.inp-color').val() || '');
+        $('#vmYearMade').val($row.find('.inp-year-made').val() || '');
+
+        $('#vmStnkExpiryDate').val($row.find('.inp-stnk-expiry').val() || '');
+        $('#vmSimExpiryDate').val($row.find('.inp-sim-expiry').val() || '');
+        $('#vmKirNo').val($row.find('.inp-kir-no').val() || '');
+        $('#vmKirExpiryDate').val($row.find('.inp-kir-expiry').val() || '');
+
+        var existingStnk = $row.find('.inp-existing-stnk').val() || $row.find('.inp-existing-letter').val();
+        var pendingStnk = $row.find('.inp-stnk-file')[0];
+        $('#vmExistingStnkNotice').toggleClass('d-none', !(existingStnk || (pendingStnk && pendingStnk.files && pendingStnk.files.length > 0)));
+
+        var existingSim = $row.find('.inp-existing-sim').val();
+        var pendingSim = $row.find('.inp-sim-file')[0];
+        $('#vmExistingSimNotice').toggleClass('d-none', !(existingSim || (pendingSim && pendingSim.files && pendingSim.files.length > 0)));
+
+        var existingKir = $row.find('.inp-existing-kir').val();
+        var pendingKir = $row.find('.inp-kir-file')[0];
+        $('#vmExistingKirNotice').toggleClass('d-none', !(existingKir || (pendingKir && pendingKir.files && pendingKir.files.length > 0)));
+
+        $('#vmHistoryAlert').addClass('d-none');
+        currentDriverHistory = null;
+
+        resetModalFileInputs();
+        if (window.lucide) lucide.createIcons();
+        if (vehicleModal) vehicleModal.show();
+    });
+
+    // Delete Vehicle with Shelf Unmark
+    $(document).on('click', '.btn-delete-vehicle', function () {
+        var $row = $(this).closest('tr.vehicle-row');
+        var policeNo = $row.find('.vehicle-policeno-display').text() || 'Kendaraan';
+        var stnkShelfId = $row.data('stnk-shelf-id');
+        var simShelfId = $row.data('sim-shelf-id');
+        var kirShelfId = $row.data('kir-shelf-id');
+
+        if (window.vmSplitterWorkbench) {
+            if (stnkShelfId) window.vmSplitterWorkbench.unmarkItemUsed(stnkShelfId, 'STNK (' + policeNo + ')');
+            if (simShelfId) window.vmSplitterWorkbench.unmarkItemUsed(simShelfId, 'SIM (' + policeNo + ')');
+            if (kirShelfId) window.vmSplitterWorkbench.unmarkItemUsed(kirShelfId, 'KIR (' + policeNo + ')');
+        }
+
+        $row.remove();
+        reindexVehicleRows();
+    });
+
+    // Save in Modal
+    $('#btnSaveVehicleModal').on('click', function () {
+        var policeNo = $.trim($('#vmPoliceNo').val());
+        var driverName = $.trim($('#vmDriverName').val());
+        var driverBadge = $.trim($('#vmDriverBadge').val());
+        var simClass = $('#vmSimClass').val();
+        var simNo = $.trim($('#vmSimNo').val());
+
+        var vehicleType = $.trim($('#vmVehicleType').val());
+        var ownerName = $.trim($('#vmOwnerName').val());
+        var brand = $.trim($('#vmBrand').val());
+        var color = $.trim($('#vmColor').val());
+        var yearMade = $.trim($('#vmYearMade').val());
+
+        var stnkExpiry = $('#vmStnkExpiryDate').val();
+        var simExpiry = $('#vmSimExpiryDate').val();
+        var kirNo = $.trim($('#vmKirNo').val());
+        var kirExpiry = $('#vmKirExpiryDate').val();
+
+        if (!driverName) {
+            $('#vehicleModalError').removeClass('d-none').text('Nama Pengemudi wajib diisi.');
+            $('#vmDriverName').focus();
+            return;
+        }
+        if (!policeNo) {
+            $('#vehicleModalError').removeClass('d-none').text('Nomor Polisi (Plat) wajib diisi.');
+            $('#vmPoliceNo').focus();
+            return;
+        }
+
+        var stnkFileInput = document.getElementById('vmStnkFile');
+        var hasNewStnk = stnkFileInput && stnkFileInput.files && stnkFileInput.files.length > 0;
+        var simFileInput = document.getElementById('vmSimFile');
+        var hasNewSim = simFileInput && simFileInput.files && simFileInput.files.length > 0;
+        var kirFileInput = document.getElementById('vmKirFile');
+        var hasNewKir = kirFileInput && kirFileInput.files && kirFileInput.files.length > 0;
+
+        var stnkShelfId = $('#vmStnkFileContainer').attr('data-shelf-item-id') || '';
+        var simShelfId = $('#vmSimFileContainer').attr('data-shelf-item-id') || '';
+        var kirShelfId = $('#vmKirFileContainer').attr('data-shelf-item-id') || '';
+
+        function buildDocsBadges(hasStnk, stnkExp, hasSim, simExp, hasKir, kirExp) {
+            var html = '<div class="d-flex flex-wrap gap-1">';
+            if (hasStnk) {
+                html += '<span class="badge bg-success-subtle text-success border border-success-subtle"><i data-lucide="check" class="h-3 w-3 inline-block me-1"></i>STNK' + (stnkExp ? ' (' + stnkExp + ')' : '') + '</span>';
+            } else {
+                html += '<span class="badge bg-light text-muted border">STNK' + (stnkExp ? ' (' + stnkExp + ')' : '') + '</span>';
+            }
+            if (hasSim) {
+                html += '<span class="badge bg-success-subtle text-success border border-success-subtle"><i data-lucide="check" class="h-3 w-3 inline-block me-1"></i>SIM' + (simExp ? ' (' + simExp + ')' : '') + '</span>';
+            } else {
+                html += '<span class="badge bg-light text-muted border">SIM' + (simExp ? ' (' + simExp + ')' : '') + '</span>';
+            }
+            if (hasKir) {
+                html += '<span class="badge bg-info-subtle text-info border border-info-subtle"><i data-lucide="check" class="h-3 w-3 inline-block me-1"></i>KIR' + (kirExp ? ' (' + kirExp + ')' : '') + '</span>';
+            }
+            html += '</div>';
+            return html;
+        }
+
+        if (activeEditingRow) {
+            // Update existing row
+            activeEditingRow.find('.vehicle-policeno-display').text(policeNo.toUpperCase());
+            activeEditingRow.find('.vehicle-vehicletype-display').text(vehicleType || 'Kendaraan');
+            activeEditingRow.find('.vehicle-brand-display').text(brand || '-');
+            activeEditingRow.find('.vehicle-color-display').text(color || '-');
+            activeEditingRow.find('.vehicle-yearmade-display').text(yearMade || '-');
+            activeEditingRow.find('.vehicle-ownername-display').text(ownerName || '-');
+
+            activeEditingRow.find('.vehicle-drivername-display').text(driverName);
+            activeEditingRow.find('.vehicle-driverbadge-display').text(driverBadge || '-');
+            activeEditingRow.find('.vehicle-simclass-display').text(simClass || 'A');
+            activeEditingRow.find('.vehicle-simno-display').text(simNo || '-');
+
+            activeEditingRow.find('.inp-police-no').val(policeNo.toUpperCase());
+            activeEditingRow.find('.inp-vehicle-type').val(vehicleType);
+            activeEditingRow.find('.inp-owner-name').val(ownerName);
+            activeEditingRow.find('.inp-brand').val(brand);
+            activeEditingRow.find('.inp-color').val(color);
+            activeEditingRow.find('.inp-year-made').val(yearMade);
+
+            activeEditingRow.find('.inp-driver-name').val(driverName);
+            activeEditingRow.find('.inp-driver-badge').val(driverBadge);
+            activeEditingRow.find('.inp-sim-class').val(simClass);
+            activeEditingRow.find('.inp-sim-no').val(simNo);
+
+            activeEditingRow.find('.inp-stnk-expiry').val(stnkExpiry);
+            activeEditingRow.find('.inp-sim-expiry').val(simExpiry);
+            activeEditingRow.find('.inp-kir-no').val(kirNo);
+            activeEditingRow.find('.inp-kir-expiry').val(kirExpiry);
+
+            if (stnkShelfId) activeEditingRow.data('stnk-shelf-id', stnkShelfId);
+            if (simShelfId) activeEditingRow.data('sim-shelf-id', simShelfId);
+            if (kirShelfId) activeEditingRow.data('kir-shelf-id', kirShelfId);
+
+            var $container = activeEditingRow.find('.vehicle-hidden-inputs');
+
+            if (hasNewStnk) {
+                $container.find('.inp-stnk-file').remove();
+                var $dStnk = $(stnkFileInput).detach();
+                $dStnk.addClass('inp-stnk-file d-none').removeAttr('id');
+                $container.append($dStnk);
+            }
+            if (hasNewSim) {
+                $container.find('.inp-sim-file').remove();
+                var $dSim = $(simFileInput).detach();
+                $dSim.addClass('inp-sim-file d-none').removeAttr('id');
+                $container.append($dSim);
+            }
+            if (hasNewKir) {
+                $container.find('.inp-kir-file').remove();
+                var $dKir = $(kirFileInput).detach();
+                $dKir.addClass('inp-kir-file d-none').removeAttr('id');
+                $container.append($dKir);
+            }
+
+            var stnkActive = hasNewStnk || !!activeEditingRow.find('.inp-existing-stnk').val() || !!activeEditingRow.find('.inp-existing-letter').val();
+            var simActive = hasNewSim || !!activeEditingRow.find('.inp-existing-sim').val();
+            var kirActive = hasNewKir || !!activeEditingRow.find('.inp-existing-kir').val() || (kirNo && kirNo.trim() !== '');
+
+            activeEditingRow.find('.vehicle-docs-display').html(buildDocsBadges(stnkActive, stnkExpiry, simActive, simExpiry, kirActive, kirExpiry));
+
+        } else {
+            // Add new row
+            var newIdx = vehicleRowCount();
+            var $newRow = $('<tr class="vehicle-row" data-index="' + newIdx + '"></tr>');
+            $newRow.append('<td class="vehicle-num text-center fw-semibold text-muted">' + (newIdx + 1) + '</td>');
+
+            if (stnkShelfId) $newRow.data('stnk-shelf-id', stnkShelfId);
+            if (simShelfId) $newRow.data('sim-shelf-id', simShelfId);
+            if (kirShelfId) $newRow.data('kir-shelf-id', kirShelfId);
+
+            // Col 2: Vehicle
+            var vehHtml = '<td><div class="d-flex align-items-center gap-2">' +
+                '<span class="badge bg-dark font-mono text-uppercase px-2 py-1 vehicle-policeno-display">' + escapeHtml(policeNo.toUpperCase()) + '</span>' +
+                '<span class="badge bg-secondary-subtle text-secondary vehicle-vehicletype-display">' + escapeHtml(vehicleType || 'Kendaraan') + '</span>' +
+                '</div>' +
+                '<div class="small text-muted mt-1">' +
+                '<span class="vehicle-brand-display fw-semibold text-dark">' + escapeHtml(brand || '-') + '</span>' +
+                (color ? ' &bull; <span class="vehicle-color-display">' + escapeHtml(color) + '</span>' : '') +
+                (yearMade ? ' (<span class="vehicle-yearmade-display">' + escapeHtml(yearMade) + '</span>)' : '') +
+                '</div>' +
+                (ownerName ? '<div class="small text-muted">a.n. <span class="vehicle-ownername-display">' + escapeHtml(ownerName) + '</span></div>' : '') +
+                '</td>';
+            $newRow.append(vehHtml);
+
+            // Col 3: Driver
+            var driverHtml = '<td><div class="fw-semibold text-dark vehicle-drivername-display">' + escapeHtml(driverName) + '</div>' +
+                '<div class="small text-muted">' +
+                (driverBadge ? 'Badge: <span class="vehicle-driverbadge-display font-mono">' + escapeHtml(driverBadge) + '</span>' : '') +
+                '</div>' +
+                (simNo ? '<div class="small text-muted">SIM <span class="vehicle-simclass-display fw-semibold">' + escapeHtml(simClass || 'A') + '</span>: <span class="vehicle-simno-display font-mono">' + escapeHtml(simNo) + '</span></div>' : '') +
+                '</td>';
+            $newRow.append(driverHtml);
+
+            // Col 4: Docs
+            var kirPresent = hasNewKir || (kirNo && kirNo.trim() !== '');
+            $newRow.append('<td class="vehicle-docs-display">' + buildDocsBadges(hasNewStnk, stnkExpiry, hasNewSim, simExpiry, kirPresent, kirExpiry) + '</td>');
+
+            // Col 5: Actions
+            var $actionsTd = $('<td class="text-end text-nowrap"></td>');
+            $actionsTd.append(
+                '<button type="button" class="btn btn-outline-primary btn-sm me-1 btn-edit-vehicle" title="Ubah kendaraan">' +
+                '<i data-lucide="pencil" class="h-3.5 w-3.5"></i> Edit' +
+                '</button>' +
+                '<button type="button" class="btn btn-outline-danger btn-sm btn-delete-vehicle" title="Hapus kendaraan">' +
+                '<i data-lucide="trash-2" class="h-3.5 w-3.5"></i>' +
+                '</button>'
+            );
+
+            var $hiddenContainer = $('<div class="vehicle-hidden-inputs d-none"></div>');
+            $hiddenContainer.append('<input type="hidden" class="inp-vehicle-id" name="vehicles[' + newIdx + '].stickerVehicleId" value=""/>');
+            $hiddenContainer.append('<input type="hidden" class="inp-sticker-type" name="vehicles[' + newIdx + '].stickerTypeCode" value="' + escapeHtml($('#stickerTypeCode').val() || '') + '"/>');
+            $hiddenContainer.append('<input type="hidden" class="inp-police-no" name="vehicles[' + newIdx + '].policeNo" value="' + escapeHtml(policeNo.toUpperCase()) + '"/>');
+            $hiddenContainer.append('<input type="hidden" class="inp-vehicle-type" name="vehicles[' + newIdx + '].vehicleType" value="' + escapeHtml(vehicleType) + '"/>');
+            $hiddenContainer.append('<input type="hidden" class="inp-owner-name" name="vehicles[' + newIdx + '].ownerName" value="' + escapeHtml(ownerName) + '"/>');
+            $hiddenContainer.append('<input type="hidden" class="inp-brand" name="vehicles[' + newIdx + '].brand" value="' + escapeHtml(brand) + '"/>');
+            $hiddenContainer.append('<input type="hidden" class="inp-color" name="vehicles[' + newIdx + '].color" value="' + escapeHtml(color) + '"/>');
+            $hiddenContainer.append('<input type="hidden" class="inp-year-made" name="vehicles[' + newIdx + '].yearMade" value="' + escapeHtml(yearMade) + '"/>');
+
+            $hiddenContainer.append('<input type="hidden" class="inp-driver-badge" name="vehicles[' + newIdx + '].driverBadge" value="' + escapeHtml(driverBadge) + '"/>');
+            $hiddenContainer.append('<input type="hidden" class="inp-driver-name" name="vehicles[' + newIdx + '].driverName" value="' + escapeHtml(driverName) + '"/>');
+            $hiddenContainer.append('<input type="hidden" class="inp-sim-no" name="vehicles[' + newIdx + '].simNo" value="' + escapeHtml(simNo) + '"/>');
+            $hiddenContainer.append('<input type="hidden" class="inp-sim-class" name="vehicles[' + newIdx + '].simClass" value="' + escapeHtml(simClass) + '"/>');
+
+            $hiddenContainer.append('<input type="hidden" class="inp-stnk-expiry" name="vehicles[' + newIdx + '].stnkExpiryDate" value="' + escapeHtml(stnkExpiry) + '"/>');
+            $hiddenContainer.append('<input type="hidden" class="inp-existing-stnk" name="vehicles[' + newIdx + '].existingStnkFileId" value=""/>');
+            $hiddenContainer.append('<input type="hidden" class="inp-existing-letter" name="vehicles[' + newIdx + '].existingLetterFileId" value=""/>');
+            if (hasNewStnk) {
+                var $dStnkNew = $(stnkFileInput).detach();
+                $dStnkNew.addClass('inp-stnk-file d-none').attr('name', 'vehicles[' + newIdx + '].stnkFile').removeAttr('id');
+                $hiddenContainer.append($dStnkNew);
+            } else {
+                $hiddenContainer.append('<input type="file" class="inp-stnk-file" name="vehicles[' + newIdx + '].stnkFile"/>');
+            }
+
+            $hiddenContainer.append('<input type="hidden" class="inp-sim-expiry" name="vehicles[' + newIdx + '].simExpiryDate" value="' + escapeHtml(simExpiry) + '"/>');
+            $hiddenContainer.append('<input type="hidden" class="inp-existing-sim" name="vehicles[' + newIdx + '].existingSimFileId" value=""/>');
+            if (hasNewSim) {
+                var $dSimNew = $(simFileInput).detach();
+                $dSimNew.addClass('inp-sim-file d-none').attr('name', 'vehicles[' + newIdx + '].simFile').removeAttr('id');
+                $hiddenContainer.append($dSimNew);
+            } else {
+                $hiddenContainer.append('<input type="file" class="inp-sim-file" name="vehicles[' + newIdx + '].simFile"/>');
+            }
+
+            $hiddenContainer.append('<input type="hidden" class="inp-kir-no" name="vehicles[' + newIdx + '].kirNo" value="' + escapeHtml(kirNo) + '"/>');
+            $hiddenContainer.append('<input type="hidden" class="inp-kir-expiry" name="vehicles[' + newIdx + '].kirExpiryDate" value="' + escapeHtml(kirExpiry) + '"/>');
+            $hiddenContainer.append('<input type="hidden" class="inp-existing-kir" name="vehicles[' + newIdx + '].existingKirFileId" value=""/>');
+            if (hasNewKir) {
+                var $dKirNew = $(kirFileInput).detach();
+                $dKirNew.addClass('inp-kir-file d-none').attr('name', 'vehicles[' + newIdx + '].kirFile').removeAttr('id');
+                $hiddenContainer.append($dKirNew);
+            } else {
+                $hiddenContainer.append('<input type="file" class="inp-kir-file" name="vehicles[' + newIdx + '].kirFile"/>');
+            }
+
+            $actionsTd.append($hiddenContainer);
+            $newRow.append($actionsTd);
+            $('#vehicleTableBody').append($newRow);
+        }
+
+        resetModalFileInputs();
+        reindexVehicleRows();
+        if (window.lucide) lucide.createIcons();
+        if (vehicleModal) vehicleModal.hide();
+    });
+
+    // Proof of Payment selection display
+    $('#paymentFile').on('change', function () {
+        var file = this.files && this.files[0];
+        if (file) {
+            $('#paymentFileSelectedName').text(file.name);
+            var sizeKb = Math.round(file.size / 1024);
+            var sizeStr = sizeKb >= 1024 ? (sizeKb / 1024).toFixed(1) + ' MB' : sizeKb + ' KB';
+            $('#paymentFileSelectedSize').text('(' + sizeStr + ')');
+            $('#paymentFileSelectedWrap').show();
+        } else {
+            $('#paymentFileSelectedWrap').hide();
+        }
+    });
+
+    function updateSubmitGate() {
+        var $btn = $('#submitStickerBtn');
+        $btn.prop('disabled', !chainAvailable || !hasStickerTypes);
+    }
+
+    function checkApprovalChain() {
+        var $warn = $('#noChainWarning');
+        var $reasons = $('#noChainWarningReasons');
+        $.getJSON(contextPath + 'sticker/approval-chain-status', function (res) {
+            chainAvailable = !!(res && res.available);
+            $warn.toggle(!chainAvailable);
+            $reasons.empty();
+            if (!chainAvailable && res && res.reasons) {
+                res.reasons.forEach(function (r) {
+                    $reasons.append($('<li>').text(r));
+                });
+            }
+            updateSubmitGate();
+        }).fail(function () {
+            chainAvailable = true;
+            $warn.hide();
+            $reasons.empty();
+            updateSubmitGate();
+        });
+    }
+
+    var lastClickedSubmitId = null;
+    $('#submitStickerBtn, #saveDraftBtn').on('click', function () {
+        lastClickedSubmitId = this.id;
+    });
+
+    var resubmitConfirmed = false;
+    $('#stickerForm').on('submit', function (e) {
+        var $form = $(this);
+
+        // Validation for SUBMIT action (not draft)
+        if (lastClickedSubmitId === 'submitStickerBtn') {
+            if (!$('#stickerTypeCode').val()) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Jenis Stiker Wajib Dipilih',
+                    text: 'Pilihlah salah satu jenis stiker permohonan.'
+                });
+                $('#stickerTypeCode').focus();
+                return;
+            }
+
+            // Check vehicle count
+            if (vehicleRowCount() === 0) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Belum Ada Kendaraan',
+                    text: 'Minimal 1 kendaraan harus didaftarkan sebelum mengirim pengajuan.'
+                });
+                return;
+            }
+
+            // Check Payment File (MANDATORY / REQUIRED)
+            var existingPayment = $('#existingPaymentFileIdVal').val();
+            var paymentInput = document.getElementById('paymentFile');
+            var hasPayment = (existingPayment && existingPayment.trim() !== '') ||
+                             (paymentInput && paymentInput.files && paymentInput.files.length > 0);
+
+            if (!hasPayment) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Bukti Pembayaran Wajib Diisi',
+                    text: 'Bukti pembayaran wajib diunggah sebelum pengajuan dapat dikirim.'
+                });
+                if (paymentInput) paymentInput.focus();
+                return;
+            }
+        }
+
+        var total = 0;
+        $form.find('input[type=file]').each(function () {
+            if (this.files && this.files[0]) total += this.files[0].size;
+        });
+        if (total > MAX_UPLOAD_BYTES) {
+            e.preventDefault();
+            Swal.fire({
+                icon: 'error',
+                title: 'File terlalu besar',
+                text: 'Total ukuran file terlampir (' + (total / 1024 / 1024).toFixed(1) +
+                    ' MB) melebihi batas ' + (MAX_UPLOAD_BYTES / 1024 / 1024) + ' MB. ' +
+                    'Silakan hapus atau kompres beberapa file sebelum mengirim.'
+            });
+            return;
+        }
+
+        if (isEditOfPendingRequest && lastClickedSubmitId === 'submitStickerBtn' && !resubmitConfirmed) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Kirim ulang pengajuan ini?',
+                text: 'Mengubah data akan memulai ulang proses persetujuan dari awal — persetujuan yang sudah diberikan akan dibatalkan.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Kirim Ulang',
+                cancelButtonText: 'Kembali Mengubah'
+            }).then(function (r) {
+                if (r.isConfirmed) {
+                    resubmitConfirmed = true;
+                    $('#submitStickerBtn, #saveDraftBtn').prop('disabled', true);
+                    $form.trigger('submit');
+                }
+            });
+            return;
+        }
+
+        $('#submitStickerBtn, #saveDraftBtn').prop('disabled', true);
+    });
+
+    /* Vehicle Modal Splitter & Dropzone Logic */
+    var vmBtnReg = document.getElementById('vmBtnModeRegular');
+    var vmBtnBundle = document.getElementById('vmBtnModeBundle');
+    var vmSplitterArea = document.getElementById('vmPdfSplitterArea');
+    var vmSplitterInitialized = false;
+
+    function setVmMode(mode) {
+        if (mode === 'bundle') {
+            if (vmBtnBundle) vmBtnBundle.classList.add('active');
+            if (vmBtnReg) vmBtnReg.classList.remove('active');
+            if (vmSplitterArea) vmSplitterArea.classList.remove('d-none');
+
+            if (!vmSplitterInitialized && window.PdfSplitterWorkbench) {
+                var workerUrl = contextPath + 'vendor/pdfjs/pdf.worker.min.js';
+                window.vmSplitterWorkbench = new window.PdfSplitterWorkbench({
+                    containerId: 'vmPdfSplitterContainer',
+                    workerPath: workerUrl,
+                    maxFileSizeMb: 200
+                });
+                vmSplitterInitialized = true;
+            }
+        } else {
+            if (vmBtnReg) vmBtnReg.classList.add('active');
+            if (vmBtnBundle) vmBtnBundle.classList.remove('active');
+            if (vmSplitterArea) vmSplitterArea.classList.add('d-none');
+        }
+    }
+
+    if (vmBtnReg) vmBtnReg.addEventListener('click', function () { setVmMode('regular'); });
+    if (vmBtnBundle) vmBtnBundle.addEventListener('click', function () { setVmMode('bundle'); });
+
+    function setupVehicleDropzone(containerId, inputId, previewId, docType) {
+        var container = document.getElementById(containerId);
+        if (!container) return;
+
+        ['dragenter', 'dragover'].forEach(function (evt) {
+            container.addEventListener(evt, function (e) {
+                e.preventDefault();
+                container.classList.add('drag-active');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(function (evt) {
+            container.addEventListener(evt, function () {
+                container.classList.remove('drag-active');
+            });
+        });
+
+        container.addEventListener('drop', function (e) {
+            e.preventDefault();
+            var file = null;
+
+            if (window.PdfSplitterWorkbench && window.PdfSplitterWorkbench.currentDragItem) {
+                var item = window.PdfSplitterWorkbench.currentDragItem;
+                var policeNo = $.trim($('#vmPoliceNo').val()) || 'Kendaraan';
+                var formattedName = docType + ' - ' + policeNo + '.pdf';
+                file = new File([item.blob], formattedName, { type: 'application/pdf' });
+
+                var prevShelfId = container.getAttribute('data-shelf-item-id');
+                if (prevShelfId && window.vmSplitterWorkbench) {
+                    window.vmSplitterWorkbench.unmarkItemUsed(prevShelfId, docType + ' (' + policeNo + ')');
+                }
+                container.setAttribute('data-shelf-item-id', item.id);
+
+                if (window.vmSplitterWorkbench) {
+                    window.vmSplitterWorkbench.markItemUsed(item.id, docType + ' (' + policeNo + ')');
+                }
+                window.PdfSplitterWorkbench.currentDragItem = null;
+            } else if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+                file = e.dataTransfer.files[0];
+            }
+
+            if (file) {
+                var input = document.getElementById(inputId);
+                if (input) {
+                    var dt = new DataTransfer();
+                    dt.items.add(file);
+                    input.files = dt.files;
+                }
+                showVehicleFileBadge(previewId, file.name, (file.size / 1024).toFixed(1) + ' KB', file, inputId, containerId, docType);
+            }
+        });
+    }
+
+    function showVehicleFileBadge(previewId, name, sizeStr, fileObj, inputId, containerId, docType) {
+        var p = document.getElementById(previewId);
+        if (!p) return;
+        p.innerHTML = ''
+            + '<div class="alert alert-success py-1 px-2 mb-0 d-flex align-items-center justify-content-between">'
+            + '  <span class="small fw-semibold text-truncate" style="max-width: 170px;"><i class="fa-solid fa-file-check me-1"></i>' + name + ' <span class="text-muted">(' + sizeStr + ')</span></span>'
+            + '  <span class="d-flex gap-1">'
+            + '    <button type="button" class="btn btn-outline-primary btn-sm py-0 px-1 js-view-btn" title="Lihat di tab baru"><i class="fa-solid fa-eye"></i></button>'
+            + '    <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1 js-clear-btn" title="Hapus berkas"><i class="fa-solid fa-xmark"></i></button>'
+            + '  </span>'
+            + '</div>';
+        p.classList.remove('d-none');
+
+        p.querySelector('.js-view-btn').addEventListener('click', function (e) {
+            e.preventDefault();
+            var url = URL.createObjectURL(fileObj);
+            window.open(url, '_blank');
+        });
+
+        p.querySelector('.js-clear-btn').addEventListener('click', function (e) {
+            e.preventDefault();
+            p.classList.add('d-none');
+            p.innerHTML = '';
+            var input = document.getElementById(inputId);
+            if (input) input.value = '';
+
+            var cont = document.getElementById(containerId);
+            if (cont) {
+                var shelfId = cont.getAttribute('data-shelf-item-id');
+                if (shelfId && window.vmSplitterWorkbench) {
+                    var policeNo = $.trim($('#vmPoliceNo').val()) || 'Kendaraan';
+                    window.vmSplitterWorkbench.unmarkItemUsed(shelfId, docType + ' (' + policeNo + ')');
+                    cont.removeAttribute('data-shelf-item-id');
+                }
+            }
+        });
+    }
+
+    setupVehicleDropzone('vmStnkFileContainer', 'vmStnkFile', 'vmStnkPreview', 'STNK');
+    setupVehicleDropzone('vmSimFileContainer', 'vmSimFile', 'vmSimPreview', 'SIM');
+    setupVehicleDropzone('vmKirFileContainer', 'vmKirFile', 'vmKirPreview', 'KIR');
+
+    $(document).ready(function () {
+        reindexVehicleRows();
+        checkApprovalChain();
+        if (window.lucide) lucide.createIcons();
+    });
+})();
+</script>
+</th:block>
+</body>
+</html>

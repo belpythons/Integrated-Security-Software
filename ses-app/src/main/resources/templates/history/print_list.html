@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Riwayat Pengajuan</title>
+    <!--
+      XHTML-STRICT. OpenHTMLtoPDF parses this with an XML parser: every tag must
+      be closed and every attribute quoted. No external CSS/JS/images.
+    -->
+    <style>
+        @page { size: A4 landscape; margin: 10mm 12mm; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; color: #000; }
+        h1 { font-size: 13pt; margin: 0 0 10px 0; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #000; padding: 3px 5px; text-align: left; vertical-align: top; }
+        th { background-color: #f0f0f0; font-weight: bold; }
+        td.no { width: 8mm; text-align: center; }
+    </style>
+</head>
+<body>
+<h1>Riwayat Pengajuan — Seluruh Data</h1>
+<table>
+    <thead>
+    <tr>
+        <th class="no">#</th>
+        <th>No. Pengajuan</th>
+        <th>Jenis</th>
+        <th>Pemohon</th>
+        <th>Status</th>
+        <th>Tanggal</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="r, iter : ${rows}">
+        <td class="no" th:text="${iter.count}">1</td>
+        <td th:text="${r.transactionNo}">REQ-2026-0001</td>
+        <td th:text="${r.moduleName}">Badge (new)</td>
+        <td th:text="${r.requestorDisplay}">Siti Aminah</td>
+        <td th:text="${r.status}">PENDING</td>
+        <td th:text="${#dates.format(r.createdDate, 'dd-MM-yyyy HH:mm')}">18-08-2026 10:00</td>
+    </tr>
+    </tbody>
+</table>
+</body>
+</html>

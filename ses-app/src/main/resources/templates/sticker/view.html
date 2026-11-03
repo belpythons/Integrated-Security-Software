@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content" class="space-y-4">
+
+    <!-- Top Navigation & Action Bar -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-400 uppercase font-semibold">Stiker Kendaraan</span>
+            <code class="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 font-mono text-xs font-semibold border border-amber-200/60" th:text="${requestNo}">STK-2026-0001</code>
+            <div>
+                <span th:if="${status == 'DRAFT'}" class="shadcn-badge shadcn-badge-secondary">Draft</span>
+                <span th:if="${status == 'PENDING'}" class="shadcn-badge shadcn-badge-warning">
+                    <i data-lucide="clock" class="h-3 w-3"></i>Menunggu
+                </span>
+                <span th:if="${status == 'APPROVED'}" class="shadcn-badge shadcn-badge-success">
+                    <i data-lucide="check-circle-2" class="h-3 w-3"></i>Disetujui
+                </span>
+                <span th:if="${status == 'REJECTED'}" class="shadcn-badge shadcn-badge-danger">
+                    <i data-lucide="x-circle" class="h-3 w-3"></i>Ditolak
+                </span>
+                <span th:if="${status == 'CANCELLED'}" class="shadcn-badge shadcn-badge-secondary">
+                    <i data-lucide="ban" class="h-3 w-3"></i>Dibatalkan
+                </span>
+            </div>
+        </div>
+        <div class="flex items-center gap-1.5">
+            <a th:if="${status == 'APPROVED' and pageActions['/sticker/form'] != null and pageActions['/sticker/form'].contains('SUBMIT')}"
+               th:href="@{/sticker/{id}/renew(id=${stickerForm.stickerRequestId})}"
+               class="shadcn-btn shadcn-btn-sm bg-emerald-600 hover:bg-emerald-700 text-white">
+                <i data-lucide="rotate-cw" class="h-3.5 w-3.5"></i>
+                <span>Perpanjang</span>
+            </a>
+            <a th:href="@{/sticker}" class="shadcn-btn shadcn-btn-outline shadcn-btn-sm">
+                <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                <span>Kembali ke Daftar</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Sticker Detail Fragment -->
+    <th:block th:insert="~{sticker/fragments/sticker-detail :: detail}"></th:block>
+
+    <!-- Approval Chain Tasks Card -->
+    <div class="shadcn-card overflow-hidden">
+        <div class="shadcn-card-header bg-slate-50/50 py-3.5 px-5">
+            <h3 class="shadcn-card-title text-sm">
+                <i data-lucide="git-branch" class="h-4 w-4 text-blue-600"></i>
+                <span>Tahapan Persetujuan</span>
+            </h3>
+        </div>
+        <div class="p-0">
+            <div th:if="${tasks.isEmpty()}" class="p-6 text-center text-xs text-slate-400">
+                Belum ada proses persetujuan untuk pengajuan ini.
+            </div>
+            <div th:unless="${tasks.isEmpty()}" class="table-responsive">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200/80 text-slate-600 text-xs uppercase tracking-wider font-semibold">
+                            <th style="width: 48px;" class="py-2.5 px-4 text-center">Urutan</th>
+                            <th class="py-2.5 px-4">Tahap</th>
+                            <th class="py-2.5 px-4">Status</th>
+                            <th class="py-2.5 px-4">Diselesaikan Oleh</th>
+                            <th class="py-2.5 px-4">Tanggal Selesai</th>
+                            <th class="py-2.5 px-4">Catatan</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-xs">
+                        <tr th:each="t : ${tasks}" class="hover:bg-slate-50/50">
+                            <td class="text-center font-medium text-slate-400 py-3 px-4" th:text="${t.stepOrder}">1</td>
+                            <td class="font-semibold text-slate-800 py-3 px-4" th:text="${t.stepName}">Tahap</td>
+                            <td class="py-3 px-4">
+                                <span th:if="${t.status.name() == 'PENDING'}" class="shadcn-badge shadcn-badge-warning">
+                                    <i data-lucide="clock" class="h-3 w-3"></i>PENDING
+                                </span>
+                                <span th:if="${t.status.name() == 'APPROVED'}" class="shadcn-badge shadcn-badge-success">
+                                    <i data-lucide="check-circle-2" class="h-3 w-3"></i>APPROVED
+                                </span>
+                                <span th:if="${t.status.name() == 'REJECTED'}" class="shadcn-badge shadcn-badge-danger">
+                                    <i data-lucide="x-circle" class="h-3 w-3"></i>REJECTED
+                                </span>
+                                <span th:if="${t.status.name() == 'SKIPPED'}" class="shadcn-badge shadcn-badge-secondary">
+                                    <i data-lucide="minus-circle" class="h-3 w-3"></i>SKIPPED
+                                </span>
+                            </td>
+                            <td class="font-medium text-slate-700 py-3 px-4" th:text="${completedByNames[t.taskId]}"></td>
+                            <td class="text-slate-400 py-3 px-4" th:text="${t.completedDate != null} ? ${#dates.format(t.completedDate, 'dd-MM-yyyy HH:mm')} : ''"></td>
+                            <td class="text-slate-500 py-3 px-4" th:text="${t.note}"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

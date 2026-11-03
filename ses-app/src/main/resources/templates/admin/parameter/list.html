@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+    layout:decorate="~{layout/base}">
+
+<body>
+    <div layout:fragment="content">
+
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h5 class="fw-bold text-dark mb-0"><i data-lucide="sliders" class="h-5 w-5 inline-block text-primary me-2"></i>Parameter Aplikasi</h5>
+                <small class="text-muted">Total: <strong th:text="${parameters.size()}">0</strong> parameter terdaftar</small>
+            </div>
+            <button type="button" th:if="${pageActions['/admin/parameter'] != null and pageActions['/admin/parameter'].contains('CREATE')}"
+                onclick="openNewParamModal()" class="btn btn-primary btn-sm">
+                <i data-lucide="plus" class="h-4 w-4 inline-block me-1"></i>New Parameter
+            </button>
+        </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="paramTable" class="table table-hover table-sm w-100 align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th style="width: 45px;" class="text-center">#</th>
+                                <th>Parameter ID</th>
+                                <th>Value</th>
+                                <th>Description</th>
+                                <th>Updated By</th>
+                                <th>Updated Date</th>
+                                <th class="col-actions text-end">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="p, iter : ${parameters}">
+                                <td class="text-center text-muted" th:text="${iter.count}">1</td>
+                                <td><code class="fw-bold text-primary" th:text="${p.paramId}">KEY</code></td>
+                                <td class="text-break" style="max-width: 320px;" th:text="${p.paramValue}">value</td>
+                                <td class="text-muted small" th:text="${p.paramDesc}">desc</td>
+                                <td class="small" th:text="${p.updatedBy}"></td>
+                                <td class="small text-muted" th:text="${#dates.format(p.updatedDate, 'dd-MM-yyyy HH:mm')}"></td>
+                                <td class="col-actions text-end">
+                                    <button type="button" th:if="${pageActions['/admin/parameter'] != null and pageActions['/admin/parameter'].contains('UPDATE')}"
+                                        th:attr="data-param-id=${p.paramId}, data-param-value=${p.paramValue}, data-param-desc=${p.paramDesc}"
+                                        onclick="openEditParamModal(this)"
+                                        class="btn btn-sm btn-outline-primary" title="Edit Parameter">
+                                        <i data-lucide="pencil" class="h-4 w-4 inline-block me-1"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bootstrap Modal: Edit / New Parameter in Place -->
+        <div class="modal fade" id="paramModal" tabindex="-1" aria-labelledby="paramModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content shadow-lg border-0">
+                    <form th:action="@{/admin/parameter/save}" method="post" id="paramModalForm">
+                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                        <div class="modal-header bg-light py-3">
+                            <h5 class="modal-title fw-bold text-dark fs-6" id="paramModalLabel">
+                                <i data-lucide="sliders" class="h-4 w-4 inline-block text-primary me-2"></i><span id="paramModalTitle">Edit Parameter</span>
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body p-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small text-secondary">Parameter ID <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control font-monospace" id="modalParamId" name="paramId" required maxlength="50" style="text-transform:uppercase;"/>
+                                <div class="form-text text-muted" id="modalParamIdHint" style="font-size: 0.78rem;">
+                                    Format: HURUF_KAPITAL_DENGAN_UNDERSCORE. Tidak dapat diubah setelah dibuat.
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small text-secondary">Nilai (Value) <span class="text-danger">*</span></label>
+                                <textarea class="form-control" id="modalParamValue" name="paramValue" rows="3" required placeholder="Masukkan nilai konfigurasi..."></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small text-secondary">Deskripsi</label>
+                                <textarea class="form-control" id="modalParamDesc" name="paramDesc" rows="2" maxlength="255" placeholder="Keterangan fungsi parameter..."></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer bg-light py-2">
+                            <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
+                                <i data-lucide="x" class="h-4 w-4 inline-block me-1"></i>Batal
+                            </button>
+                            <button type="submit" class="btn btn-sm btn-primary">
+                                <i data-lucide="save" class="h-4 w-4 inline-block me-1"></i>Simpan
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <th:block layout:fragment="scripts-extra">
+        <script th:inline="none">
+            function openEditParamModal(btn) {
+                const id = btn.getAttribute('data-param-id');
+                const val = btn.getAttribute('data-param-value') || '';
+                const desc = btn.getAttribute('data-param-desc') || '';
+                
+                document.getElementById('paramModalTitle').innerText = 'Edit Parameter: ' + id;
+                const idInput = document.getElementById('modalParamId');
+                idInput.value = id;
+                idInput.readOnly = true;
+                idInput.classList.add('bg-light');
+                document.getElementById('modalParamIdHint').style.display = 'none';
+                
+                document.getElementById('modalParamValue').value = val;
+                document.getElementById('modalParamDesc').value = desc;
+                
+                const modal = new bootstrap.Modal(document.getElementById('paramModal'));
+                modal.show();
+            }
+
+            function openNewParamModal() {
+                document.getElementById('paramModalTitle').innerText = 'Tambah Parameter Baru';
+                const idInput = document.getElementById('modalParamId');
+                idInput.value = '';
+                idInput.readOnly = false;
+                idInput.classList.remove('bg-light');
+                document.getElementById('modalParamIdHint').style.display = 'block';
+                
+                document.getElementById('modalParamValue').value = '';
+                document.getElementById('modalParamDesc').value = '';
+                
+                const modal = new bootstrap.Modal(document.getElementById('paramModal'));
+                modal.show();
+            }
+
+            $(document).ready(function () {
+                $('#paramTable').DataTable({
+                    paging: false,
+                    info: false,
+                    order: [[1, 'asc']],
+                    columnDefs: [
+                        { targets: [0, -1], orderable: false, searchable: false }
+                    ],
+                    drawCallback: function () {
+                        var api = this.api();
+                        api.column(0, { search: 'applied', order: 'applied' }).nodes().each(function (cell, i) {
+                            cell.innerHTML = i + 1;
+                        });
+                    }
+                });
+            });
+        </script>
+    </th:block>
+</body>
+
+</html>

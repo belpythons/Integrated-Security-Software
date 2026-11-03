@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <span class="text-muted">Total: <strong th:text="${forms.size()}">0</strong> registered forms</span>
+        <span class="text-muted small">
+            <i data-lucide="info" class="h-4 w-4 inline-block me-1"></i>
+            Forms are registered automatically from code; only the chain mapping is editable here.
+        </span>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table id="mapTable" class="table table-hover table-sm w-100 align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>#</th>
+                            <th>Form Code</th>
+                            <th>Form Name</th>
+                            <th>Default Chain</th>
+                            <th>Overrides</th>
+                            <th class="text-center">Status</th>
+                            <th class="col-actions text-end">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="f, iter : ${forms}" th:classappend="${f.activeFlag != 'Y'} ? 'text-muted' : ''">
+                            <td th:text="${iter.count}">1</td>
+                            <td><code class="fw-bold text-primary" th:text="${f.formCode}">SES_REQUEST</code></td>
+                            <td th:text="${f.formName}">New Request</td>
+                            <td>
+                                <span th:if="${defaultChainNameByFormCode[f.formCode]} != null"
+                                      th:text="${defaultChainNameByFormCode[f.formCode]}">Chain name</span>
+                                <span th:if="${defaultChainNameByFormCode[f.formCode]} == null"></span>
+                            </td>
+                            <td><span class="badge bg-secondary rounded-pill px-2" th:text="${overrideCountByFormCode[f.formCode]}">0</span></td>
+                            <td class="text-center">
+                                <span th:if="${f.activeFlag == 'Y'}" class="badge bg-success badge-status">
+                                    <i data-lucide="check-circle-2" class="h-4 w-4 inline-block me-1"></i>Active
+                                </span>
+                                <span th:if="${f.activeFlag != 'Y'}" class="badge bg-warning text-dark badge-status" title="Descriptor bean no longer present on the classpath">
+                                    <i data-lucide="alert-triangle" class="h-4 w-4 inline-block me-1"></i>Orphaned
+                                </span>
+                            </td>
+                            <td class="col-actions text-end text-nowrap">
+                                <a th:if="${pageActions['/approval/map/form'] != null}"
+                                   th:href="@{/approval/map/edit/{code}(code=${f.formCode})}"
+                                   class="btn btn-sm btn-outline-primary me-1" title="Edit mapping">
+                                    <i data-lucide="pencil" class="h-4 w-4 inline-block me-1"></i>
+                                </a>
+                                <button th:if="${pageActions['/approval/map/form'] != null and pageActions['/approval/map/form'].contains('DELETE') and f.activeFlag != 'Y'}"
+                                        class="btn btn-sm btn-outline-danger"
+                                        th:disabled="${deletableByFormCode[f.formCode] != true}"
+                                        th:title="${deletableByFormCode[f.formCode] == true} ? 'Delete orphaned form' : 'Cannot delete: mappings still reference this form'"
+                                        th:data-code="${f.formCode}"
+                                        onclick="confirmDelete(this)">
+                                    <i data-lucide="trash-2" class="h-4 w-4 inline-block me-1"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <form id="deleteForm" method="post" style="display:none;">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+    </form>
+
+</div>
+
+<th:block layout:fragment="scripts-extra">
+<script th:inline="javascript">
+    var contextPath = /*[[@{/}]]*/ '/';
+</script>
+<script th:inline="none">
+$(document).ready(function () {
+    $('#mapTable').DataTable({
+        pageLength: 10,
+        lengthChange: false,
+        columnDefs: [{ targets: [0, -1], orderable: false, searchable: false }]
+    });
+});
+
+function confirmDelete(btn) {
+    if (btn.disabled) {
+        return;
+    }
+    Swal.fire({
+        title: 'Delete Orphaned Form?',
+        text: btn.dataset.code + ' — this removes the registry row; re-adding the module later recreates it.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Delete'
+    }).then(function (r) {
+        if (r.isConfirmed) {
+            var f = document.getElementById('deleteForm');
+            f.action = contextPath + 'approval/map/' + btn.dataset.code + '/delete';
+            f.submit();
+        }
+    });
+}
+</script>
+</th:block>
+</body>
+</html>

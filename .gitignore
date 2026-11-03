@@ -1,0 +1,121 @@
+HELP.md
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### VS Code ###
+.vscode/
+
+### Maven ###
+.mvn/
+mvnw
+mvnw.cmd
+
+### Sensitive config & secrets — override in CI/CD via env vars or external config server ###
+# Never commit real DB credentials or secrets
+**/application-prod.properties
+**/application-local.properties
+**/application-dev.properties
+**/application-cloud.properties
+**/application-cloud-new.properties
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.keystore
+*.p12
+*.jks
+
+### Logs ###
+*.log
+logs/
+
+### OS ###
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+### Local dev scripts, dumps & artifacts ###
+*.py
+*.txt
+*.aac
+*.pdf
+*.dmp
+*.dump
+*.dumpstream
+*.bak
+*.tmp
+*.swp
+*~
+*.patch
+*.diff
+
+### Root mockups and screenshots (preserves static assets in src/...) ###
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+
+### AI & Agent tools ###
+.claude/
+.gemini/
+.agents/
+.cursor/
+.windsurf/
+.cline/
+.roo/
+.aider*
+
+# Local development environment & scripts
+localdev/
+
+# Cache Python dari skrip localdev/
+__pycache__/
+*.pyc
+
+### Reference projects, local notes, & documentation ###
+maints/
+db/
+db.zip
+scratch/
+docs/*
+*.md
+!README.md
+!ses-app/README.md
+!ses-core/README.md
+!ses-ext/README.md
+!sql/README.md
+!sql/**/README.md
+!docs/DOKUMENTASI_IMPLEMENTASI_DEVSECOPS_VALIDATOR.md
+!docs/perbaikan-ses-2026-10-22.md
+!docs/perbaikan-ses-2026-10-23.md
+!docs/audit-backend-report.md
+!docs/audit-frontend-ui-report.md
+!docs/DOKUMENTASI_FITUR_PDF_SPLITTER_BUNDLE_UPLOAD.md
+!docs/DOKUMENTASI_OPTIMASI_PERFORMA_LCP_DAN_CACHING.md
+docs/ldap-kpi-alignment-plan.md
+
+
+
+!docs/LAPORAN_INVESTIGASI_DAN_PERBAIKAN_EXCEPTION_DAN_PERFORMA_20261029.md
+!docs/DOKUMENTASI_INTEGRASI_APPROVAL_BIMA.md
+
+**/application-elldev.properties

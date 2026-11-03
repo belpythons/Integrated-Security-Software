@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WebLogic deployment descriptor for SES External Gateway.
+-->
+<weblogic-web-app
+    xmlns="http://xmlns.oracle.com/weblogic/weblogic-web-app"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://xmlns.oracle.com/weblogic/weblogic-web-app
+                        http://xmlns.oracle.com/weblogic/weblogic-web-app/1.9/weblogic-web-app.xsd">
+
+    <context-root>/ses-ext</context-root>
+
+    <container-descriptor>
+        <prefer-application-packages>
+            <!-- Logging -->
+            <package-name>org.slf4j.*</package-name>
+            <package-name>org.apache.commons.logging.*</package-name>
+
+            <!-- Spring -->
+            <package-name>org.springframework.*</package-name>
+
+            <!-- JPA / Hibernate -->
+            <package-name>javax.persistence.*</package-name>
+            <package-name>org.hibernate.*</package-name>
+            <package-name>javassist.*</package-name>
+            <package-name>antlr.*</package-name>
+            <package-name>org.antlr.*</package-name>
+            <package-name>net.bytebuddy.*</package-name>
+            <package-name>com.fasterxml.classmate.*</package-name>
+
+            <!-- Validation -->
+            <package-name>javax.validation.*</package-name>
+            <package-name>org.hibernate.validator.*</package-name>
+
+            <!-- Jackson -->
+            <package-name>com.fasterxml.jackson.*</package-name>
+
+            <!-- Misc -->
+            <package-name>org.yaml.snakeyaml.*</package-name>
+            <package-name>org.aopalliance.*</package-name>
+            <package-name>org.attoparser.*</package-name>
+            <package-name>org.thymeleaf.*</package-name>
+            <package-name>org.unbescape.*</package-name>
+            <package-name>com.zaxxer.hikari.*</package-name>
+        </prefer-application-packages>
+    </container-descriptor>
+
+    <session-descriptor>
+        <cookie-name>SESSIONID_SES_EXT</cookie-name>
+    </session-descriptor>
+</weblogic-web-app>

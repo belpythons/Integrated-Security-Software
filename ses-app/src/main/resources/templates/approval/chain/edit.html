@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+
+    <!--
+      MODAL CHAIN BUILDER
+      ===================
+      The chain is saved in TWO independent halves, and that split is the whole
+      design:
+
+        1. The header (key / name / description / status) posts as an ordinary
+           form to /approval/chain/save-header.
+        2. Each STEP is saved on its own, over AJAX, through
+           /approval/chain/{id}/step/save — one modal, one round trip, one row
+           appearing in the table below.
+
+      Why not one big form? The previous editor held the entire chain — every
+      step, every assignee, every checkpoint — in unsaved DOM until a final
+      submit. A validation failure anywhere lost nothing only because the
+      controller carefully re-rendered the submitted form; a closed tab lost
+      everything. Saving per step means the admin sees each change land, and a
+      rejected step leaves the already-saved ones alone.
+
+      Consequence worth stating: a chain can exist with zero steps. That is a
+      legitimate intermediate state (it is what a brand-new chain looks like),
+      and ApprovalFormService.validChain already refuses to route anything to a
+      stepless chain, so nothing downstream can be surprised by it.
+
+      The modal lives OUTSIDE #chainHeaderForm on purpose. static/js/modal-reparent.js
+      moves every .modal to <body> on load, which would otherwise tear its
+      inputs out of the form they appeared to belong to. Nothing in the modal
+      is bound to the header form — it is submitted as its own FormData.
+    -->
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <span class="text-muted">
+            <span th:if="${chainForm.chainId == null}">New Approval Chain</span>
+            <span th:if="${chainForm.chainId != null}">
+                Editing chain: <strong th:text="${chainForm.chainKey}">DISPOSISI_STD</strong>
+            </span>
+        </span>
+        <a th:href="@{/approval/chain}" class="btn btn-outline-secondary btn-sm">
+            <i data-lucide="arrow-left" class="h-4 w-4 inline-block me-1"></i>Back to list
+        </a>
+    </div>
+
+    <form th:action="@{/approval/chain/save-header}" method="post" th:object="${chainForm}" id="chainHeaderForm">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <input type="hidden" th:field="*{chainId}"/>
+
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <strong>Chain Details</strong>
+                <button type="submit" class="btn btn-primary btn-sm"
+                        th:if="${pageActions['/approval/chain/form'] != null and pageActions['/approval/chain/form'].contains('SUBMIT')}">
+                    <i data-lucide="save" class="h-4 w-4 inline-block me-1"></i>
+                    <span th:text="${chainForm.chainId == null} ? 'Buat Rantai' : 'Simpan Header'">Simpan</span>
+                </button>
+            </div>
+            <div class="card-body row g-3">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">
+                        Chain Key <span class="text-danger" th:if="${chainForm.chainId == null}">*</span>
+                    </label>
+                    <!-- Editable only on create: immutable afterwards (historical instances
+                         snapshot chain_key by value). On edit, a disabled display input plus
+                         a hidden field carrying the real value, so the UI doesn't even imply
+                         it's editable — the service also ignores changes to it on update. -->
+                    <input type="text" class="form-control font-monospace"
+                           th:if="${chainForm.chainId == null}"
+                           th:field="*{chainKey}" required maxlength="100"
+                           placeholder="e.g. DISPOSISI_STD" style="text-transform:uppercase;"/>
+                    <input type="text" class="form-control font-monospace bg-light" readonly disabled
+                           th:if="${chainForm.chainId != null}"
+                           th:value="${chainForm.chainKey}"/>
+                    <input type="hidden" th:if="${chainForm.chainId != null}" th:field="*{chainKey}"/>
+                    <div class="form-text">Normalised uppercase; immutable after creation.</div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Chain Name <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" th:field="*{chainName}" required maxlength="200"/>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Status</label>
+                    <select class="form-select" th:field="*{activeFlag}">
+                        <option value="Y">Active</option>
+                        <option value="N">Inactive</option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label fw-semibold">Description</label>
+                    <textarea class="form-control" th:field="*{description}" rows="2" maxlength="500"></textarea>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- ===================== STEPS ===================== -->
+    <div th:if="${chainForm.chainId == null}" class="alert alert-info">
+        Simpan header rantai lebih dulu. Tahapan baru bisa ditambahkan setelah rantainya ada.
+    </div>
+
+    <div th:if="${chainForm.chainId != null}" class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <strong>Tahapan Rantai</strong>
+            <button type="button" class="btn btn-outline-primary btn-sm" id="btnAddStep"
+                    th:if="${pageActions['/approval/chain/form'] != null and pageActions['/approval/chain/form'].contains('SUBMIT')}">
+                <i data-lucide="plus" class="h-4 w-4 inline-block me-1"></i>Tambah Tahap
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0" id="stepTable">
+                    <thead class="table-light text-secondary text-uppercase fw-semibold">
+                        <tr>
+                            <th style="width:4rem">#</th>
+                            <th style="width:22%">Tahap</th>
+                            <th style="width:14%">Peran</th>
+                            <th style="width:7rem">Grup</th>
+                            <th style="width:6rem">Aturan</th>
+                            <th>Jabatan Approval &amp; Persona</th>
+                            <th style="width:16%">Checkpoint</th>
+                            <th style="width:11rem" class="text-end">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stepTableBody">
+                        <tr><td colspan="8" class="text-center text-muted py-4">Memuat…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer small text-muted">
+            Tahap dengan <strong>nomor grup sama</strong> aktif bersamaan dan semuanya harus selesai
+            sebelum grup berikutnya terbuka. Grup kosong berarti tahap itu berjalan sendiri (serial).
+            Aturan <strong>ALL</strong> berarti setiap orang yang ditunggu harus menyetujui;
+            <strong>ANY</strong> berarti keputusan pertama menentukan.
+        </div>
+    </div>
+
+    <!-- ===================== STEP MODAL ===================== -->
+    <div class="modal fade" id="stepModal" tabindex="-1" aria-hidden="true" th:if="${chainForm.chainId != null}">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="stepModalTitle">Tambah Tahap</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger d-none" id="stepModalError"></div>
+
+                    <input type="hidden" id="stepId" value=""/>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-5">
+                            <label class="form-label fw-semibold">Nama Tahap <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="stepName" maxlength="200" required/>
+                            <div class="form-text">Harus unik dalam satu rantai.</div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-semibold">Peran Tahap</label>
+                            <select class="form-select" id="stepRole" data-no-select2>
+                                <option value="">— tanpa peran —</option>
+                                <option th:each="r : ${stepRoles}" th:value="${r.name()}" th:text="${r.name()}">PERAN</option>
+                            </select>
+                            <div class="form-text" id="stepRoleHint">
+                                Peran menentukan apa yang bisa melewati tahap ini.
+                                <em>PROCUREMENT_SUPERVISOR</em> dan <em>PROCUREMENT_MANAGER</em>
+                                dikendalikan oleh satu toggle yang sama;
+                                <em>SECURITY_STAFF</em> dilewati saat pemohon tidak memilih siapa pun;
+                                <em>SECURITY_MANAGER</em> tidak pernah dilewati.
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold">Grup Paralel</label>
+                            <input type="number" class="form-control" id="parallelGroup" min="1" placeholder="serial"/>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold">Aturan Selesai</label>
+                            <select class="form-select" id="completionRule" data-no-select2>
+                                <option value="ANY">ANY</option>
+                                <option value="ALL">ALL</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Jabatan approval -->
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <strong>Jabatan Approval</strong>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnAddAssignee">
+                            <i data-lucide="plus" class="h-4 w-4 inline-block me-1"></i>Tambah Jabatan
+                        </button>
+                    </div>
+                    <div id="assigneeRows" class="mb-3"></div>
+                    <div class="form-text mb-3" id="assigneeHint">
+                        Tahap ber-peran <strong>SECURITY_STAFF</strong> tidak perlu jabatan di sini —
+                        approver-nya adalah Staf Security yang dipilih pemohon pada formulir pengajuan,
+                        dan tahap ini dilewati bila pemohon tidak memilih siapa pun.
+                    </div>
+
+                    <!-- Checkpoint -->
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <strong>Checkpoint</strong>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnAddCheckpoint">
+                            <i data-lucide="plus" class="h-4 w-4 inline-block me-1"></i>Tambah Checkpoint
+                        </button>
+                    </div>
+                    <div id="checkpointRows"></div>
+                    <div class="form-text">
+                        Tahap yang dapat dilewati (Manager Pemohon / Manager Procurement) tidak boleh
+                        membawa checkpoint — checkpoint pada tahap yang dilewati tidak akan pernah bisa
+                        diselesaikan.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-primary" id="btnSaveStep">
+                        <span class="spinner-border spinner-border-sm me-1 d-none" id="stepSpinner" role="status"></span>
+                        Simpan Tahap
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<th:block layout:fragment="scripts-extra">
+<script th:if="${chainForm.chainId != null}" th:inline="javascript">
+/*<![CDATA[*/
+var CHAIN_ID    = /*[[${chainForm.chainId}]]*/ 0;
+// Server-rendered rows for the step table — same shape GET /steps returns —
+// so the table paints on first load instead of showing "Memuat..." through
+// an AJAX roundtrip. Null on the new-chain page (no initialSteps attribute),
+// where there is nothing to render yet anyway.
+var INITIAL_STEPS = /*[[${initialSteps} ?: null]]*/ null;
+var CTX         = /*[[@{/}]]*/ '/';
+var CSRF_HEADER = /*[[${_csrf.headerName}]]*/ 'X-CSRF-TOKEN';
+var CSRF_TOKEN  = /*[[${_csrf.token}]]*/ '';
+var POSITIONS   = /*[[${positionOptions}]]*/ [];
+var USERS       = /*[[${userOptions}]]*/ [];
+var CHECKPOINTS = /*[[${checkpointOptions}]]*/ [];
+// UPDATE *or* SUBMIT. This used to read SUBMIT only, while
+// approval/chain/list.html gates its Edit link on UPDATE — so a role holding
+// UPDATE and not SUBMIT could open this editor and find the step table had no
+// Ubah, Hapus or reorder buttons at all. The page looked broken rather than
+// restricted, which is the worst of both.
+var CAN_EDIT    = /*[[${pageActions['/approval/chain/form'] != null and (pageActions['/approval/chain/form'].contains('UPDATE') or pageActions['/approval/chain/form'].contains('SUBMIT'))}]]*/ false;
+var CAN_DELETE  = /*[[${pageActions['/approval/chain/form'] != null and pageActions['/approval/chain/form'].contains('DELETE')}]]*/ false;
+/*]]>*/
+</script>
+<script th:if="${chainForm.chainId != null}" th:inline="none">
+(function () {
+    'use strict';
+
+    var $body = $('#stepTableBody');
+    function getModal() {
+        var el = document.getElementById('stepModal');
+        return el ? bootstrap.Modal.getOrCreateInstance(el) : null;
+    }
+
+    function esc(s) {
+        return $('<div>').text(s == null ? '' : s).html();
+    }
+
+    // ---- POST helper -------------------------------------------------
+    // fetch, not $.getJSON: these are mutating calls that need the CSRF
+    // header, and one of them (step save) posts a body. credentials
+    // same-origin keeps the session cookie on a WAR deployed under a
+    // context path.
+    function post(url, body) {
+        var headers = {};
+        headers[CSRF_HEADER] = CSRF_TOKEN;
+        return fetch(CTX + url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: headers,
+            body: body
+        }).then(function (res) {
+            return res.json().catch(function () { return null; }).then(function (data) {
+                if (!res.ok) {
+                    // The server's 400 body carries a message written for the
+                    // admin reading it — surface that, never a status code.
+                    throw new Error((data && data.message) || 'Gagal menyimpan (HTTP ' + res.status + ').');
+                }
+                return data;
+            });
+        });
+    }
+
+    // ---- Step table --------------------------------------------------
+    function renderSteps(steps) {
+        $body.empty();
+        if (!steps || !steps.length) {
+            $body.append('<tr><td colspan="8" class="text-center text-muted py-4">'
+                + 'Belum ada tahap. Rantai tanpa tahap tidak akan dipakai untuk pengajuan apa pun.</td></tr>');
+            return;
+        }
+        steps.forEach(function (s, i) {
+            var personas = (s.assignees || []).map(function (a) {
+                return '<div class="small"><span class="badge bg-light text-dark border me-1">'
+                    + esc(a.assigneeType) + '</span>' + esc(a.persona) + '</div>';
+            }).join('');
+
+            var cps = (s.checkpoints || []).map(function (c) {
+                return '<span class="badge bg-info text-dark me-1 mb-1" title="' + esc(c.checkpointKey) + '">'
+                    + esc(c.taskLabel) + '</span>';
+            }).join('');
+
+            var role = s.stepRole
+                ? '<span class="badge bg-warning text-dark">' + esc(s.stepRole) + '</span>'
+                : '';
+
+            var group = (s.parallelGroup == null)
+                ? '<span class="text-muted" title="Berjalan sendiri">serial</span>'
+                : '<span class="badge bg-secondary">' + esc(s.parallelGroup) + '</span>';
+
+            var rule = s.completionRule === 'ALL'
+                ? '<span class="badge bg-dark">ALL</span>'
+                : '<span class="text-muted">ANY</span>';
+
+            var actions = '';
+            if (CAN_EDIT) {
+                actions += '<button type="button" class="btn btn-sm btn-outline-secondary me-1" data-move="up" '
+                        + (i === 0 ? 'disabled ' : '') + 'title="Naik"><i data-lucide="arrow-up" class="h-4 w-4 inline-block"></i></button>';
+                actions += '<button type="button" class="btn btn-sm btn-outline-secondary me-1" data-move="down" '
+                        + (i === steps.length - 1 ? 'disabled ' : '') + 'title="Turun"><i data-lucide="arrow-down" class="h-4 w-4 inline-block"></i></button>';
+                actions += '<button type="button" class="btn btn-sm btn-outline-primary me-1" data-edit title="Ubah">'
+                        + '<i data-lucide="pencil" class="h-4 w-4 inline-block me-1"></i></button>';
+            }
+            if (CAN_DELETE) {
+                actions += '<button type="button" class="btn btn-sm btn-outline-danger" data-delete title="Hapus">'
+                        + '<i data-lucide="trash-2" class="h-4 w-4 inline-block me-1"></i></button>';
+            }
+
+            var $tr = $('<tr>').data('step', s).html(
+                  '<td>' + esc(s.stepOrder) + '</td>'
+                + '<td><strong>' + esc(s.stepName) + '</strong></td>'
+                + '<td>' + role + '</td>'
+                + '<td>' + group + '</td>'
+                + '<td>' + rule + '</td>'
+                + '<td>' + personas + '</td>'
+                + '<td>' + cps + '</td>'
+                + '<td class="text-end text-nowrap">' + actions + '</td>');
+            $body.append($tr);
+        });
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+        }
+    }
+
+    function loadSteps() {
+        return fetch(CTX + 'approval/chain/' + CHAIN_ID + '/steps', {credentials: 'same-origin'})
+            .then(function (r) { return r.json(); })
+            .then(renderSteps)
+            .catch(function () {
+                $body.html('<tr><td colspan="8" class="text-danger text-center py-4">'
+                    + 'Gagal memuat daftar tahap.</td></tr>');
+            });
+    }
+
+    // ---- Modal rows --------------------------------------------------
+    function optionList(items, valueKey, labelKey, selected) {
+        return items.map(function (it) {
+            var v = it[valueKey];
+            var isSel = (selected != null && String(v) === String(selected));
+            return '<option value="' + esc(v) + '"' + (isSel ? ' selected' : '') + '>'
+                + esc(it[labelKey]) + '</option>';
+        }).join('');
+    }
+
+    function assigneeRow(a) {
+        a = a || {};
+        var $row = $('<div class="row g-2 mb-2 align-items-center assignee-row">');
+        $row.html(
+              '<div class="col-md-3">'
+            +   '<select class="form-select form-select-sm a-type" data-no-select2>'
+            +     '<option value="POSITION">POSITION</option>'
+            +     '<option value="USER">USER</option>'
+            +     '<option value="REQUESTOR_MANAGER">REQUESTOR_MANAGER</option>'
+            +     '<option value="REPORT_TO">REPORT_TO</option>'
+            +   '</select>'
+            + '</div>'
+            + '<div class="col-md-8">'
+            +   '<select class="form-select form-select-sm a-pos" data-no-select2>'
+            +     '<option value="">— pilih jabatan —</option>'
+            +     optionList(POSITIONS, 'id', 'label', a.posId) + '</select>'
+            +   '<select class="form-select form-select-sm a-user d-none" data-no-select2>'
+            +     '<option value="">— pilih user —</option>'
+            +     optionList(USERS, 'id', 'label', a.userId) + '</select>'
+            +   '<div class="form-text a-note d-none">Tidak perlu memilih siapa pun — '
+            +     'penerimanya dihitung dari pemohon saat pengajuan dibuat.</div>'
+            + '</div>'
+            + '<div class="col-md-1 text-end">'
+            +   '<button type="button" class="btn btn-sm btn-outline-danger a-del"><i data-lucide="x" class="h-4 w-4 inline-block me-1"></i></button>'
+            + '</div>');
+        if (a.assigneeType) { $row.find('.a-type').val(a.assigneeType); }
+        syncAssigneeRow($row);
+        return $row;
+    }
+
+    // POSITION needs a position, USER needs a user, the two dynamic types need
+    // neither. Both selects stay in the DOM and only the irrelevant one is
+    // hidden — StepRow.toStepInput() is what drops the stale value, so a type
+    // switch can never persist a leftover id.
+    function syncAssigneeRow($row) {
+        var type = $row.find('.a-type').val();
+        $row.find('.a-pos').toggleClass('d-none', type !== 'POSITION');
+        $row.find('.a-user').toggleClass('d-none', type !== 'USER');
+        $row.find('.a-note').toggleClass('d-none', type === 'POSITION' || type === 'USER');
+    }
+
+    function checkpointRow(c) {
+        c = c || {};
+        var $row = $('<div class="row g-2 mb-2 align-items-center checkpoint-row">');
+        $row.html(
+              '<div class="col-md-5">'
+            +   '<input type="text" class="form-control form-control-sm c-label" maxlength="200" '
+            +     'placeholder="Label checkpoint" value="' + esc(c.taskLabel) + '"/>'
+            + '</div>'
+            + '<div class="col-md-6">'
+            +   '<select class="form-select form-select-sm c-key" data-no-select2>'
+            +     '<option value="">— pilih checkpoint —</option>'
+            +     optionList(CHECKPOINTS, 'id', 'label', c.checkpointKey) + '</select>'
+            + '</div>'
+            + '<div class="col-md-1 text-end">'
+            +   '<button type="button" class="btn btn-sm btn-outline-danger c-del"><i data-lucide="x" class="h-4 w-4 inline-block me-1"></i></button>'
+            + '</div>');
+        return $row;
+    }
+
+    function openModal(step) {
+        $('#stepModalError').addClass('d-none').text('');
+        $('#stepId').val(step ? step.stepId : '');
+        $('#stepName').val(step ? step.stepName : '');
+        $('#stepRole').val(step ? (step.stepRole || '') : '');
+        $('#parallelGroup').val(step && step.parallelGroup != null ? step.parallelGroup : '');
+        $('#completionRule').val(step ? (step.completionRule || 'ANY') : 'ANY');
+        $('#stepModalTitle').text(step ? 'Ubah Tahap' : 'Tambah Tahap');
+
+        var $a = $('#assigneeRows').empty();
+        ((step && step.assignees) || []).forEach(function (a) { $a.append(assigneeRow(a)); });
+
+        var $c = $('#checkpointRows').empty();
+        ((step && step.checkpoints) || []).forEach(function (c) { $c.append(checkpointRow(c)); });
+        if (window.lucide && typeof window.lucide.createIcons === 'function') { window.lucide.createIcons(); }
+
+        var m = getModal();
+        if (m) {
+            m.show();
+        }
+    }
+
+    function collect() {
+        var fd = new FormData();
+        fd.append('stepId', $('#stepId').val());
+        fd.append('stepName', $('#stepName').val());
+        fd.append('stepRole', $('#stepRole').val());
+        fd.append('parallelGroup', $('#parallelGroup').val());
+        fd.append('completionRule', $('#completionRule').val());
+
+        // Indexed binding, exactly the names the whole-form editor posts, so
+        // the server binds this into the same StepRow and both doors share one
+        // mapping (StepRow.toStepInput).
+        var i = 0;
+        $('#assigneeRows .assignee-row').each(function () {
+            var $r = $(this);
+            var type = $r.find('.a-type').val();
+            if (!type) { return; }
+            fd.append('assignees[' + i + '].assigneeType', type);
+            fd.append('assignees[' + i + '].posId', $r.find('.a-pos').val() || '');
+            fd.append('assignees[' + i + '].userId', $r.find('.a-user').val() || '');
+            i++;
+        });
+
+        var j = 0;
+        $('#checkpointRows .checkpoint-row').each(function () {
+            var $r = $(this);
+            var key = $r.find('.c-key').val();
+            if (!key) { return; }
+            fd.append('tasks[' + j + '].checkpointKey', key);
+            fd.append('tasks[' + j + '].taskLabel', $r.find('.c-label').val() || '');
+            j++;
+        });
+        return fd;
+    }
+
+    // ---- Wiring ------------------------------------------------------
+    $('#btnAddStep').on('click', function () { openModal(null); });
+    $('#btnAddAssignee').on('click', function () {
+        $('#assigneeRows').append(assigneeRow(null));
+        if (window.lucide && typeof window.lucide.createIcons === 'function') { window.lucide.createIcons(); }
+    });
+    $('#btnAddCheckpoint').on('click', function () {
+        $('#checkpointRows').append(checkpointRow(null));
+        if (window.lucide && typeof window.lucide.createIcons === 'function') { window.lucide.createIcons(); }
+    });
+
+    $('#assigneeRows').on('change', '.a-type', function () { syncAssigneeRow($(this).closest('.assignee-row')); });
+    $('#assigneeRows').on('click', '.a-del', function () { $(this).closest('.assignee-row').remove(); });
+    $('#checkpointRows').on('click', '.c-del', function () { $(this).closest('.checkpoint-row').remove(); });
+
+    // Label defaults to the checkpoint's own name, which is what an admin
+    // wants nine times in ten and is still editable.
+    $('#checkpointRows').on('change', '.c-key', function () {
+        var $row = $(this).closest('.checkpoint-row');
+        if (!$row.find('.c-label').val()) {
+            $row.find('.c-label').val($(this).find('option:selected').text());
+        }
+    });
+
+    $('#btnSaveStep').on('click', function () {
+        var name = ($('#stepName').val() || '').trim();
+        if (!name) {
+            $('#stepModalError').removeClass('d-none').text('Nama tahap wajib diisi.');
+            return;
+        }
+        var $btn = $(this).prop('disabled', true);
+        $('#stepSpinner').removeClass('d-none');
+        $('#stepModalError').addClass('d-none').text('');
+
+        post('approval/chain/' + CHAIN_ID + '/step/save', collect())
+            .then(function (steps) {
+                renderSteps(steps);
+                var m = getModal();
+                if (m) {
+                    m.hide();
+                }
+            })
+            .catch(function (err) {
+                $('#stepModalError').removeClass('d-none').text(err.message);
+            })
+            .then(function () {
+                $btn.prop('disabled', false);
+                $('#stepSpinner').addClass('d-none');
+            });
+    });
+
+    $body.on('click', '[data-edit]', function () {
+        openModal($(this).closest('tr').data('step'));
+    });
+
+    $body.on('click', '[data-delete]', function () {
+        var step = $(this).closest('tr').data('step');
+        if (!step) { return; }
+
+        var promptHtml = 'Tahap <strong>' + esc(step.stepName) + '</strong> beserta jabatan dan checkpoint-nya '
+            + 'akan dihapus dari rantai.<br/><span class="text-muted small">Pengajuan yang sedang '
+            + 'berjalan tidak terpengaruh (menyimpan salinan bekunya sendiri).</span>';
+
+        function doDelete() {
+            post('approval/chain/' + CHAIN_ID + '/step/' + step.stepId + '/delete', new FormData())
+                .then(function (steps) {
+                    renderSteps(steps);
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Terhapus',
+                            text: 'Tahap berhasil dihapus dari rantai.',
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                    }
+                })
+                .catch(function (err) {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire('Tidak bisa dihapus', err.message, 'error');
+                    } else {
+                        alert('Tidak bisa dihapus: ' + err.message);
+                    }
+                });
+        }
+
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Hapus tahap ini?',
+                html: promptHtml,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Ya, Hapus',
+                cancelButtonText: 'Batal',
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                reverseButtons: true
+            }).then(function (r) {
+                if (r.isConfirmed) {
+                    doDelete();
+                }
+            });
+        } else if (confirm('Hapus tahap ini?\n\nTahap "' + step.stepName + '" akan dihapus.')) {
+            doDelete();
+        }
+    });
+
+    $body.on('click', '[data-move]', function () {
+        var dir = $(this).attr('data-move') === 'up' ? -1 : 1;
+        var ids = $body.find('tr').map(function () {
+            var s = $(this).data('step');
+            return s ? s.stepId : null;
+        }).get();
+        var idx = $body.find('tr').index($(this).closest('tr'));
+        var target = idx + dir;
+        if (target < 0 || target >= ids.length) { return; }
+        var moved = ids.splice(idx, 1)[0];
+        ids.splice(target, 0, moved);
+
+        var fd = new FormData();
+        ids.forEach(function (id) { fd.append('stepIds', id); });
+        post('approval/chain/' + CHAIN_ID + '/step/reorder', fd)
+            .then(renderSteps)
+            .catch(function (err) { Swal.fire('Gagal mengurutkan', err.message, 'error'); });
+    });
+
+    if (INITIAL_STEPS) {
+        renderSteps(INITIAL_STEPS);
+    } else {
+        loadSteps();
+    }
+})();
+</script>
+</th:block>
+</body>
+</html>

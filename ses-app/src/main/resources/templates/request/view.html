@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <span class="text-muted">
+            <code th:text="${requestNo}">REQ-2026-0001</code>
+            <span th:if="${status == 'DRAFT'}" class="badge bg-light text-dark border ms-1">Draft</span>
+            <span th:if="${status == 'WAITING_FOR_UPLOAD'}" class="badge bg-info text-dark ms-1">
+                <i class="bi bi-envelope-paper me-1"></i>Menunggu Dokumen
+            </span>
+            <span th:if="${status == 'PENDING'}" class="badge bg-warning text-dark ms-1">Pending</span>
+            <span th:if="${status == 'APPROVED'}" class="badge bg-success ms-1">Approved</span>
+            <span th:if="${status == 'REJECTED'}" class="badge bg-danger ms-1">Rejected</span>
+            <span th:if="${status == 'CANCELLED'}" class="badge bg-secondary ms-1">Cancelled</span>
+        </span>
+        <span>
+            <!-- Only an APPROVED request can be printed: the sheet names four
+                 signatories and carries a QR asserting the permit is valid, so
+                 producing one mid-flow would put a document into circulation
+                 claiming approvals nobody has given. RequestDocumentService
+                 enforces the same rule server-side — this only hides a button
+                 that would fail. -->
+            <!-- Only while the request is actually waiting, and only for
+                 someone who may submit. Re-issuing kills the previous token,
+                 so it is confirmed before it fires. -->
+            <button th:if="${status == 'WAITING_FOR_UPLOAD' and pageActions['/request/form'] != null and pageActions['/request/form'].contains('SUBMIT')}"
+                    type="button" class="btn btn-outline-primary btn-sm me-1" id="btnResendUpload">
+                <i class="bi bi-envelope-arrow-up me-1"></i>Kirim Ulang Tautan Upload
+            </button>
+            <a th:if="${(status == 'PENDING' or status == 'DRAFT' or status == 'WAITING_FOR_UPLOAD') and pageActions['/request/form'] != null and pageActions['/request/form'].contains('SUBMIT')}"
+               th:href="@{/request/{id}(id=${requestForm.requestId})}"
+               class="btn btn-outline-primary btn-sm me-1">
+                <i class="bi bi-pencil me-1"></i>Edit
+            </a>
+            <button th:if="${(status == 'PENDING' or status == 'DRAFT' or status == 'WAITING_FOR_UPLOAD') and pageActions['/request/form'] != null and pageActions['/request/form'].contains('SUBMIT')}"
+                    type="button" class="btn btn-outline-danger btn-sm me-1" id="btnCancelFromView">
+                <i class="bi bi-x-circle me-1"></i>Cancel Request
+            </button>
+            <a th:if="${status == 'APPROVED'}"
+               th:href="@{/request/{id}/document.pdf(id=${requestForm.requestId})}"
+               target="_blank"
+               class="btn btn-primary btn-sm me-1" id="btnPrintRequest">
+                <i class="bi bi-file-earmark-pdf me-1"></i>Generate Dokumen
+            </a>
+            <a th:if="${status == 'APPROVED' and pageActions['/request/form'] != null and pageActions['/request/form'].contains('SUBMIT')}"
+               th:href="@{/request/{id}/renew(id=${requestForm.requestId})}"
+               class="btn btn-success btn-sm me-1">
+                <i class="bi bi-arrow-repeat me-1"></i>Renew
+            </a>
+            <a th:href="@{/request}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left me-1"></i>Back to list
+            </a>
+        </span>
+    </div>
+
+    <th:block th:insert="~{request/fragments/request-detail :: detail}"></th:block>
+
+    <th:block th:if="${schedules != null}" th:insert="~{scheduling/fragments/schedule-detail :: detail}"></th:block>
+
+    <div class="mb-4" th:if="${approvalSummary != null and approvalSummary.instance != null}">
+        <th:block th:insert="~{approval/fragments/approval-summary :: card(${approvalSummary})}"></th:block>
+    </div>
+    <div class="card shadow-sm mb-4" th:if="${approvalSummary == null or approvalSummary.instance == null}">
+        <div class="card-header bg-light"><strong>Alur Persetujuan</strong></div>
+        <div class="card-body">
+            <div class="text-muted small">
+                Belum ada proses persetujuan yang berjalan untuk pengajuan ini.
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<th:block layout:fragment="scripts-extra">
+
+<!-- Resend confirm. Re-issuing invalidates the link already in someone's
+     inbox, so the dialog says that rather than asking a bare "are you sure?" -->
+<script th:if="${status == 'WAITING_FOR_UPLOAD'}" th:inline="javascript">
+(function () {
+    var btn = document.getElementById('btnResendUpload');
+    if (!btn) { return; }
+    var action = /*[[@{/request/{id}/resend-upload-link(id=${requestForm.requestId})}]]*/ '';
+    var csrfName = /*[[${_csrf.parameterName}]]*/ '';
+    var csrfToken = /*[[${_csrf.token}]]*/ '';
+    var email = /*[[${requestForm.email}]]*/ '';
+
+    btn.addEventListener('click', function () {
+        Swal.fire({
+            title: 'Kirim ulang tautan unggah?',
+            html: 'Tautan baru akan dikirim ke <b>' + (email || '(alamat belum diisi)') + '</b>.'
+                + '<br/><br/>Tautan yang dikirim sebelumnya <b>langsung tidak berlaku</b>, '
+                + 'termasuk bila sudah diteruskan ke orang lain.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Ya, kirim ulang',
+            cancelButtonText: 'Batal'
+        }).then(function (res) {
+            if (!res.isConfirmed) { return; }
+            var f = document.createElement('form');
+            f.method = 'post';
+            f.action = action;
+            var t = document.createElement('input');
+            t.type = 'hidden';
+            t.name = csrfName;
+            t.value = csrfToken;
+            f.appendChild(t);
+            document.body.appendChild(f);
+            f.submit();
+        });
+    });
+})();
+</script>
+
+<script th:if="${(status == 'PENDING' or status == 'DRAFT' or status == 'WAITING_FOR_UPLOAD') and pageActions['/request/form'] != null and pageActions['/request/form'].contains('SUBMIT')}" th:inline="javascript">
+(function () {
+    var btn = document.getElementById('btnCancelFromView');
+    if (!btn) { return; }
+    var action = /*[[@{/request/{id}/cancel(id=${requestForm.requestId})}]]*/ '';
+    var csrfName = /*[[${_csrf.parameterName}]]*/ '';
+    var csrfToken = /*[[${_csrf.token}]]*/ '';
+    var reqNo = /*[[${requestNo}]]*/ '';
+
+    btn.addEventListener('click', function () {
+        Swal.fire({
+            title: 'Batalkan Pengajuan?',
+            text: reqNo + ' — pengajuan yang dibatalkan tidak dapat dipulihkan.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Ya, Batalkan Pengajuan',
+            cancelButtonText: 'Kembali'
+        }).then(function (res) {
+            if (!res.isConfirmed) { return; }
+            var f = document.createElement('form');
+            f.method = 'post';
+            f.action = action;
+            var t = document.createElement('input');
+            t.type = 'hidden';
+            t.name = csrfName;
+            t.value = csrfToken;
+            f.appendChild(t);
+            document.body.appendChild(f);
+            f.submit();
+        });
+    });
+})();
+</script>
+</th:block>
+</body>
+</html>

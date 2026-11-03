@@ -1,0 +1,182 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 210 100% 12%; /* #001e3c */
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 185 100% 50%; /* #00e5ff */
+    --accent-foreground: 222 47% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 209 100% 33%; /* #0054a6 */
+    --radius: 0.65rem;
+  }
+
+  .dark {
+    --background: 222 47% 5%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 8%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 8%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 185 100% 50%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-slate-50 text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  /* Shadcn Button Variants */
+  .shadcn-btn {
+    @apply inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-4 py-2 gap-2;
+  }
+  .shadcn-btn-primary {
+    @apply shadcn-btn bg-[#001e3c] text-white hover:bg-[#002f5e] shadow-sm active:scale-[0.98];
+  }
+  .shadcn-btn-blue {
+    @apply shadcn-btn bg-[#0054a6] text-white hover:bg-[#003f7d] shadow-sm active:scale-[0.98];
+  }
+  .shadcn-btn-destructive {
+    @apply shadcn-btn bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm active:scale-[0.98];
+  }
+  .shadcn-btn-outline {
+    @apply shadcn-btn border border-input bg-background hover:bg-slate-100 hover:text-slate-900 active:scale-[0.98];
+  }
+  .shadcn-btn-secondary {
+    @apply shadcn-btn bg-slate-100 text-slate-900 hover:bg-slate-200/80 active:scale-[0.98];
+  }
+  .shadcn-btn-ghost {
+    @apply shadcn-btn hover:bg-slate-100 hover:text-slate-900;
+  }
+  .shadcn-btn-link {
+    @apply shadcn-btn text-primary underline-offset-4 hover:underline p-0 h-auto;
+  }
+  .shadcn-btn-soft-primary {
+    @apply shadcn-btn bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200/60 active:scale-[0.98];
+  }
+  .shadcn-btn-soft-success {
+    @apply shadcn-btn bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200/60 active:scale-[0.98];
+  }
+  .shadcn-btn-soft-warning {
+    @apply shadcn-btn bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200/60 active:scale-[0.98];
+  }
+  .shadcn-btn-pill {
+    @apply rounded-full;
+  }
+  .shadcn-btn-sm {
+    @apply h-8 rounded-md px-3 text-xs;
+  }
+  .shadcn-btn-lg {
+    @apply h-11 rounded-xl px-8 text-base;
+  }
+  .shadcn-btn-icon {
+    @apply h-9 w-9 p-0;
+  }
+
+  /* Shadcn Card */
+  .shadcn-card {
+    @apply rounded-xl border border-slate-200/80 bg-white text-slate-950 shadow-sm;
+  }
+  .shadcn-card-header {
+    @apply flex flex-col space-y-1.5 p-5 border-b border-slate-100;
+  }
+  .shadcn-card-title {
+    @apply text-base font-semibold leading-none tracking-tight text-slate-900 flex items-center gap-2;
+  }
+  .shadcn-card-description {
+    @apply text-xs text-slate-500;
+  }
+  .shadcn-card-content {
+    @apply p-5;
+  }
+  .shadcn-card-footer {
+    @apply flex items-center p-5 pt-0;
+  }
+
+  /* Shadcn Table */
+  .shadcn-table-container {
+    @apply relative w-full overflow-auto rounded-lg border border-slate-200/80 bg-white;
+  }
+  .shadcn-table {
+    @apply w-full caption-bottom text-sm;
+  }
+  .shadcn-thead {
+    @apply bg-slate-50/80 border-b border-slate-200;
+  }
+  .shadcn-th {
+    @apply h-10 px-4 text-left align-middle font-semibold text-slate-600 text-xs uppercase tracking-wider select-none;
+  }
+  .shadcn-tbody {
+    @apply divide-y divide-slate-100;
+  }
+  .shadcn-tr {
+    @apply transition-colors hover:bg-slate-50/80;
+  }
+  .shadcn-td {
+    @apply p-3.5 px-4 align-middle text-slate-700 text-sm;
+  }
+
+  /* Shadcn Input & Select */
+  .shadcn-input {
+    @apply flex h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0054a6] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .shadcn-select {
+    @apply flex h-9 w-full rounded-lg border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0054a6] disabled:cursor-not-allowed disabled:opacity-50 text-slate-700;
+  }
+
+  /* Shadcn Badges */
+  .shadcn-badge {
+    @apply inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 gap-1;
+  }
+  .shadcn-badge-default {
+    @apply border-transparent bg-[#001e3c] text-white hover:bg-[#001e3c]/80;
+  }
+  .shadcn-badge-secondary {
+    @apply border-transparent bg-slate-100 text-slate-900 hover:bg-slate-200/80;
+  }
+  .shadcn-badge-success {
+    @apply border-emerald-200 bg-emerald-50 text-emerald-700;
+  }
+  .shadcn-badge-warning {
+    @apply border-amber-200 bg-amber-50 text-amber-800;
+  }
+  .shadcn-badge-danger {
+    @apply border-rose-200 bg-rose-50 text-rose-700;
+  }
+  .shadcn-badge-info {
+    @apply border-blue-200 bg-blue-50 text-blue-700;
+  }
+}

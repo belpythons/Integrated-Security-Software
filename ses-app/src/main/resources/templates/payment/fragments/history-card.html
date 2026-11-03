@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+    Append-only submit/approve/reject timeline for one payment item. Reads
+    ${paymentHistory} (ascending, oldest first — same convention as
+    approval/detail.html's Steps table) and ${historyActorNames} (Map<Long
+    historyId, String username>) straight off the calling template's model.
+    Shared by payment/detail.html (requestor) and payment/verify-detail.html
+    (admin).
+-->
+<th:block th:fragment="history">
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-light"><strong>History</strong></div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm align-middle mb-0">
+                    <thead class="table-light text-secondary text-uppercase fw-semibold">
+                        <tr>
+                            <th>Action</th>
+                            <th>By</th>
+                            <th>Date</th>
+                            <th>Detail</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${paymentHistory == null or paymentHistory.isEmpty()}">
+                            <td colspan="4" class="text-muted text-center py-3">No activity yet.</td>
+                        </tr>
+                        <tr th:each="h : ${paymentHistory}">
+                            <td>
+                                <span th:if="${h.action.name() == 'SUBMITTED'}" class="badge bg-info text-dark">Submitted</span>
+                                <span th:if="${h.action.name() == 'SUBMITTED_ON_BEHALF'}" class="badge bg-primary">Paid by officer</span>
+                                <span th:if="${h.action.name() == 'APPROVED'}" class="badge bg-success">Approved</span>
+                                <span th:if="${h.action.name() == 'REJECTED'}" class="badge bg-danger">Rejected</span>
+                                <span th:if="${h.action.name() == 'CANCELLED'}" class="badge bg-secondary">Cancelled</span>
+                                <span th:if="${h.action.name() == 'REFUND_FLAGGED'}" class="badge bg-warning text-dark">Refund needed</span>
+                            </td>
+                            <td th:text="${historyActorNames[h.historyId]} ?: h.actorUserId">user</td>
+                            <td th:text="${#dates.format(h.actorDate, 'dd-MM-yyyy HH:mm')}">18-08-2026 10:00</td>
+                            <td>
+                                <div th:if="${h.proofFileId != null and !#strings.isEmpty(h.proofFileId)}" style="max-width:260px">
+                                    <div th:replace="~{layout/fragments/attachment :: card(${h.proofFileId}, 'Proof of Payment')}"></div>
+                                </div>
+                                <span th:if="${h.reason != null and !#strings.isEmpty(h.reason)}" th:text="${h.reason}">reason</span>
+                                <span th:if="${h.amount != null}" th:text="'Rp ' + ${#numbers.formatInteger(h.amount, 1, 'POINT')} + ' received'">Rp 150.000 received</span>
+                                <span th:if="${(h.proofFileId == null or #strings.isEmpty(h.proofFileId)) and (h.reason == null or #strings.isEmpty(h.reason)) and h.amount == null}"></span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</th:block>
+</body>
+</html>

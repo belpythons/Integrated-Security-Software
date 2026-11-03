@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+    layout:decorate="~{layout/base}">
+
+<head>
+    <style>
+        /* FullCalendar Custom Theme Integration */
+        #calendar {
+            min-height: 640px;
+        }
+
+        .fc {
+            font-family: inherit;
+        }
+
+        .fc .fc-toolbar {
+            margin-bottom: 1.25rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .fc .fc-toolbar-title {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--navy, #003B73);
+        }
+
+        .fc .fc-button-primary {
+            background-color: #fff;
+            color: #475569;
+            border-color: #cbd5e1;
+            font-weight: 500;
+            padding: 0.35rem 0.75rem;
+            border-radius: 0.375rem;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            transition: all 0.15s ease;
+        }
+
+        .fc .fc-button-primary:hover {
+            background-color: #f1f5f9;
+            color: var(--navy, #003B73);
+            border-color: #94a3b8;
+        }
+
+        .fc .fc-button-primary:not(:disabled).fc-button-active,
+        .fc .fc-button-primary:not(:disabled):active {
+            background: linear-gradient(180deg, var(--blue, #0054A6) 0%, var(--navy, #003B73) 100%);
+            color: #fff;
+            border-color: var(--navy, #003B73);
+        }
+
+        .fc .fc-today-button {
+            font-weight: 600;
+        }
+
+        /* FullCalendar Table Header - Match Project's Standard Compact Navy Table Header */
+        .fc-theme-standard th,
+        .fc-col-header,
+        .fc-col-header-cell {
+            background: linear-gradient(180deg, #001e3c 0%, #001024 100%) !important;
+            border-color: #000c1c !important;
+            padding: 8px 0;
+            vertical-align: middle;
+        }
+
+        /* Override Bootstrap blue link styling on FullCalendar header cushions */
+        .fc-col-header-cell-cushion {
+            color: #ffffff !important;
+            text-decoration: none !important;
+            font-weight: 700;
+            font-size: 0.73rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            display: inline-block;
+            padding: 4px 6px;
+        }
+
+        .fc-col-header-cell-cushion:hover,
+        .fc-col-header-cell-cushion:focus {
+            color: #ffffff !important;
+            text-decoration: none !important;
+        }
+
+        /* FullCalendar Agenda / List View Day Header - Match Table View Navy Gradient & White Typography */
+        .fc-theme-standard .fc-list-day-cushion,
+        .fc-list-day-cushion,
+        .fc-list-day-cushion.fc-cell-shaded,
+        .fc-list-day th {
+            background: linear-gradient(180deg, #001e3c 0%, #001024 100%) !important;
+            border-color: #000c1c !important;
+            color: #ffffff !important;
+            padding: 8px 14px !important;
+            vertical-align: middle;
+        }
+
+        .fc-list-day-cushion a,
+        .fc-list-day-text,
+        .fc-list-day-side-text {
+            color: #ffffff !important;
+            text-decoration: none !important;
+            font-weight: 700 !important;
+            font-size: 0.78rem !important;
+            letter-spacing: 0.05em !important;
+            text-transform: uppercase !important;
+        }
+
+        .fc-list-day-cushion a:hover,
+        .fc-list-day-cushion a:focus {
+            color: #ffffff !important;
+            text-decoration: none !important;
+            opacity: 0.95;
+        }
+
+        .fc-theme-standard .fc-list {
+            border-radius: var(--radius, 0.75rem);
+            overflow: hidden;
+            border: 1px solid rgba(226, 232, 240, 0.95);
+        }
+
+        .fc-theme-standard .fc-scrollgrid {
+            border-radius: var(--radius, 0.75rem);
+            overflow: hidden;
+            border: 1px solid rgba(226, 232, 240, 0.95);
+        }
+
+        .fc-theme-standard .fc-list-table tr:hover td {
+            background-color: #eaf0f8 !important;
+        }
+
+        /* Day grid number links (1, 2, 3...) */
+        .fc-daygrid-day-number {
+            color: #475569;
+            text-decoration: none !important;
+            font-weight: 500;
+            font-size: 0.85rem;
+            padding: 4px 6px;
+        }
+
+        .fc-daygrid-day-number:hover {
+            color: var(--blue, #0054A6);
+            text-decoration: none !important;
+        }
+
+        .fc-day-today {
+            background-color: rgba(0, 84, 166, 0.05) !important;
+        }
+
+        .fc-day-today .fc-daygrid-day-number {
+            background: var(--blue, #0054A6) !important;
+            color: #ffffff !important;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin: 2px 4px;
+            font-weight: 700;
+            text-decoration: none !important;
+        }
+
+        .fc-event {
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            margin-bottom: 2px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+            transition: transform 0.1s ease;
+        }
+
+        .fc-event:hover {
+            transform: translateY(-1px);
+            filter: brightness(0.95);
+        }
+
+        .fc-status-scheduled {
+            background: #0d6efd !important;
+            color: #fff !important;
+        }
+
+        .fc-status-attended {
+            background: #198754 !important;
+            color: #fff !important;
+        }
+
+        .fc-status-no_show {
+            background: #dc3545 !important;
+            color: #fff !important;
+        }
+
+        .fc-status-cancelled {
+            background: #6c757d !important;
+            color: #fff !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div layout:fragment="content" class="space-y-4">
+
+        <!-- Top Action Bar -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-1">
+            <div>
+                <h5 class="font-bold text-slate-900 mb-0 flex items-center gap-2 text-base">
+                    <i data-lucide="calendar" class="h-5 w-5 text-blue-600"></i>
+                    <span>Scheduling Calendar</span>
+                </h5>
+                <span class="text-xs text-slate-500"
+                    th:text="${isManager} ? 'Semua jadwal aktif pada sistem' : 'Jadwal permohonan Anda'">Semua jadwal</span>
+            </div>
+            <div class="flex items-center gap-2" th:if="${isManager}">
+                <a th:href="@{/scheduling/queue}" class="shadcn-btn shadcn-btn-outline shadcn-btn-sm text-slate-700">
+                    <i data-lucide="list-checks" class="h-3.5 w-3.5"></i>
+                    <span>Queue View</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Status Legend -->
+        <div class="flex flex-wrap items-center gap-3 p-2.5 bg-white rounded-xl shadow-xs border border-slate-200/80 text-xs">
+            <span class="font-medium text-slate-500 me-1 flex items-center gap-1.5">
+                <i data-lucide="info" class="h-3.5 w-3.5 text-slate-400"></i>Status:
+            </span>
+            <span class="shadcn-badge shadcn-badge-info"><i data-lucide="clock" class="h-3 w-3"></i>Scheduled</span>
+            <span class="shadcn-badge shadcn-badge-success"><i data-lucide="check-circle-2" class="h-3 w-3"></i>Attended</span>
+            <span class="shadcn-badge shadcn-badge-danger"><i data-lucide="x-circle" class="h-3 w-3"></i>No-Show</span>
+            <span class="shadcn-badge shadcn-badge-secondary"><i data-lucide="ban" class="h-3 w-3"></i>Cancelled</span>
+        </div>
+
+        <!-- FullCalendar Container Card -->
+        <div class="shadcn-card overflow-hidden">
+            <div class="p-4 sm:p-5">
+                <div id="calendar"></div>
+            </div>
+        </div>
+
+        <!-- Events List Table (Enterprise Standard Table View) -->
+        <div class="shadcn-card overflow-hidden">
+            <div class="shadcn-card-header bg-slate-50/50 py-3.5 px-5 flex flex-row items-center justify-between border-b border-slate-100">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="calendar-check" class="h-4 w-4 text-blue-600"></i>
+                    <h3 class="shadcn-card-title text-sm">Events This Month (<span th:text="${monthLabel}">Month</span>)</h3>
+                </div>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200"
+                    th:text="${schedules != null ? schedules.size() + ' event(s)' : '0 event'}">0 event(s)</span>
+            </div>
+            <div class="p-0">
+                <div class="table-responsive" th:if="${schedules != null and !schedules.isEmpty()}">
+                    <table id="calendarTable" class="w-full text-left text-sm js-shadcn-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 48px;" class="no-sort">#</th>
+                                <th style="width: 170px;">Date &amp; Time</th>
+                                <th>Type</th>
+                                <th>Request No</th>
+                                <th th:if="${isManager}">Requestor</th>
+                                <th th:if="${isManager}">Nama</th>
+                                <th class="text-center" style="width: 140px;">Status</th>
+                                <th class="col-actions text-right no-sort" style="width: 110px;">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="s, iter : ${schedules}">
+                                <td class="text-slate-400 font-medium text-xs" th:text="${iter.count}">1</td>
+                                <td>
+                                    <div class="flex items-center gap-1.5 font-medium text-slate-700">
+                                        <i data-lucide="clock" class="h-3.5 w-3.5 text-slate-400 shrink-0"></i>
+                                        <span th:text="${#dates.format(s.scheduledDate, 'dd-MM-yyyy HH:mm')}">18-08-2026 10:00</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200"
+                                        th:text="${s.scheduleType.label}">Screening</span>
+                                </td>
+                                <td>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-md font-mono text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200/60"
+                                        th:text="${requestNoById[s.requestId]}">REQ-2026-0001</span>
+                                </td>
+                                <td th:if="${isManager}" class="text-slate-500 font-mono text-xs" th:text="${requestorById[s.requestId]}">jdoe</td>
+                                <td th:if="${isManager}" class="text-slate-700 font-medium"
+                                    th:text="${requestorNames != null} ? (${requestorNames[requestorById[s.requestId]]} ?: ${requestorById[s.requestId]}) : ${requestorById[s.requestId]}">
+                                    Siti Aminah</td>
+                                <td class="text-center">
+                                    <span th:if="${s.status.name() == 'SCHEDULED'}" class="shadcn-badge shadcn-badge-info">
+                                        <i data-lucide="clock" class="h-3 w-3"></i>Scheduled
+                                    </span>
+                                    <span th:if="${s.status.name() == 'ATTENDED'}" class="shadcn-badge shadcn-badge-success">
+                                        <i data-lucide="check-circle-2" class="h-3 w-3"></i>Attended
+                                    </span>
+                                    <span th:if="${s.status.name() == 'NO_SHOW' and s.isNoClearedScreening()}" class="shadcn-badge shadcn-badge-danger">
+                                        <i data-lucide="users" class="h-3 w-3"></i>Tidak Lolos
+                                    </span>
+                                    <span th:if="${s.status.name() == 'NO_SHOW' and !s.isNoClearedScreening()}" class="shadcn-badge shadcn-badge-danger">
+                                        <i data-lucide="user-x" class="h-3 w-3"></i>No-Show
+                                    </span>
+                                    <span th:if="${s.status.name() == 'CANCELLED'}" class="shadcn-badge shadcn-badge-secondary">
+                                        <i data-lucide="ban" class="h-3 w-3"></i>Cancelled
+                                    </span>
+                                </td>
+                                <td class="col-actions text-right text-nowrap">
+                                    <a th:href="@{/scheduling/manage/{id}/{type}(id=${s.requestId},type=${s.scheduleType})}"
+                                       class="shadcn-btn shadcn-btn-outline shadcn-btn-sm text-blue-600 hover:bg-blue-50/50 hover:border-blue-200"
+                                       title="Kelola Jadwal">
+                                        <i data-lucide="calendar-check" class="h-3.5 w-3.5"></i>
+                                        <span>Kelola</span>
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div th:if="${schedules == null or schedules.isEmpty()}"
+                     class="flex flex-col items-center justify-center py-12 text-center text-slate-400">
+                    <i data-lucide="calendar-off" class="h-10 w-10 text-slate-300 mb-2"></i>
+                    <p class="text-sm font-medium text-slate-600">Belum ada agenda jadwal pada bulan ini</p>
+                    <p class="text-xs text-slate-400 mt-0.5">Jadwal yang dibuat akan otomatis tercatat di kalender dan tabel ini.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Event Modal -->
+        <div class="modal fade" id="scheduleDetailModal" tabindex="-1" aria-labelledby="scheduleModalTitle"
+            aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content rounded-2xl border border-slate-200/80 shadow-2xl overflow-hidden bg-white">
+                    <div class="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="h-8 w-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
+                                <i data-lucide="calendar" class="h-4 w-4"></i>
+                            </div>
+                            <h5 class="text-sm font-bold text-slate-900" id="scheduleModalTitle">Detail Jadwal</h5>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="p-6 space-y-3">
+                        <div class="flex items-center justify-between py-1.5 border-b border-slate-100 text-xs">
+                            <span class="text-slate-500 font-medium">No. Pengajuan</span>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-md font-mono text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200/60" id="modalRequestNo">-</span>
+                        </div>
+                        <div class="flex items-center justify-between py-1.5 border-b border-slate-100 text-xs">
+                            <span class="text-slate-500 font-medium">Jenis Jadwal</span>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200" id="modalType">-</span>
+                        </div>
+                        <div class="flex items-center justify-between py-1.5 border-b border-slate-100 text-xs">
+                            <span class="text-slate-500 font-medium">Waktu Pelaksanaan</span>
+                            <span class="font-semibold text-slate-800 flex items-center gap-1.5">
+                                <i data-lucide="clock" class="h-3.5 w-3.5 text-slate-400"></i>
+                                <span id="modalDateTime">-</span>
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between py-1.5 border-b border-slate-100 text-xs">
+                            <span class="text-slate-500 font-medium">Pemohon</span>
+                            <span class="font-medium text-slate-700" id="modalRequestor">-</span>
+                        </div>
+                        <div class="flex items-center justify-between py-1.5 border-b border-slate-100 text-xs">
+                            <span class="text-slate-500 font-medium">Status</span>
+                            <span id="modalStatusBadge" class="shadcn-badge">-</span>
+                        </div>
+                        <div id="modalNoteRow" class="flex flex-col gap-1 py-1.5 border-b border-slate-100 text-xs" style="display:none;">
+                            <span class="text-slate-500 font-medium">Catatan</span>
+                            <p class="text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs italic" id="modalNote">-</p>
+                        </div>
+                    </div>
+                    <div class="px-6 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
+                        <button type="button" class="shadcn-btn shadcn-btn-outline shadcn-btn-sm"
+                            data-bs-dismiss="modal">Tutup</button>
+                        <a href="#" id="modalManageLink" class="shadcn-btn shadcn-btn-primary shadcn-btn-sm text-white">
+                            <i data-lucide="external-link" class="h-3.5 w-3.5"></i>
+                            <span>Kelola Jadwal</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <th:block layout:fragment="scripts-extra">
+        <script th:src="@{/vendor/fullcalendar/index.global.min.js}" defer></script>
+        <script th:inline="javascript">
+            document.addEventListener('DOMContentLoaded', function () {
+                (window.requestIdleCallback || function (cb) { setTimeout(cb, 50); })(function () {
+                var calendarEl = document.getElementById('calendar');
+                var eventsUrl = /*[[@{/scheduling/calendar/events}]]*/ '/scheduling/calendar/events';
+                var contextPath = /*[[@{/}]]*/ '/';
+
+                var modalEl = document.getElementById('scheduleDetailModal');
+                var detailModal = modalEl ? new bootstrap.Modal(modalEl) : null;
+
+                var calendar = new FullCalendar.Calendar(calendarEl, {
+                    initialView: 'dayGridMonth',
+                    headerToolbar: {
+                        left: 'prev,next today',
+                        center: 'title',
+                        right: 'dayGridMonth,timeGridWeek,listMonth'
+                    },
+                    buttonText: {
+                        today: 'Hari Ini',
+                        month: 'Bulan',
+                        week: 'Minggu',
+                        list: 'Agenda'
+                    },
+                    navLinks: true,
+                    dayMaxEvents: 3,
+                    nowIndicator: true,
+                    events: eventsUrl,
+                    eventClick: function (info) {
+                        info.jsEvent.preventDefault();
+                        var p = info.event.extendedProps || {};
+
+                        document.getElementById('modalRequestNo').textContent = p.requestNo || '-';
+                        document.getElementById('modalType').textContent = p.scheduleType || '-';
+                        document.getElementById('modalDateTime').textContent = p.scheduledDateFormatted || '-';
+                        document.getElementById('modalRequestor').textContent = (p.requestorName || '') + (p.requestorUserId ? ' (' + p.requestorUserId + ')' : '');
+
+                        var badge = document.getElementById('modalStatusBadge');
+                        badge.className = 'shadcn-badge';
+                        var st = p.status || '';
+                        if (st === 'ATTENDED') {
+                            badge.classList.add('shadcn-badge-success');
+                            badge.innerHTML = '<i data-lucide="check-circle-2" class="h-3 w-3"></i><span>Attended</span>';
+                        } else if (st === 'NO_SHOW') {
+                            badge.classList.add('shadcn-badge-danger');
+                            var txt = p.isNoClearedScreening ? 'Tidak ada peserta yang lolos' : 'No-Show';
+                            badge.innerHTML = '<i data-lucide="user-x" class="h-3 w-3"></i><span>' + txt + '</span>';
+                        } else if (st === 'CANCELLED') {
+                            badge.classList.add('shadcn-badge-secondary');
+                            badge.innerHTML = '<i data-lucide="ban" class="h-3 w-3"></i><span>Cancelled</span>';
+                        } else {
+                            badge.classList.add('shadcn-badge-info');
+                            badge.innerHTML = '<i data-lucide="clock" class="h-3 w-3"></i><span>Scheduled</span>';
+                        }
+
+                        var noteRow = document.getElementById('modalNoteRow');
+                        var noteEl = document.getElementById('modalNote');
+                        if (p.note && p.note.trim()) {
+                            noteEl.textContent = p.note;
+                            noteRow.style.display = 'flex';
+                        } else {
+                            noteRow.style.display = 'none';
+                        }
+
+                        var manageLink = document.getElementById('modalManageLink');
+                        var mUrl = p.manageUrl || info.event.url;
+                        if (mUrl && !mUrl.startsWith('http') && !mUrl.startsWith('/')) {
+                            mUrl = contextPath + mUrl;
+                        }
+                        manageLink.href = mUrl || '#';
+
+                        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                            window.lucide.createIcons();
+                        }
+
+                        if (detailModal) {
+                            detailModal.show();
+                        }
+                    }
+                });
+
+                calendar.render();
+                });
+            });
+        </script>
+    </th:block>
+</body>
+
+</html>

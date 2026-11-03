@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Screening / badge-retrieval scheduling, rendered inside the approval detail
+  page's "Checkpoint Tasks" card so the approver never leaves that page.
+
+  Posts to the SAME endpoints as /scheduling/manage/{requestId}/{type} — one
+  set of controllers, one set of rules — passing `returnTo` so the redirect
+  comes back here. Marking attended closes this schedule type's checkpoint by
+  itself (SchedulingService#markAttended ->
+  ApprovalService#completeCheckpointByKey); no separate "Mark Done" needed.
+
+  Collapse ids carry the schedule id because several of these fragments can
+  be on one page at once (screening AND badge retrieval) — a fixed id would
+  make one button toggle the other card's panel.
+
+  Model arrives as the local `m` (declared by the including page via
+  th:with, because th:insert is processed before a same-tag th:with).
+  Model supplied by SchedulingApprovalBridge#actionFor:
+  requestId, scheduleType, schedule (may be null), returnTo.
+-->
+<th:block th:fragment="form">
+    <div class="border rounded p-2 mt-2 bg-white w-100"
+         th:with="canSchedule=${(canAct != null and canAct) or (pageActions['/scheduling/queue/form'] != null
+                                and pageActions['/scheduling/queue/form'].contains('SUBMIT'))},
+                  sid=${m.schedule != null ? m.schedule.scheduleId : 0}">
+
+        <!-- No schedule yet -->
+        <form th:if="${m.schedule == null and canSchedule}"
+              th:action="@{/scheduling/manage/{id}/{type}/create(id=${m.requestId},type=${m.scheduleType})}" method="post">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <input type="hidden" name="returnTo" th:value="${m.returnTo}"/>
+            <div class="row g-2 align-items-end">
+                <div class="col-auto">
+                    <label class="form-label small fw-semibold mb-1">Tanggal</label>
+                    <input type="date" name="scheduledDate" class="form-control form-control-sm" required/>
+                </div>
+                <div class="col-auto">
+                    <label class="form-label small fw-semibold mb-1">Jam</label>
+                    <input type="time" name="scheduledTime" class="form-control form-control-sm" required/>
+                </div>
+                <div class="col">
+                    <label class="form-label small fw-semibold mb-1">Catatan (lokasi / instruksi)</label>
+                    <input type="text" name="note" class="form-control form-control-sm"/>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-sm btn-primary">Set Jadwal</button>
+                </div>
+            </div>
+        </form>
+        <p th:if="${m.schedule == null and !canSchedule}" class="text-muted small mb-0">Jadwal belum ditetapkan.</p>
+
+        <!-- Existing schedule -->
+        <div th:if="${m.schedule != null}">
+            <div class="small mb-2">
+                <span th:if="${m.schedule.status.name() == 'SCHEDULED'}" class="badge bg-info text-dark">Terjadwal</span>
+                <span th:if="${m.schedule.status.name() == 'ATTENDED'}" class="badge bg-success">Hadir</span>
+                <span th:if="${m.schedule.status.name() == 'NO_SHOW' and m.schedule.isNoClearedScreening()}" class="badge bg-danger">Tidak ada peserta yang lolos</span>
+                <span th:if="${m.schedule.status.name() == 'NO_SHOW' and !m.schedule.isNoClearedScreening()}" class="badge bg-danger">Tidak Hadir</span>
+                <span th:if="${m.schedule.status.name() == 'CANCELLED'}" class="badge bg-secondary">Dibatalkan</span>
+                <strong class="ms-2" th:text="${#dates.format(m.schedule.scheduledDate, 'dd-MM-yyyy HH:mm')}">18-08-2026 10:00</strong>
+                <span class="text-muted ms-2" th:if="${m.schedule.note != null and !#strings.isEmpty(m.schedule.note)}"
+                      th:text="${m.schedule.note}">note</span>
+            </div>
+            <div class="small text-danger mb-2" th:if="${m.schedule.resolutionReason != null and !#strings.isEmpty(m.schedule.resolutionReason) and m.schedule.status.name() != 'SCHEDULED'}">
+                <i data-lucide="alert-circle" class="h-3.5 w-3.5 inline-block me-1"></i><span th:text="${m.schedule.resolutionReason}">alasan</span>
+            </div>
+
+            <!-- SCREENING: Per-worker attendance outcome checklist -->
+            <div th:if="${m.scheduleType.name() == 'SCREENING' and m.schedule.status.name() == 'SCHEDULED' and canSchedule}" class="mb-3">
+                <form th:action="@{/scheduling/{id}/screening-result(id=${m.schedule.scheduleId})}" method="post" th:id="'inlineScreeningForm-' + ${sid}">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                    <input type="hidden" name="returnTo" th:value="${m.returnTo}"/>
+
+                    <div class="card border-primary mb-2">
+                        <div class="card-header bg-primary bg-opacity-10 py-1 px-2 d-flex justify-content-between align-items-center flex-wrap gap-2 small">
+                            <strong>Hasil Screening per Pekerja</strong>
+                            <span class="text-muted">
+                                <span th:id="'inlineScrDone-' + ${sid}">0</span> /
+                                <span th:id="'inlineScrTotal-' + ${sid}" th:text="${m.screeningWorkers != null ? #lists.size(m.screeningWorkers) : 0}">0</span>
+                                pekerja sudah diberi status
+                            </span>
+                        </div>
+                        <div class="table-responsive" th:if="${m.screeningWorkers != null and !m.screeningWorkers.isEmpty()}">
+                            <table class="table table-sm align-middle mb-0 small">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width:2.5rem">#</th>
+                                        <th>Pekerja</th>
+                                        <th style="width:10rem">NIK / Paspor</th>
+                                        <th th:if="${workerDocs != null}">Dokumen</th>
+                                        <th>Status Screening</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="w, it : ${m.screeningWorkers}" class="js-inline-scr-row"
+                                        th:data-worker-id="${w.workerId}"
+                                        th:data-worker-name="${w.workerName}"
+                                        th:data-worker-nik="${w.nik}">
+                                        <td th:text="${it.count}">1</td>
+                                        <td>
+                                            <div class="fw-semibold" th:text="${w.workerName}">BUDI</div>
+                                            <div class="small text-muted" th:text="${w.jabatan} ?: ''">Jabatan</div>
+                                        </td>
+                                        <td class="small">
+                                            <span class="badge bg-secondary-subtle text-secondary me-1"
+                                                  th:text="${w.idType == 'PASSPORT'} ? 'PASPOR' : 'NIK'">NIK</span>
+                                            <code th:text="${w.nik}">0000000000000000</code>
+                                        </td>
+                                        <td th:if="${workerDocs != null}">
+                                            <div th:each="d : ${workerDocs.get(w.workerId)}" class="mb-1">
+                                                <div th:replace="~{layout/fragments/attachment :: card(${d.fileId}, ${d.docCode})}"></div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-inline-flex flex-wrap gap-1" role="group">
+                                                <input type="radio" class="btn-check js-inline-scr-radio"
+                                                       th:name="'status[' + ${w.workerId} + ']'"
+                                                       th:id="'inline-scr-acc-' + ${w.workerId} + '-' + ${sid}"
+                                                       value="ACCEPTED"
+                                                       th:checked="${w.screeningStatus == 'ACCEPTED'}"/>
+                                                <button type="button" class="btn btn-xs btn-outline-success py-0 px-2 small js-inline-btn-acc"
+                                                        th:classappend="${w.screeningStatus == 'ACCEPTED'} ? 'active' : ''"
+                                                        th:data-worker-id="${w.workerId}"
+                                                        th:data-worker-name="${w.workerName}"
+                                                        th:data-worker-nik="${w.nik}"
+                                                        th:data-sid="${sid}">
+                                                    <i data-lucide="check" class="h-4 w-4 inline-block me-1"></i>Accept
+                                                </button>
+
+                                                <input type="radio" class="btn-check js-inline-scr-radio"
+                                                       th:name="'status[' + ${w.workerId} + ']'"
+                                                       th:id="'inline-scr-rej-' + ${w.workerId} + '-' + ${sid}"
+                                                       value="REJECTED"
+                                                       th:checked="${w.screeningStatus == 'REJECTED'}"/>
+                                                <button type="button" class="btn btn-xs btn-outline-danger py-0 px-2 small js-inline-btn-rej"
+                                                        th:classappend="${w.screeningStatus == 'REJECTED'} ? 'active' : ''"
+                                                        th:data-worker-id="${w.workerId}"
+                                                        th:data-worker-name="${w.workerName}"
+                                                        th:data-worker-nik="${w.nik}"
+                                                        th:data-sid="${sid}">
+                                                    <i data-lucide="x" class="h-4 w-4 inline-block me-1"></i>Reject
+                                                </button>
+                                            </div>
+
+                                            <input type="hidden" th:name="'screeningDate[' + ${w.workerId} + ']'"
+                                                   th:id="'inline-scrDate-' + ${w.workerId} + '-' + ${sid}"
+                                                   th:value="${w.screeningDate != null ? #dates.format(w.screeningDate, 'yyyy-MM-dd') : ''}"/>
+                                             <input type="hidden" th:name="'screeningReason[' + ${w.workerId} + ']'"
+                                                   th:id="'inline-scrReason-' + ${w.workerId} + '-' + ${sid}"
+                                                   th:value="${w.screeningReason != null ? w.screeningReason : ''}"/>
+
+                                            <div th:id="'inline-scrDateBadge-' + ${w.workerId} + '-' + ${sid}" class="mt-1 small text-success js-acc-badge"
+                                                 th:style="${w.screeningStatus == 'ACCEPTED' and w.screeningDate != null} ? 'display:block;' : 'display:none;'">
+                                                <i data-lucide="calendar-check" class="h-4 w-4 inline-block me-1"></i>Lolos: 
+                                                <span class="fw-semibold js-acc-date-text" th:text="${w.screeningDate != null ? #dates.format(w.screeningDate, 'dd-MM-yyyy') : ''}"></span>
+                                            </div>
+                                            <div th:id="'inline-scrReasonBadge-' + ${w.workerId} + '-' + ${sid}" class="mt-1 small text-danger js-rej-badge"
+                                                 th:style="${w.screeningStatus == 'REJECTED' and w.screeningReason != null} ? 'display:block;' : 'display:none;'">
+                                                <i data-lucide="x-circle" class="h-4 w-4 inline-block me-1"></i>Alasan: 
+                                                <span class="fst-italic fw-semibold js-rej-reason-text" th:text="${w.screeningReason ?: ''}"></span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="card-footer bg-white py-2 px-2">
+                            <div class="input-group input-group-sm mb-2">
+                                <span class="input-group-text">Catatan</span>
+                                <input type="text" name="note" class="form-control form-control-sm"
+                                       placeholder="Catatan screening (opsional)"/>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                <button type="submit"
+                                        th:formaction="@{/scheduling/{id}/screening-draft(id=${m.schedule.scheduleId})}"
+                                        class="btn btn-sm btn-outline-primary" th:id="'btnSaveInlineScreeningDraft-' + ${sid}">
+                                    <i data-lucide="save" class="h-4 w-4 inline-block me-1"></i>Simpan Draf
+                                </button>
+                                <button type="submit" class="btn btn-sm btn-success" th:id="'btnFinishInlineScreening-' + ${sid}" disabled>
+                                    <i data-lucide="check" class="h-4 w-4 inline-block me-1"></i>Verifikasi Screening
+                                </button>
+                                <span class="small text-muted ms-1" th:id="'inlineScrHint-' + ${sid}">
+                                    Beri status untuk semua pekerja terlebih dahulu.
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+                <div class="d-flex gap-2 flex-wrap">
+                    <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="collapse"
+                            th:attr="data-bs-target='#inline-resched-' + ${sid}">Ubah Jadwal</button>
+                </div>
+            </div>
+
+            <!-- BADGE RETRIEVAL: Display cleared workers & retrieval completion -->
+            <div th:if="${m.scheduleType.name() == 'BADGE_RETRIEVAL' and m.schedule.status.name() == 'SCHEDULED' and canSchedule}" class="mb-3">
+                <div th:if="${m.clearedWorkers != null}" class="card border-info mb-2">
+                    <div class="card-header bg-info bg-opacity-10 py-1 px-2 small">
+                        <strong>Daftar Pekerja Lolos Screening (Penerima Badge)</strong>
+                    </div>
+                    <div class="card-body py-2 px-3 small">
+                        <div th:if="${m.clearedWorkers.isEmpty()}" class="alert alert-warning py-1 px-2 mb-0 small">
+                            Tidak ada pekerja yang lolos screening.
+                        </div>
+                        <div th:unless="${m.clearedWorkers.isEmpty()}">
+                            <span th:each="w : ${m.clearedWorkers}" class="badge bg-success-subtle text-success-emphasis me-1 mb-1"
+                                  th:text="${w.workerName} + ' (' + ${w.nik} + ')'">BUDI</span>
+                        </div>
+                    </div>
+                </div>
+
+                <form th:action="@{/scheduling/{id}/attend(id=${m.schedule.scheduleId})}" method="post"
+                      class="input-group input-group-sm mb-2" style="max-width:520px">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                    <input type="hidden" name="returnTo" th:value="${m.returnTo}"/>
+                    <input type="text" name="note" class="form-control" placeholder="Catatan pengambilan badge (opsional)"/>
+                    <button type="submit" class="btn btn-success">
+                        <i data-lucide="check" class="h-4 w-4 inline-block me-1"></i>Selesaikan Pengambilan Badge
+                    </button>
+                </form>
+                <div class="d-flex gap-2 flex-wrap">
+                    <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="collapse"
+                            th:attr="data-bs-target='#inline-resched-' + ${sid}">
+                        <i data-lucide="rotate-cw" class="h-4 w-4 inline-block me-1"></i>Ubah Jadwal
+                    </button>
+                </div>
+            </div>
+
+            <!-- Generic action for any other scheduled type -->
+            <div th:if="${m.scheduleType.name() != 'SCREENING' and m.scheduleType.name() != 'BADGE_RETRIEVAL' and m.schedule.status.name() == 'SCHEDULED' and canSchedule}" class="d-grid gap-2" style="max-width:520px">
+                <form th:action="@{/scheduling/{id}/attend(id=${m.schedule.scheduleId})}" method="post"
+                      class="input-group input-group-sm">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                    <input type="hidden" name="returnTo" th:value="${m.returnTo}"/>
+                    <input type="text" name="note" class="form-control" placeholder="Catatan (opsional)"/>
+                    <button type="submit" class="btn btn-success">Tandai Hadir</button>
+                </form>
+                <div class="d-flex gap-2 flex-wrap">
+                    <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="collapse"
+                            th:attr="data-bs-target='#inline-resched-' + ${sid}">Ubah Jadwal</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="collapse"
+                            th:attr="data-bs-target='#inline-noshow-' + ${sid}">Tidak Hadir</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse"
+                            th:attr="data-bs-target='#inline-cancel-' + ${sid}">Batalkan</button>
+                </div>
+                <div class="collapse mt-2" th:id="'inline-noshow-' + ${sid}">
+                    <form th:action="@{/scheduling/{id}/no-show(id=${m.schedule.scheduleId})}" method="post"
+                          class="input-group input-group-sm">
+                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                        <input type="hidden" name="returnTo" th:value="${m.returnTo}"/>
+                        <input type="text" name="reason" class="form-control" placeholder="Alasan (wajib)" required/>
+                        <button type="submit" class="btn btn-danger">Konfirmasi Tidak Hadir</button>
+                    </form>
+                </div>
+                <div class="collapse mt-2" th:id="'inline-cancel-' + ${sid}">
+                    <form th:action="@{/scheduling/{id}/cancel(id=${m.schedule.scheduleId})}" method="post"
+                          class="input-group input-group-sm">
+                        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                        <input type="hidden" name="returnTo" th:value="${m.returnTo}"/>
+                        <input type="text" name="reason" class="form-control" placeholder="Alasan (wajib)" required/>
+                        <button type="submit" class="btn btn-secondary">Konfirmasi Batal</button>
+                    </form>
+                </div>
+            </div>
+
+            <div th:if="${(m.schedule.status.name() == 'NO_SHOW' or m.schedule.status.name() == 'CANCELLED') and canSchedule}"
+                 class="mt-2">
+                <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="collapse"
+                        th:attr="data-bs-target='#inline-resched-' + ${sid}">Jadwalkan Ulang</button>
+            </div>
+
+            <!-- Reschedule panel is shared by the SCHEDULED and NO_SHOW/CANCELLED
+                 paths above, so it lives outside both. -->
+            <div class="collapse mt-2" th:id="'inline-resched-' + ${sid}" th:if="${canSchedule}">
+                <form th:action="@{/scheduling/{id}/reschedule(id=${m.schedule.scheduleId})}" method="post"
+                      class="row g-2 align-items-end">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                    <input type="hidden" name="returnTo" th:value="${m.returnTo}"/>
+                    <div class="col-auto">
+                        <label class="form-label small mb-1">Tanggal baru</label>
+                        <input type="date" name="scheduledDate" class="form-control form-control-sm" required/>
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label small mb-1">Jam baru</label>
+                        <input type="time" name="scheduledTime" class="form-control form-control-sm" required/>
+                    </div>
+                    <div class="col">
+                        <label class="form-label small mb-1">Catatan</label>
+                        <input type="text" name="note" class="form-control form-control-sm"/>
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-sm btn-warning">Simpan Jadwal Baru</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal Accept (Set Tanggal) for inline fragment -->
+        <div class="modal fade" th:id="'inlineScrAcceptModal-' + ${sid}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-success text-white py-2 px-3">
+                        <h6 class="modal-title fw-bold mb-0">
+                            <i data-lucide="calendar-check" class="h-4 w-4 inline-block me-1"></i>Set Tanggal Kelulusan Screening
+                        </h6>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body py-3 px-3">
+                        <div class="mb-3 p-2 bg-light rounded border">
+                            <div class="fw-semibold" th:id="'inlineScrAccWorkerName-' + ${sid}">Nama Pekerja</div>
+                            <div class="small text-muted" th:id="'inlineScrAccWorkerNik-' + ${sid}">NIK: -</div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small fw-semibold">Tanggal Hasil Screening <span class="text-danger">*</span></label>
+                            <input type="date" th:id="'inlineScrAccDateInput-' + ${sid}" class="form-control form-control-sm" required/>
+                            <div class="form-text small">Pilih tanggal ketika pekerja dinyatakan lolos pemeriksaan screening.</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer py-2 px-3 bg-light">
+                        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="button" class="btn btn-sm btn-success" th:id="'inlineScrAccSaveBtn-' + ${sid}">
+                            <i data-lucide="check" class="h-4 w-4 inline-block me-1"></i>Simpan & Set Lolos
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Reject (Alasan) for inline fragment -->
+        <div class="modal fade" th:id="'inlineScrRejectModal-' + ${sid}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white py-2 px-3">
+                        <h6 class="modal-title fw-bold mb-0">
+                            <i data-lucide="x-circle" class="h-4 w-4 inline-block me-1"></i>Alasan Tidak Lolos Screening
+                        </h6>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body py-3 px-3">
+                        <div class="mb-3 p-2 bg-light rounded border">
+                            <div class="fw-semibold" th:id="'inlineScrRejWorkerName-' + ${sid}">Nama Pekerja</div>
+                            <div class="small text-muted" th:id="'inlineScrRejWorkerNik-' + ${sid}">NIK: -</div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small fw-semibold">Alasan Penolakan <span class="text-danger">*</span></label>
+                            <textarea th:id="'inlineScrRejReasonInput-' + ${sid}" class="form-control form-control-sm" rows="3"
+                                      placeholder="Tuliskan alasan pekerja tidak lolos screening (Wajib diisi)" required></textarea>
+                            <div class="small text-danger d-none mt-1" th:id="'inlineScrRejError-' + ${sid}">Alasan penolakan wajib diisi.</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer py-2 px-3 bg-light">
+                        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="button" class="btn btn-sm btn-danger" th:id="'inlineScrRejSaveBtn-' + ${sid}">
+                            <i data-lucide="x" class="h-4 w-4 inline-block me-1"></i>Simpan & Set Tidak Lolos
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script th:inline="javascript">
+        (function() {
+            var sid = /*[[${sid}]]*/ '0';
+            var defaultDate = /*[[${m.schedule != null and m.schedule.scheduledDate != null ? #dates.format(m.schedule.scheduledDate, 'yyyy-MM-dd') : ''}]]*/ '';
+            if (!defaultDate) {
+                defaultDate = new Date().toISOString().split('T')[0];
+            }
+
+            var accModalEl = document.getElementById('inlineScrAcceptModal-' + sid);
+            var rejModalEl = document.getElementById('inlineScrRejectModal-' + sid);
+
+            var currentAccWorkerId = null;
+            var currentRejWorkerId = null;
+
+            function updateInlineScreeningCompleteness() {
+                var form = document.getElementById('inlineScreeningForm-' + sid);
+                if (!form) return;
+                var rows = form.querySelectorAll('.js-inline-scr-row');
+                var total = rows.length;
+                var done = 0;
+                rows.forEach(function(row) {
+                    var checked = row.querySelector('.js-inline-scr-radio:checked');
+                    if (checked) {
+                        var workerId = row.dataset.workerId;
+                        if (checked.value === 'ACCEPTED') {
+                            var d = document.getElementById('inline-scrDate-' + workerId + '-' + sid);
+                            if (d && d.value) done++;
+                        } else if (checked.value === 'REJECTED') {
+                            var r = document.getElementById('inline-scrReason-' + workerId + '-' + sid);
+                            if (r && r.value.trim()) done++;
+                        }
+                    }
+                });
+                var doneEl = document.getElementById('inlineScrDone-' + sid);
+                if (doneEl) doneEl.textContent = done;
+                var btn = document.getElementById('btnFinishInlineScreening-' + sid);
+                var hint = document.getElementById('inlineScrHint-' + sid);
+                if (btn) {
+                    btn.disabled = (done < total || total === 0);
+                }
+                if (hint) {
+                    hint.style.display = (done < total) ? 'inline' : 'none';
+                }
+            }
+
+            document.addEventListener('click', function(e) {
+                var btnAcc = e.target.closest('.js-inline-btn-acc');
+                if (btnAcc && btnAcc.dataset.sid === String(sid)) {
+                    currentAccWorkerId = btnAcc.dataset.workerId;
+                    var wName = btnAcc.dataset.workerName;
+                    var wNik = btnAcc.dataset.workerNik;
+                    var nameEl = document.getElementById('inlineScrAccWorkerName-' + sid);
+                    var nikEl = document.getElementById('inlineScrAccWorkerNik-' + sid);
+                    if (nameEl) nameEl.textContent = wName;
+                    if (nikEl) nikEl.textContent = 'NIK / Paspor: ' + wNik;
+
+                    var dateEl = document.getElementById('inline-scrDate-' + currentAccWorkerId + '-' + sid);
+                    var existingDate = dateEl ? dateEl.value : '';
+                    var dateInput = document.getElementById('inlineScrAccDateInput-' + sid);
+                    if (dateInput) dateInput.value = existingDate || defaultDate;
+                    if (accModalEl) {
+                        var modal = bootstrap.Modal.getOrCreateInstance(accModalEl);
+                        modal.show();
+                    }
+                    return;
+                }
+
+                var btnRej = e.target.closest('.js-inline-btn-rej');
+                if (btnRej && btnRej.dataset.sid === String(sid)) {
+                    currentRejWorkerId = btnRej.dataset.workerId;
+                    var wName = btnRej.dataset.workerName;
+                    var wNik = btnRej.dataset.workerNik;
+                    var nameEl = document.getElementById('inlineScrRejWorkerName-' + sid);
+                    var nikEl = document.getElementById('inlineScrRejWorkerNik-' + sid);
+                    if (nameEl) nameEl.textContent = wName;
+                    if (nikEl) nikEl.textContent = 'NIK / Paspor: ' + wNik;
+
+                    var reasonEl = document.getElementById('inline-scrReason-' + currentRejWorkerId + '-' + sid);
+                    var existingReason = reasonEl ? reasonEl.value : '';
+                    var reasonInput = document.getElementById('inlineScrRejReasonInput-' + sid);
+                    if (reasonInput) reasonInput.value = existingReason || '';
+                    var errEl = document.getElementById('inlineScrRejError-' + sid);
+                    if (errEl) errEl.classList.add('d-none');
+                    if (rejModalEl) {
+                        var modal = bootstrap.Modal.getOrCreateInstance(rejModalEl);
+                        modal.show();
+                    }
+                    return;
+                }
+            });
+
+            var saveAccBtn = document.getElementById('inlineScrAccSaveBtn-' + sid);
+            if (saveAccBtn) {
+                saveAccBtn.addEventListener('click', function() {
+                    if (!currentAccWorkerId) return;
+                    var dateInput = document.getElementById('inlineScrAccDateInput-' + sid);
+                    var dateVal = dateInput ? dateInput.value : '';
+                    if (!dateVal) {
+                        alert('Silakan pilih tanggal screening.');
+                        return;
+                    }
+                    var dateHidden = document.getElementById('inline-scrDate-' + currentAccWorkerId + '-' + sid);
+                    var reasonHidden = document.getElementById('inline-scrReason-' + currentAccWorkerId + '-' + sid);
+                    if (dateHidden) dateHidden.value = dateVal;
+                    if (reasonHidden) reasonHidden.value = '';
+
+                    var radioAcc = document.getElementById('inline-scr-acc-' + currentAccWorkerId + '-' + sid);
+                    var radioRej = document.getElementById('inline-scr-rej-' + currentAccWorkerId + '-' + sid);
+                    if (radioAcc) radioAcc.checked = true;
+                    if (radioRej) radioRej.checked = false;
+
+                    var row = document.querySelector('.js-inline-scr-row[data-worker-id="' + currentAccWorkerId + '"]');
+                    if (row) {
+                        var btnAcc = row.querySelector('.js-inline-btn-acc');
+                        var btnRej = row.querySelector('.js-inline-btn-rej');
+                        if (btnAcc) btnAcc.classList.add('active');
+                        if (btnRej) btnRej.classList.remove('active');
+
+                        var dateParts = dateVal.split('-');
+                        var formattedDate = (dateParts.length === 3) ? (dateParts[2] + '-' + dateParts[1] + '-' + dateParts[0]) : dateVal;
+                        var accBadge = document.getElementById('inline-scrDateBadge-' + currentAccWorkerId + '-' + sid);
+                        if (accBadge) {
+                            var textEl = accBadge.querySelector('.js-acc-date-text');
+                            if (textEl) textEl.textContent = formattedDate;
+                            accBadge.style.display = 'block';
+                        }
+                        var rejBadge = document.getElementById('inline-scrReasonBadge-' + currentAccWorkerId + '-' + sid);
+                        if (rejBadge) rejBadge.style.display = 'none';
+                    }
+
+                    if (accModalEl) {
+                        var modal = bootstrap.Modal.getOrCreateInstance(accModalEl);
+                        modal.hide();
+                    }
+                    updateInlineScreeningCompleteness();
+                });
+            }
+
+            var saveRejBtn = document.getElementById('inlineScrRejSaveBtn-' + sid);
+            if (saveRejBtn) {
+                saveRejBtn.addEventListener('click', function() {
+                    if (!currentRejWorkerId) return;
+                    var reasonInput = document.getElementById('inlineScrRejReasonInput-' + sid);
+                    var reasonVal = reasonInput ? reasonInput.value.trim() : '';
+                    if (!reasonVal) {
+                        var errEl = document.getElementById('inlineScrRejError-' + sid);
+                        if (errEl) errEl.classList.remove('d-none');
+                        return;
+                    }
+                    var reasonHidden = document.getElementById('inline-scrReason-' + currentRejWorkerId + '-' + sid);
+                    var dateHidden = document.getElementById('inline-scrDate-' + currentRejWorkerId + '-' + sid);
+                    if (reasonHidden) reasonHidden.value = reasonVal;
+                    if (dateHidden) dateHidden.value = '';
+
+                    var radioAcc = document.getElementById('inline-scr-acc-' + currentRejWorkerId + '-' + sid);
+                    var radioRej = document.getElementById('inline-scr-rej-' + currentRejWorkerId + '-' + sid);
+                    if (radioRej) radioRej.checked = true;
+                    if (radioAcc) radioAcc.checked = false;
+
+                    var row = document.querySelector('.js-inline-scr-row[data-worker-id="' + currentRejWorkerId + '"]');
+                    if (row) {
+                        var btnAcc = row.querySelector('.js-inline-btn-acc');
+                        var btnRej = row.querySelector('.js-inline-btn-rej');
+                        if (btnRej) btnRej.classList.add('active');
+                        if (btnAcc) btnAcc.classList.remove('active');
+
+                        var rejBadge = document.getElementById('inline-scrReasonBadge-' + currentRejWorkerId + '-' + sid);
+                        if (rejBadge) {
+                            var textEl = rejBadge.querySelector('.js-rej-reason-text');
+                            if (textEl) textEl.textContent = reasonVal;
+                            rejBadge.style.display = 'block';
+                        }
+                        var accBadge = document.getElementById('inline-scrDateBadge-' + currentRejWorkerId + '-' + sid);
+                        if (accBadge) accBadge.style.display = 'none';
+                    }
+
+                    if (rejModalEl) {
+                        var modal = bootstrap.Modal.getOrCreateInstance(rejModalEl);
+                        modal.hide();
+                    }
+                    updateInlineScreeningCompleteness();
+                });
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', updateInlineScreeningCompleteness);
+            } else {
+                updateInlineScreeningCompleteness();
+            }
+        })();
+        </script>
+    </div>
+</th:block>
+</body>
+</html>

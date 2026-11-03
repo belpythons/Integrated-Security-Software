@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<th:block th:fragment="card(fileId, label)">
+    <a th:if="${fileId != null and !#strings.isEmpty(fileId)}"
+       th:href="@{/file/{id}(id=${fileId})}" data-attachment-preview="true"
+       th:with="meta=${@fileMeta.meta(fileId)}"
+       class="group flex items-center gap-3 p-2.5 rounded-xl border border-slate-200/80 bg-white hover:border-blue-300 hover:bg-blue-50/30 hover:shadow-xs transition-all text-slate-800 no-underline">
+        <div class="h-9 w-9 rounded-lg bg-blue-50 group-hover:bg-blue-100/80 text-blue-600 flex items-center justify-center shrink-0 transition-colors">
+            <i data-lucide="file-text" class="h-4 w-4"></i>
+        </div>
+        <div class="overflow-hidden min-w-0">
+            <div class="font-medium text-xs text-slate-900 group-hover:text-blue-700 truncate transition-colors" th:text="${meta != null ? meta.fileName : label}">filename.pdf</div>
+            <div class="text-[11px] text-slate-400 mt-0.5" th:if="${meta != null}"
+                 th:text="${@fileMeta.typeLabel(meta.fileType)} + ' · ' + ${@fileMeta.humanSize(meta.fileSize)}">PDF · 120 KB</div>
+        </div>
+        <div class="ml-auto opacity-0 group-hover:opacity-100 transition-opacity pr-1 text-slate-400">
+            <i data-lucide="external-link" class="h-3.5 w-3.5"></i>
+        </div>
+    </a>
+    <div th:unless="${fileId != null and !#strings.isEmpty(fileId)}"
+         class="flex items-center gap-3 p-2.5 rounded-xl border border-dashed border-slate-200 bg-slate-50/60 text-slate-400 text-xs">
+        <div class="h-8 w-8 rounded-lg bg-slate-100 text-slate-400 flex items-center justify-center shrink-0">
+            <i data-lucide="file-x" class="h-4 w-4"></i>
+        </div>
+        <div class="truncate text-slate-400" th:text="${label} ?: 'Belum diunggah'">Belum diunggah</div>
+    </div>
+</th:block>
+</body>
+</html>

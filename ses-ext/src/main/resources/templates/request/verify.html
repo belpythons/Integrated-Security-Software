@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title th:text="'Verifikasi ' + ${requestNo}">Verifikasi Dokumen</title>
+    <!--
+      Public External Verification Page.
+      Reachable without logging in via QR code scan on printed permits.
+      Focuses on request details & worker list while HIDING sensitive personal data (NIK/KTP).
+    -->
+    <link rel="stylesheet" th:href="@{/vendor/bootstrap/css/bootstrap.min.css}"/>
+    <link rel="stylesheet" th:href="@{/vendor/bootstrap-icons/bootstrap-icons.min.css}"/>
+    <link rel="preload" as="image" th:href="@{/image/ptb_logo.png}" fetchpriority="high" type="image/png"/>
+    <style>
+        body { background: #f6f8fb; color: #212529; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+        .wrap { max-width: 640px; margin: 0 auto; padding: 2rem 1.25rem 3rem; }
+        .card-verify { background: #ffffff; border-radius: 12px; box-shadow: 0 4px 18px rgba(0,0,0,0.06); padding: 1.5rem; margin-bottom: 1.25rem; }
+        .logo-box img { height: 36px; width: auto; }
+        .wordmark { font-weight: 700; font-size: 1.05rem; line-height: 1.15; color: #003B73; }
+        .wordmark small { display: block; font-weight: 400; font-size: .7rem; color: #6c757d; }
+        .verify-chip { background: #003B73; color: #fff; font-size: .72rem; padding: .2rem .55rem; border-radius: .25rem; font-weight: 600; }
+        .label { font-size: .75rem; color: #6c757d; text-transform: uppercase; letter-spacing: .03em; margin-bottom: .15rem; }
+        .value { font-size: .95rem; font-weight: 600; color: #1a202c; word-break: break-word; }
+        .signer-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: .6rem; padding: .85rem 1rem; margin-bottom: .6rem; }
+        .status-pill { font-size: .8rem; font-weight: 600; padding: .3rem .75rem; border-radius: 30px; display: inline-block; }
+        table.workers-table { font-size: .85rem; }
+        table.workers-table th { background: #f1f5f9; color: #475569; font-weight: 600; font-size: .78rem; text-transform: uppercase; }
+        .audit-badge { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; border-radius: 8px; padding: .75rem 1rem; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex align-items-center gap-2">
+            <div class="logo-box">
+                <img th:src="@{/image/ptb_logo.png}" alt="Badak LNG" width="43" height="36" loading="eager" fetchpriority="high"/>
+            </div>
+            <div class="wordmark">
+                <span th:text="${appParams['SES_TXT_BRAND_WORDMARK'] ?: 'Badak LNG'}">Badak LNG</span>
+                <small th:text="${appParams['SES_TXT_BRAND_TAGLINE'] ?: 'Center of Excellence'}">Center of Excellence</small>
+            </div>
+        </div>
+        <div class="text-end">
+            <span class="verify-chip">Verifikasi</span>
+            <div class="small fw-semibold text-muted mt-1" style="font-size: .75rem;">Tanda Tangan Digital</div>
+        </div>
+    </div>
+
+    <div th:if="${!found}" class="card-verify alert alert-secondary">
+        <h5 class="alert-heading"><i class="bi bi-exclamation-triangle me-2"></i>Dokumen Tidak Dikenali</h5>
+        <p class="mb-1">
+            Nomor <code th:text="${requestNo}">REQ-...</code>
+            <span th:text="${appParams['SES_TXT_VERIFY_NOT_FOUND'] ?: 'tidak terdaftar pada sistem SES.'}">tidak terdaftar pada sistem SES.</span>
+        </p>
+        <div class="small text-muted"
+             th:text="${appParams['SES_TXT_VERIFY_NOT_FOUND_HINT'] ?: 'Periksa kembali nomor dokumen yang tercetak, atau hubungi Security PT Badak NGL.'}">
+            Periksa kembali nomor dokumen yang tercetak, atau hubungi Security PT Badak NGL.
+        </div>
+    </div>
+
+    <div th:if="${found}">
+        <div class="card-verify">
+            <p class="text-muted small mb-3">
+                <strong class="text-dark" th:text="${appParams['SES_TXT_BRAND_COMPANY'] ?: 'PT Badak NGL'}">PT Badak NGL</strong>
+                <span th:text="${appParams['SES_TXT_VERIFY_ATTESTATION'] ?: 'menyatakan bahwa dokumen berikut tercatat dalam sistem:'}">menyatakan bahwa dokumen berikut tercatat dalam sistem:</span>
+            </p>
+
+            <div class="row g-3 mb-3">
+                <div class="col-sm-6">
+                    <div class="label">Nama Dokumen</div>
+                    <div class="value" th:text="${documentName}">Permohonan Badge</div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="label">Status Dokumen</div>
+                    <div>
+                        <span th:if="${request.status == 'APPROVED'}" class="badge bg-success status-pill">
+                            <i class="bi bi-check-circle-fill me-1"></i><span th:text="${appParams['SES_TXT_VERIFY_STATUS_APPROVED'] ?: 'Disetujui'}">Disetujui</span>
+                        </span>
+                        <span th:if="${request.status == 'PENDING'}" class="badge bg-warning text-dark status-pill">
+                            <i class="bi bi-hourglass-split me-1"></i><span th:text="${appParams['SES_TXT_VERIFY_STATUS_PENDING'] ?: 'Dalam Proses'}">Dalam Proses</span>
+                        </span>
+                        <span th:if="${request.status == 'REJECTED'}" class="badge bg-danger status-pill">
+                            <i class="bi bi-x-circle-fill me-1"></i><span th:text="${appParams['SES_TXT_VERIFY_STATUS_REJECTED'] ?: 'Ditolak'}">Ditolak</span>
+                        </span>
+                        <span th:if="${request.status == 'CANCELLED'}" class="badge bg-secondary status-pill">
+                            <i class="bi bi-slash-circle me-1"></i><span th:text="${appParams['SES_TXT_VERIFY_STATUS_CANCELLED'] ?: 'Dibatalkan'}">Dibatalkan</span>
+                        </span>
+                        <span th:if="${request.status == 'DRAFT'}" class="badge bg-secondary status-pill"
+                              th:text="${appParams['SES_TXT_VERIFY_STATUS_DRAFT'] ?: 'Draft'}">
+                            Draft
+                        </span>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="label">Perusahaan / Instansi</div>
+                    <div class="value" th:text="${request.instance} ?: '-'">PT Contoh Kontraktor</div>
+                </div>
+            </div>
+
+            <div class="border-top pt-3 mb-3">
+                <div class="label mb-2">Informasi Pekerjaan</div>
+                <div class="bg-light p-2 rounded small">
+                    <div class="row g-1 mb-1">
+                        <div class="col-4 text-muted">Nama Pekerjaan:</div>
+                        <div class="col-8 fw-semibold" th:text="${request.contractTitle} ?: '-'">Pekerjaan</div>
+                    </div>
+                    <div class="row g-1">
+                        <div class="col-4 text-muted">Periode:</div>
+                        <div class="col-8 fw-semibold" th:text="${startPeriod} + ' s/d ' + ${finishPeriod}">01-01-2026 s/d 31-12-2026</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Focus to Request Content: Workers List without sensitive data -->
+            <div class="border-top pt-3 mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="label mb-0">Daftar Pekerja</div>
+                    <span class="badge bg-light text-secondary border" style="font-size: .7rem;" th:text="${#lists.size(workers)} + ' Pekerja'">0 Pekerja</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm workers-table mb-1">
+                        <thead>
+                            <tr>
+                                <th style="width: 2.5rem" class="text-center">No</th>
+                                <th>Nama Pekerja</th>
+                                <th>Jabatan</th>
+                                <th>Keterangan</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="w, it : ${workers}">
+                                <td class="text-center" th:text="${it.count}">1</td>
+                                <td class="fw-semibold" th:text="${w.workerName}">Nama</td>
+                                <td th:text="${w.jabatan} ?: '-'">Jabatan</td>
+                                <td>
+                                    <span th:text="${w.department ?: (w.section ?: '-')}">-</span>
+                                    <span th:if="${w.screeningStatus == 'NO_SHOW'}" class="text-danger small ms-1">(Tidak hadir)</span>
+                                    <span th:if="${w.screeningStatus == 'FAILED' or w.screeningStatus == 'REJECTED'}" class="text-danger small ms-1">(Tidak lulus)</span>
+                                </td>
+                            </tr>
+                            <tr th:if="${#lists.isEmpty(workers)}">
+                                <td colspan="4" class="text-center text-muted small py-2">Tidak ada data pekerja.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="text-muted" style="font-size: .68rem;">
+                    <i class="bi bi-shield-lock me-1"></i><span
+                        th:text="${appParams['SES_TXT_VERIFY_PRIVACY_NOTE'] ?: 'Nomor identitas pribadi (KTP/NIK) tidak ditampilkan untuk perlindungan data publik.'}">Nomor identitas pribadi (KTP/NIK) tidak ditampilkan untuk perlindungan data publik.</span>
+                </div>
+            </div>
+
+            <!-- Signers details -->
+            <div class="border-top pt-3">
+                <div class="label mb-2">Verifikasi Penandatangan</div>
+                
+                <div class="signer-box">
+                    <div class="row align-items-center g-2">
+                        <div class="col-8">
+                            <div class="small text-muted"
+                                 th:text="${appParams['SES_TXT_VERIFY_SIGN_LEFT'] ?: 'Mengetahui (PT Badak NGL)'}">Mengetahui (PT Badak NGL)</div>
+                            <div class="fw-bold text-dark">
+                                <i class="bi bi-person-badge text-primary me-1"></i>
+                                <span th:text="${procurementSigner} ?: (${appParams['SES_TXT_VERIFY_VERIFIED_FALLBACK'] ?: '(Telah diverifikasi sesuai prosedur)'})">Nama</span>
+                            </div>
+                            <div class="small text-muted"
+                                 th:text="${appParams['SES_TXT_VERIFY_ROLE_LEFT'] ?: 'Procurement Manager'}">Procurement Manager</div>
+                        </div>
+                        <div class="col-4 text-end">
+                            <!-- Gated on ${approved}: this badge used to render
+                                 unconditionally, so a REJECTED or CANCELLED
+                                 request still showed "Valid" to anyone
+                                 scanning the sheet at a gate. -->
+                            <span th:if="${approved}" class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: .72rem;">
+                                <i class="bi bi-check me-1"></i><span th:text="${appParams['SES_TXT_VERIFY_BADGE_VALID'] ?: 'Valid'}">Valid</span>
+                            </span>
+                            <span th:unless="${approved}" class="badge bg-secondary-subtle text-secondary border border-secondary-subtle" style="font-size: .72rem;">
+                                <i class="bi bi-dash me-1"></i><span th:text="${appParams['SES_TXT_VERIFY_BADGE_NOT_VALID'] ?: 'Belum sah'}">Belum sah</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="signer-box mb-0">
+                    <div class="row align-items-center g-2">
+                        <div class="col-8">
+                            <div class="small text-muted"
+                                 th:text="${appParams['SES_TXT_VERIFY_SIGN_RIGHT'] ?: 'Hormat Kami (Pemohon)'}">Hormat Kami (Pemohon)</div>
+                            <div class="fw-bold text-dark">
+                                <i class="bi bi-person-badge text-primary me-1"></i>
+                                <span th:text="${siteManagerName}">Nama Pemohon</span>
+                            </div>
+                            <div class="small text-muted"
+                                 th:text="${appParams['SES_TXT_VERIFY_ROLE_RIGHT'] ?: 'Site Manager'}">Site Manager</div>
+                        </div>
+                        <div class="col-4 text-end">
+                            <span th:if="${approved}" class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: .72rem;">
+                                <i class="bi bi-check me-1"></i><span th:text="${appParams['SES_TXT_VERIFY_BADGE_VALID'] ?: 'Valid'}">Valid</span>
+                            </span>
+                            <span th:unless="${approved}" class="badge bg-secondary-subtle text-secondary border border-secondary-subtle" style="font-size: .72rem;">
+                                <i class="bi bi-dash me-1"></i><span th:text="${appParams['SES_TXT_VERIFY_BADGE_NOT_VALID'] ?: 'Belum sah'}">Belum sah</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div th:if="${approved}" class="audit-badge text-center mb-3">
+            <div class="fw-semibold">
+                <i class="bi bi-patch-check-fill text-success me-1"></i><span
+                    th:text="${appParams['SES_TXT_VERIFY_AUDIT_NOTE'] ?: 'Dokumen ini benar dan tercatat dalam audit trail kami'}">Dokumen ini benar dan tercatat dalam audit trail kami</span>
+            </div>
+            <div class="small mt-1" style="font-size: .78rem; opacity: .85;"
+                 th:text="${appParams['SES_TXT_VERIFY_APPROVED_NOTE'] ?: 'Pengajuan ini telah menyelesaikan seluruh tahapan verifikasi dan persetujuan resmi.'}">
+                Pengajuan ini telah menyelesaikan seluruh tahapan verifikasi dan persetujuan resmi.
+            </div>
+        </div>
+
+        <!-- utext, not text: the stored disclaimer carries its own <strong>
+             emphasis, and an administrator editing legal wording at
+             /admin/parameter must be able to keep it. The value is
+             administrator-authored configuration, not user input. -->
+        <div th:if="${!approved}" class="alert alert-warning small text-center">
+            <i class="bi bi-info-circle me-1"></i>
+            <span th:utext="${appParams['SES_TXT_VERIFY_DISCLAIMER'] ?: 'Dokumen ini &lt;strong&gt;belum&lt;/strong&gt; berstatus disetujui. Lembar yang menyertakan kode ini tidak berlaku sebagai izin sah.'}">Dokumen ini <strong>belum</strong> berstatus disetujui. Lembar yang menyertakan kode ini tidak berlaku sebagai izin sah.</span>
+        </div>
+    </div>
+
+    <!-- Footer identitas -->
+    <!-- The year comes from the clock, not from a parameter: this footer was
+         hardcoded "2026" in three templates with three different separators,
+         and a parameter would just move the staleness to a January chore. -->
+    <footer class="text-center text-muted small mt-4 pt-3 border-top" style="font-size: .72rem;">
+        &copy; <span th:text="${#calendars.year(#calendars.createNow())}">2026</span>
+        <span th:text="${appParams['SES_TXT_BRAND_APP_NAME'] ?: 'Security Suite'}">Security Suite</span>
+        &bull;
+        <span th:text="${appParams['SES_TXT_BRAND_COMPANY_SHORT'] ?: 'PT BADAK NGL'}">PT BADAK NGL</span>
+    </footer>
+</div>
+</body>
+</html>

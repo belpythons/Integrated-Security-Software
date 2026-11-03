@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<!--
+    Shared "Request Details" + "Worker Data" read-only view. Reads
+    typeName / zoneName / requestForm straight off the calling template's
+    model (th:insert shares context, no fragment parameters) — used by
+    both request/view.html (request owner) and approval/detail.html
+    (approver, via ApprovalFormDescriptor.detailModel()).
+-->
+<th:block th:fragment="detail">
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-light"><strong>Request Details</strong></div>
+        <div class="card-body">
+            <dl class="row mb-0 small">
+                <dt class="col-sm-3">Type of Request</dt>
+                <dd class="col-sm-9" th:text="${typeName} ?: '—'">Screening</dd>
+
+                <dt class="col-sm-3">Contract Number</dt>
+                <dd class="col-sm-9" th:text="${requestForm.contractNo} ?: '—'">CONTRACT-01</dd>
+
+                <dt class="col-sm-3">Contract Type</dt>
+                <dd class="col-sm-9" th:text="${requestForm.contractType} ?: '—'">Unit Rate</dd>
+
+                <dt class="col-sm-3">Contract Title</dt>
+                <dd class="col-sm-9" th:text="${requestForm.contractTitle} ?: '—'">Title</dd>
+
+                <dt class="col-sm-3">Zone Access</dt>
+                <dd class="col-sm-9" th:text="${zoneName} ?: '—'">Zone 01</dd>
+
+                <dt class="col-sm-3">Instansi</dt>
+                <dd class="col-sm-9" th:text="${requestForm.instance} ?: '—'">Instansi</dd>
+
+                <dt class="col-sm-3">Address</dt>
+                <dd class="col-sm-9" th:text="${requestForm.address} ?: '—'">Address</dd>
+
+                <!-- Where the document-upload link went. Shown on the detail
+                     page because "I never got the email" is the first thing
+                     anyone asks, and the answer is usually a typo here. -->
+                <dt class="col-sm-3">Email Penerima Dokumen</dt>
+                <dd class="col-sm-9">
+                    <span th:if="${requestForm.email}" th:text="${requestForm.email}">nama@kontraktor.co.id</span>
+                    <span th:unless="${requestForm.email}" class="text-muted">—</span>
+                    <span th:if="${uploadTokenExpiry != null}" class="badge bg-info-subtle text-info-emphasis ms-1"
+                          th:text="'tautan berlaku s/d ' + ${#dates.format(uploadTokenExpiry, 'dd-MM-yyyy HH:mm')}">
+                        tautan berlaku s/d
+                    </span>
+                    <span th:if="${uploadDone}" class="badge bg-success-subtle text-success-emphasis ms-1">
+                        dokumen sudah diunggah
+                    </span>
+                </dd>
+
+                <dt class="col-sm-3">Start Period</dt>
+                <dd class="col-sm-9" th:text="${requestForm.startPeriod != null} ? ${#dates.format(requestForm.startPeriod, 'dd-MM-yyyy')} : '—'">01-01-2026</dd>
+
+                <dt class="col-sm-3">Finish Period</dt>
+                <dd class="col-sm-9" th:text="${requestForm.finishPeriod != null} ? ${#dates.format(requestForm.finishPeriod, 'dd-MM-yyyy')} : '—'">31-12-2026</dd>
+
+                <dt class="col-sm-3">Payment Amount</dt>
+                <dd class="col-sm-9">
+                    <span th:if="${paymentAmount != null}" th:text="'Rp ' + ${#numbers.formatInteger(paymentAmount, 1, 'POINT')}">Rp 150.000</span>
+                    <span th:if="${paymentAmount == null}">—</span>
+                </dd>
+
+                <dt class="col-sm-3">Payment Status</dt>
+                <dd class="col-sm-9">
+                    <span th:if="${paymentStatus == 'PENDING'}" class="badge bg-warning text-dark">Pending Payment</span>
+                    <span th:if="${paymentStatus == 'VERIFYING'}" class="badge bg-info text-dark">Verifying</span>
+                    <span th:if="${paymentStatus == 'VERIFIED'}" class="badge bg-success">Verified</span>
+                    <span th:if="${paymentStatus == 'REJECTED'}" class="badge bg-danger">Rejected</span>
+                    <span th:if="${paymentStatus == 'CANCELLED'}" class="badge bg-secondary">Cancelled</span>
+                    <span th:if="${paymentStatus == null}" class="text-muted">—</span>
+                    <span th:if="${paymentStatus == 'VERIFIED' and paymentPaidAmount != null}" class="ms-2 text-success fw-semibold"
+                          th:text="'(Diterima: Rp ' + ${#numbers.formatInteger(paymentPaidAmount, 1, 'POINT')} + ')'">
+                    </span>
+                    <div th:if="${paymentStatus == 'REJECTED' and paymentRejectionReason != null}" class="alert alert-danger py-1 px-2 mt-2 mb-0 small">
+                        <strong>Alasan Penolakan:</strong> <span th:text="${paymentRejectionReason}">reason</span>
+                    </div>
+                </dd>
+
+                <dt class="col-sm-3">Proof of Payment</dt>
+                <dd class="col-sm-9">
+                    <div th:replace="~{layout/fragments/attachment :: card(${requestForm.existingPaymentFileId}, 'Proof of Payment')}"></div>
+                    <div th:if="${requestForm.existingPaymentFileId != null and !#strings.isEmpty(requestForm.existingPaymentFileId)}" class="d-flex gap-2 mt-2">
+                        <a th:href="@{/file/{id}(id=${requestForm.existingPaymentFileId})}"
+                           data-attachment-preview="true"
+                           class="btn btn-sm btn-outline-primary shadow-sm">
+                            <i class="bi bi-eye me-1"></i>Lihat Dokumen Proof of Payment
+                        </a>
+                        <a th:href="@{/file/{id}(id=${requestForm.existingPaymentFileId})}"
+                           class="btn btn-sm btn-primary shadow-sm" download>
+                            <i class="bi bi-download me-1"></i>Download Bukti Bayar
+                        </a>
+                    </div>
+                </dd>
+            </dl>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white py-3 border-bottom">
+            <h6 class="fw-bold mb-0" style="color: var(--navy, #003B73);"><i class="bi bi-people-fill me-2 text-primary"></i>Worker Data</h6>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm w-100 align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr class="text-center align-middle">
+                            <th class="text-center" style="width: 50px;">#</th>
+                            <th class="text-center">Name</th>
+                            <th class="text-center" style="width: 170px;">NIK / Paspor</th>
+                            <th class="text-center">Jabatan</th>
+                            <th class="text-center" style="width: 90px;">Gender</th>
+                            <th class="text-center" style="width: 160px;">Status Screening</th>
+                            <th class="text-center" style="min-width: 220px;">Documents</th>
+                            <th class="text-center" style="width: 90px;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="w, wIter : ${requestForm.workers}">
+                            <td class="text-center" th:text="${wIter.count}">1</td>
+                            <td class="fw-semibold" th:text="${w.workerName}">Name</td>
+                            <td>
+                                <span class="badge bg-secondary-subtle text-secondary me-1"
+                                      th:text="${w.idType == 'PASSPORT'} ? 'PASPOR' : 'NIK'">NIK</span>
+                                <code th:text="${w.nik}">0000000000000000</code>
+                            </td>
+                            <td th:text="${w.jabatan} ?: '—'">Jabatan</td>
+                            <td class="text-center" th:text="${w.gender == 'F'} ? 'Female' : (${w.gender == 'M'} ? 'Male' : '—')">Male</td>
+                            <td>
+                                <span th:if="${w.screeningStatus == 'ACCEPTED'}" class="badge bg-success">
+                                    <i class="bi bi-check-lg me-1"></i>Lulus
+                                </span>
+                                <div th:if="${w.screeningStatus == 'ACCEPTED' and w.screeningDate != null}" class="small text-muted mt-1"
+                                     th:text="'Lulus: ' + ${#dates.format(w.screeningDate, 'dd-MM-yyyy')}"></div>
+
+                                <span th:if="${w.screeningStatus == 'REJECTED'}" class="badge bg-danger">
+                                    <i class="bi bi-x-lg me-1"></i>Tidak Lulus
+                                </span>
+                                <div th:if="${w.screeningStatus == 'REJECTED' and w.screeningReason != null}" class="small text-danger fst-italic mt-1"
+                                     th:text="'Alasan: ' + ${w.screeningReason}"></div>
+
+                                <span th:if="${w.screeningStatus == 'ATTENDED'}" class="badge bg-success">Hadir / Lolos</span>
+                                <span th:if="${w.screeningStatus == 'NO_SHOW'}" class="badge bg-danger">Tidak Hadir</span>
+                                <span th:if="${w.screeningStatus == 'FAILED'}" class="badge bg-secondary">Tidak Lulus</span>
+                                <span th:if="${w.screeningStatus == null or w.screeningStatus == 'PENDING'}" class="badge bg-light text-secondary border">Belum Diperiksa</span>
+                            </td>
+                            <td style="min-width: 220px;">
+                                <ul class="list-unstyled mb-0 small">
+                                    <li th:each="d : ${w.docs}" class="mb-1 d-flex align-items-center justify-content-between gap-2">
+                                        <div class="d-inline-flex align-items-center gap-1 text-truncate me-2" th:title="${d.docName}" style="min-width: 0;">
+                                            <i th:if="${d.existingFileId != null and !#strings.isEmpty(d.existingFileId)}"
+                                               class="bi bi-file-earmark-check text-success flex-shrink-0" title="File terunggah"></i>
+                                            <i th:unless="${d.existingFileId != null and !#strings.isEmpty(d.existingFileId)}"
+                                               class="bi bi-file-earmark-x text-muted flex-shrink-0" title="Belum diunggah"></i>
+                                            <span th:text="${d.docName}" class="text-truncate">Document</span>
+                                        </div>
+                                        <span th:if="${d.mandatory}" class="badge bg-danger-subtle text-danger border border-danger-subtle px-1 flex-shrink-0 ms-auto" style="font-size:0.65rem;">Wajib</span>
+                                    </li>
+                                </ul>
+                                <span th:if="${w.docs == null or w.docs.isEmpty()}" class="text-muted small fst-italic">—</span>
+                            </td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-outline-primary py-1 px-2"
+                                        data-bs-toggle="modal" th:attr="data-bs-target='#workerDetailModal-' + ${wIter.index}">
+                                    <i class="bi bi-eye me-1"></i>Detail
+                                </button>
+
+                                <!-- Modal Detail Worker Data for this worker -->
+                                <div class="modal fade" th:id="'workerDetailModal-' + ${wIter.index}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                                        <div class="modal-content text-start">
+                                            <div class="modal-header bg-primary text-white py-2 px-3">
+                                                <h6 class="modal-title fw-bold mb-0">
+                                                    <i class="bi bi-person me-2"></i>Detail Data Pekerja: <span th:text="${w.workerName}">Nama</span>
+                                                </h6>
+                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body p-3">
+                                                <!-- Section 1: Profil & Identitas Pekerja -->
+                                                <div class="card border-0 bg-light mb-3">
+                                                    <div class="card-body p-3">
+                                                        <div class="row g-2 small">
+                                                            <div class="col-sm-6">
+                                                                <div class="text-muted">Nama Lengkap</div>
+                                                                <div class="fw-bold fs-6 text-dark" th:text="${w.workerName}">Nama Pekerja</div>
+                                                            </div>
+                                                            <div class="col-sm-6">
+                                                                <div class="text-muted">Nomor Identitas</div>
+                                                                <div>
+                                                                    <span class="badge bg-secondary-subtle text-secondary me-1"
+                                                                          th:text="${w.idType == 'PASSPORT'} ? 'PASPOR' : 'NIK'">NIK</span>
+                                                                    <code class="fw-bold" th:text="${w.nik}">0000000000000000</code>
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-sm-4">
+                                                                <div class="text-muted">No. Badge / ID</div>
+                                                                <div class="fw-semibold" th:text="${w.badge} ?: '—'">—</div>
+                                                            </div>
+                                                            <div class="col-sm-4">
+                                                                <div class="text-muted">Jabatan</div>
+                                                                <div class="fw-semibold" th:text="${w.jabatan} ?: '—'">—</div>
+                                                            </div>
+                                                            <div class="col-sm-4">
+                                                                <div class="text-muted">Jenis Kelamin</div>
+                                                                <div class="fw-semibold" th:text="${w.gender == 'F'} ? 'Perempuan (Female)' : (${w.gender == 'M'} ? 'Laki-laki (Male)' : '—')">—</div>
+                                                            </div>
+                                                            <div class="col-sm-4" th:if="${w.department != null and !#strings.isEmpty(w.department)}">
+                                                                <div class="text-muted">Departemen</div>
+                                                                <div class="fw-semibold" th:text="${w.department}">—</div>
+                                                            </div>
+                                                            <div class="col-sm-4" th:if="${w.section != null and !#strings.isEmpty(w.section)}">
+                                                                <div class="text-muted">Section</div>
+                                                                <div class="fw-semibold" th:text="${w.section}">—</div>
+                                                            </div>
+                                                            <div class="col-sm-4">
+                                                                <div class="text-muted">Status Screening</div>
+                                                                <div>
+                                                                    <span th:if="${w.screeningStatus == 'ACCEPTED'}" class="badge bg-success">
+                                                                        <i class="bi bi-check-lg me-1"></i>Lulus
+                                                                    </span>
+                                                                    <span th:if="${w.screeningStatus == 'REJECTED'}" class="badge bg-danger">
+                                                                        <i class="bi bi-x-lg me-1"></i>Tidak Lulus
+                                                                    </span>
+                                                                    <span th:if="${w.screeningStatus == 'ATTENDED'}" class="badge bg-success">Hadir / Lolos</span>
+                                                                    <span th:if="${w.screeningStatus == 'NO_SHOW'}" class="badge bg-danger">Tidak Hadir</span>
+                                                                    <span th:if="${w.screeningStatus == 'FAILED'}" class="badge bg-secondary">Tidak Lulus</span>
+                                                                    <span th:if="${w.screeningStatus == null or w.screeningStatus == 'PENDING'}" class="badge bg-light text-secondary border">Belum Diperiksa</span>
+
+                                                                    <div th:if="${w.screeningStatus == 'ACCEPTED' and w.screeningDate != null}" class="text-muted small mt-1"
+                                                                         th:text="'Lulus: ' + ${#dates.format(w.screeningDate, 'dd-MM-yyyy')}"></div>
+                                                                    <div th:if="${w.screeningStatus == 'REJECTED' and w.screeningReason != null}" class="text-danger small mt-1 fst-italic"
+                                                                         th:text="'Alasan: ' + ${w.screeningReason}"></div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Section 2: Display View Dokumen Persyaratan -->
+                                                <h6 class="fw-bold mb-2 pb-1 border-bottom" style="color: var(--navy, #003B73);">
+                                                    <i class="bi bi-paperclip me-2 text-primary"></i>Dokumen Persyaratan
+                                                </h6>
+                                                <div class="row g-2">
+                                                    <div th:each="d : ${w.docs}" class="col-md-6">
+                                                        <div class="small fw-semibold text-muted mb-1 d-flex justify-content-between align-items-center">
+                                                            <span th:text="${d.docName}">Doc Name</span>
+                                                            <span th:if="${d.mandatory}" class="badge bg-danger-subtle text-danger" style="font-size:0.65rem">Wajib</span>
+                                                        </div>
+                                                        <div th:replace="~{layout/fragments/attachment :: card(${d.existingFileId}, ${d.docName})}"></div>
+                                                    </div>
+                                                    <div th:if="${w.docs == null or w.docs.isEmpty()}" class="col-12 text-muted small fst-italic py-2">
+                                                        Tidak ada persyaratan dokumen untuk pekerja ini.
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer py-2 px-3 bg-light">
+                                                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</th:block>
+</body>
+</html>

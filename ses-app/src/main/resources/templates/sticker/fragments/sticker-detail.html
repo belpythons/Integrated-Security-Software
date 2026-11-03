@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<th:block th:fragment="detail">
+
+    <!-- Data Pemohon & Header Card -->
+    <div class="shadcn-card mb-4 overflow-hidden">
+        <div class="shadcn-card-header bg-slate-50/50 py-3.5 px-5 flex items-center justify-between">
+            <h3 class="shadcn-card-title text-sm">
+                <i data-lucide="user" class="h-4 w-4 text-blue-600"></i>
+                <span>Data Pemohon &amp; Kategori Stiker</span>
+            </h3>
+            <div th:if="${stickerForm.stickerTypeCode != null}">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                    <i data-lucide="tag" class="h-3 w-3 me-1"></i>
+                    Jenis Stiker: <strong class="ms-1" th:text="${stickerTypeNames != null and stickerTypeNames[stickerForm.stickerTypeCode] != null ? stickerTypeNames[stickerForm.stickerTypeCode] : stickerForm.stickerTypeCode}">Reguler</strong>
+                </span>
+            </div>
+        </div>
+        <div class="shadcn-card-content p-5">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
+                <div class="p-3 bg-slate-50/80 rounded-lg border border-slate-100">
+                    <span class="text-slate-400 block mb-1">Nama Pemohon</span>
+                    <span class="font-semibold text-slate-800" th:text="${stickerForm.requestorName}">Nama</span>
+                </div>
+                <div class="p-3 bg-slate-50/80 rounded-lg border border-slate-100">
+                    <span class="text-slate-400 block mb-1">Badge ID</span>
+                    <span class="font-medium text-slate-800 font-mono" th:text="${stickerForm.badge}">Badge</span>
+                </div>
+                <div class="p-3 bg-slate-50/80 rounded-lg border border-slate-100">
+                    <span class="text-slate-400 block mb-1">Departemen</span>
+                    <span class="font-medium text-slate-800" th:text="${stickerForm.department}">Departemen</span>
+                </div>
+                <div class="p-3 bg-slate-50/80 rounded-lg border border-slate-100">
+                    <span class="text-slate-400 block mb-1">Seksi</span>
+                    <span class="font-medium text-slate-800" th:text="${stickerForm.section}">Seksi</span>
+                </div>
+                <div class="p-3 bg-slate-50/80 rounded-lg border border-slate-100">
+                    <span class="text-slate-400 block mb-1">Instansi / Perusahaan</span>
+                    <span class="font-semibold text-slate-800" th:text="${stickerForm.instance}">Instansi</span>
+                </div>
+                <div class="p-3 bg-slate-50/80 rounded-lg border border-slate-100" th:if="${stickerForm.contractNo != null and !#strings.isEmpty(stickerForm.contractNo)}">
+                    <span class="text-slate-400 block mb-1">No. Kontrak</span>
+                    <span class="font-mono text-slate-800" th:text="${stickerForm.contractNo}">CA-12345</span>
+                    <span class="text-slate-400 block mt-1" th:if="${stickerForm.contractExpiryDate != null}" th:text="'Berlaku s/d: ' + ${#dates.format(stickerForm.contractExpiryDate, 'dd-MM-yyyy')}"></span>
+                </div>
+                <div class="p-3 bg-slate-50/80 rounded-lg border border-slate-100">
+                    <span class="text-slate-400 block mb-1">No. Telepon / HP</span>
+                    <span class="font-medium text-slate-800" th:text="${stickerForm.phoneNo}">No. Telepon</span>
+                </div>
+                <div class="p-3 bg-slate-50/80 rounded-lg border border-slate-100">
+                    <span class="text-slate-400 block mb-1">No. Telepon Kantor (Ext)</span>
+                    <span class="font-medium text-slate-800" th:text="${stickerForm.workPhoneNo}">No. Telepon Kantor</span>
+                </div>
+                <div class="p-3 bg-slate-50/80 rounded-lg border border-slate-100">
+                    <span class="text-slate-400 block mb-1">Total Biaya Retribusi</span>
+                    <span class="font-semibold text-slate-900" th:if="${stickerAmount != null}" th:text="'Rp ' + ${#numbers.formatInteger(stickerAmount, 1, 'POINT')}">Rp 150.000</span>
+                </div>
+                <div class="p-3 bg-slate-50/80 rounded-lg border border-slate-100 sm:col-span-3">
+                    <span class="text-slate-400 block mb-1">Alamat</span>
+                    <span class="font-medium text-slate-700" th:text="${stickerForm.address}">Alamat</span>
+                </div>
+
+                <!-- Status Pembayaran -->
+                <div class="p-3 bg-slate-50/80 rounded-lg border border-slate-100 sm:col-span-3">
+                    <span class="text-slate-400 block mb-1">Status Pembayaran</span>
+                    <div class="flex items-center gap-2">
+                        <span th:if="${paymentStatus == 'PENDING'}" class="shadcn-badge shadcn-badge-warning">Pending Payment</span>
+                        <span th:if="${paymentStatus == 'VERIFYING'}" class="shadcn-badge shadcn-badge-info">Verifying</span>
+                        <span th:if="${paymentStatus == 'VERIFIED'}" class="shadcn-badge shadcn-badge-success">Verified</span>
+                        <span th:if="${paymentStatus == 'REJECTED'}" class="shadcn-badge shadcn-badge-danger">Rejected</span>
+                        <span th:if="${paymentStatus == 'CANCELLED'}" class="shadcn-badge shadcn-badge-secondary">Cancelled</span>
+                        <span th:if="${paymentStatus == 'VERIFIED' and paymentPaidAmount != null}" class="text-emerald-700 font-semibold text-xs"
+                              th:text="'(Diterima: Rp ' + ${#numbers.formatInteger(paymentPaidAmount, 1, 'POINT')} + ')'">
+                        </span>
+                    </div>
+                    <div th:if="${paymentStatus == 'REJECTED' and paymentRejectionReason != null}" class="p-2.5 mt-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs">
+                        <strong>Alasan Penolakan:</strong> <span th:text="${paymentRejectionReason}">reason</span>
+                    </div>
+                </div>
+
+                <!-- Bukti Pembayaran -->
+                <div class="p-3 bg-slate-50/80 rounded-lg border border-slate-100 sm:col-span-3" th:if="${stickerForm.existingPaymentFileId != null and !#strings.isEmpty(stickerForm.existingPaymentFileId)}">
+                    <span class="text-slate-400 block mb-2 font-semibold">Bukti Pembayaran</span>
+                    <div th:replace="~{layout/fragments/attachment :: card(${stickerForm.existingPaymentFileId}, 'Bukti Pembayaran')}"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Kendaraan Card (Flat Matrix) -->
+    <div class="shadcn-card mb-4 overflow-hidden">
+        <div class="shadcn-card-header bg-slate-50/50 py-3.5 px-5 flex items-center justify-between">
+            <h3 class="shadcn-card-title text-sm">
+                <i data-lucide="car" class="h-4 w-4 text-blue-600"></i>
+                <span>Data Kendaraan &amp; Pengemudi (<span th:text="${stickerForm.vehicles != null ? stickerForm.vehicles.size() : 0}">0</span> Unit)</span>
+            </h3>
+        </div>
+        <div class="p-0">
+            <div class="table-responsive">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200/80 text-slate-600 text-xs uppercase tracking-wider font-semibold">
+                            <th style="width: 48px;" class="py-2.5 px-4 text-center">#</th>
+                            <th class="py-2.5 px-4" style="width: 30%;">Data Kendaraan</th>
+                            <th class="py-2.5 px-4" style="width: 30%;">Pengemudi / Worker</th>
+                            <th class="py-2.5 px-4" style="width: 40%;">Dokumen Legalitas</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-xs">
+                        <tr th:each="v, vIter : ${stickerForm.vehicles}" class="hover:bg-slate-50/50">
+                            <td class="text-center font-medium text-slate-400 py-3 px-4" th:text="${vIter.count}">1</td>
+                            <td class="py-3 px-4">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <code class="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded text-xs" th:text="${v.policeNo}">B 1234 XY</code>
+                                    <span class="shadcn-badge shadcn-badge-secondary" th:text="${v.vehicleType != null and !v.vehicleType.isEmpty() ? v.vehicleType : 'Kendaraan'}">Mobil</span>
+                                </div>
+                                <div class="text-slate-600">
+                                    <strong th:text="${v.brand}">Toyota</strong>
+                                    <span th:if="${v.color != null and !v.color.isEmpty()}"> &bull; <span th:text="${v.color}">Hitam</span></span>
+                                    <span th:if="${v.yearMade != null and !v.yearMade.isEmpty()}"> (<span th:text="${v.yearMade}">2020</span>)</span>
+                                </div>
+                                <div class="text-slate-500 text-xs mt-0.5" th:if="${v.ownerName != null and !v.ownerName.isEmpty()}">
+                                    a.n. <span th:text="${v.ownerName}">Nama Pemilik</span>
+                                </div>
+                            </td>
+                            <td class="py-3 px-4">
+                                <div class="font-semibold text-slate-800 text-xs" th:text="${v.driverName}">Nama Driver</div>
+                                <div class="text-slate-500 text-xs mt-0.5">
+                                    <span th:if="${v.driverBadge != null and !v.driverBadge.isEmpty()}">Badge: <span class="font-mono" th:text="${v.driverBadge}">-</span></span>
+                                    
+                                </div>
+                                <div class="text-slate-500 text-xs mt-0.5" th:if="${v.simNo != null and !v.simNo.isEmpty()}">
+                                    SIM <strong th:text="${v.simClass != null ? v.simClass : 'A'}">A</strong>: <span class="font-mono" th:text="${v.simNo}">123456</span>
+                                </div>
+                            </td>
+                            <td class="py-3 px-4">
+                                <div class="space-y-1.5">
+                                    <!-- STNK -->
+                                    <div class="flex items-center justify-between gap-2 p-1.5 rounded bg-slate-50 border border-slate-100">
+                                        <div class="flex items-center gap-1.5">
+                                            <i data-lucide="file-check" class="h-3.5 w-3.5 text-emerald-600"></i>
+                                            <span class="font-medium text-slate-700">STNK</span>
+                                            <span class="text-slate-400" th:if="${v.stnkExpiryDate != null}" th:text="'(s/d ' + ${#dates.format(v.stnkExpiryDate, 'dd-MM-yyyy')} + ')'"></span>
+                                        </div>
+                                        <div th:if="${v.existingStnkFileId != null or v.existingLetterFileId != null}">
+                                            <a th:href="@{/file/{id}(id=${v.existingStnkFileId != null ? v.existingStnkFileId : v.existingLetterFileId})}"
+                                               data-attachment-preview="true"
+                                               class="text-blue-600 hover:underline font-semibold flex items-center gap-1">
+                                                <i data-lucide="eye" class="h-3 w-3"></i><span>Lihat</span>
+                                            </a>
+                                        </div>
+                                        <span th:unless="${v.existingStnkFileId != null or v.existingLetterFileId != null}" class="text-slate-400">-</span>
+                                    </div>
+
+                                    <!-- SIM -->
+                                    <div class="flex items-center justify-between gap-2 p-1.5 rounded bg-slate-50 border border-slate-100">
+                                        <div class="flex items-center gap-1.5">
+                                            <i data-lucide="credit-card" class="h-3.5 w-3.5 text-blue-600"></i>
+                                            <span class="font-medium text-slate-700">SIM</span>
+                                            <span class="text-slate-400" th:if="${v.simExpiryDate != null}" th:text="'(s/d ' + ${#dates.format(v.simExpiryDate, 'dd-MM-yyyy')} + ')'"></span>
+                                        </div>
+                                        <div th:if="${v.existingSimFileId != null}">
+                                            <a th:href="@{/file/{id}(id=${v.existingSimFileId})}"
+                                               data-attachment-preview="true"
+                                               class="text-blue-600 hover:underline font-semibold flex items-center gap-1">
+                                                <i data-lucide="eye" class="h-3 w-3"></i><span>Lihat</span>
+                                            </a>
+                                        </div>
+                                        <span th:unless="${v.existingSimFileId != null}" class="text-slate-400">-</span>
+                                    </div>
+
+                                    <!-- KIR (jika ada) -->
+                                    <div th:if="${v.existingKirFileId != null or (v.kirNo != null and !v.kirNo.isEmpty())}"
+                                         class="flex items-center justify-between gap-2 p-1.5 rounded bg-slate-50 border border-slate-100">
+                                        <div class="flex items-center gap-1.5">
+                                            <i data-lucide="shield-check" class="h-3.5 w-3.5 text-indigo-600"></i>
+                                            <span class="font-medium text-slate-700">KIR</span>
+                                            <span class="font-mono text-slate-600" th:if="${v.kirNo != null}" th:text="${v.kirNo}"></span>
+                                            <span class="text-slate-400" th:if="${v.kirExpiryDate != null}" th:text="'(s/d ' + ${#dates.format(v.kirExpiryDate, 'dd-MM-yyyy')} + ')'"></span>
+                                        </div>
+                                        <div th:if="${v.existingKirFileId != null}">
+                                            <a th:href="@{/file/{id}(id=${v.existingKirFileId})}"
+                                               data-attachment-preview="true"
+                                               class="text-blue-600 hover:underline font-semibold flex items-center gap-1">
+                                                <i data-lucide="eye" class="h-3 w-3"></i><span>Lihat</span>
+                                            </a>
+                                        </div>
+                                        <span th:unless="${v.existingKirFileId != null}" class="text-slate-400">-</span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</th:block>
+</body>
+</html>

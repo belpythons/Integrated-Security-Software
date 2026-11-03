@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div>
+            <span class="text-muted">Total: <strong th:text="${page.totalElements}">0</strong> pengajuan</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2" th:if="${scopeLabel != null}">
+                <i class="bi bi-people me-1"></i>
+                <span th:text="${scopeLabel}">Seksi / Departemen</span>
+            </span>
+            <a th:if="${canPrint}" th:href="@{/history/print.pdf}"
+               class="btn btn-sm btn-outline-primary" title="Unduh PDF seluruh daftar pengajuan">
+                <i class="bi bi-download me-1"></i>Cetak Semua
+            </a>
+        </div>
+    </div>
+
+    <!-- Main History Card with Embedded Filter Toolbar -->
+    <div class="card shadow-sm border-0">
+        <!-- Filter Bar Toolbar (Matches Dashboard pattern) -->
+        <div class="bg-light border-bottom py-2 px-3">
+            <form method="get" th:action="@{/history}">
+                <div class="d-flex flex-wrap flex-lg-nowrap align-items-center gap-2">
+                    <div class="input-group input-group-sm flex-grow-1" style="min-width: 180px;">
+                        <span class="input-group-text bg-white border-end-0"><i data-lucide="search" class="h-3.5 w-3.5 text-slate-400"></i></span>
+                        <input type="text" name="q" th:value="${param.q}" class="form-control border-start-0"
+                               placeholder="Cari nomor pengajuan, pemohon, modul..."/>
+                    </div>
+                    <div style="min-width: 200px;" class="shrink-0">
+                        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="" th:selected="${param.status == null or #strings.isEmpty(param.status[0])}">Semua Status</option>
+                            <option value="WAITING_FOR_UPLOAD" th:selected="${param.status != null and param.status[0] == 'WAITING_FOR_UPLOAD'}">Menunggu Dokumen</option>
+                            <option value="WAITING_APPROVAL" th:selected="${param.status != null and param.status[0] == 'WAITING_APPROVAL'}">Menunggu Approval</option>
+                            <option value="WAITING_PAYMENT" th:selected="${param.status != null and param.status[0] == 'WAITING_PAYMENT'}">Menunggu Verif Pembayaran</option>
+                            <option value="WAITING_SCREENING" th:selected="${param.status != null and param.status[0] == 'WAITING_SCREENING'}">Menunggu Screening</option>
+                            <option value="WAITING_RETRIEVAL" th:selected="${param.status != null and param.status[0] == 'WAITING_RETRIEVAL'}">Menunggu Pengambilan Badge</option>
+                            <option value="DRAFT" th:selected="${param.status != null and param.status[0] == 'DRAFT'}">Draft</option>
+                            <option value="APPROVED" th:selected="${param.status != null and param.status[0] == 'APPROVED'}">Selesai</option>
+                            <option value="REJECTED" th:selected="${param.status != null and param.status[0] == 'REJECTED'}">Ditolak</option>
+                            <option value="CANCELLED" th:selected="${param.status != null and param.status[0] == 'CANCELLED'}">Dibatalkan</option>
+                        </select>
+                    </div>
+                    <div style="width: 160px;" class="shrink-0">
+                        <select name="module" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="" th:selected="${param.module == null or #strings.isEmpty(param.module[0])}">Semua Modul</option>
+                            <option value="SES_REQUEST" th:selected="${param.module != null and param.module[0] == 'SES_REQUEST'}">Badge Karyawan</option>
+                            <option value="SES_STICKER_REQUEST" th:selected="${param.module != null and param.module[0] == 'SES_STICKER_REQUEST'}">Stiker Kendaraan</option>
+                        </select>
+                    </div>
+                    <div class="shrink-0">
+                        <a th:href="@{/history}" class="btn btn-sm btn-outline-secondary inline-flex items-center gap-1.5 text-nowrap px-3" title="Reset seluruh filter">
+                            <i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i>
+                            <span>Reset</span>
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table id="historyTable" class="table table-hover table-sm w-100 align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>#</th>
+                            <th>No. Pengajuan</th>
+                            <th>Modul</th>
+                            <th>Jenis</th>
+                            <th>Pemohon</th>
+                            <th>Status</th>
+                            <th>Tanggal</th>
+                            <th class="col-actions">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="r, iter : ${rows}">
+                            <td th:text="${iter.count}">1</td>
+                            <td><code class="fw-bold text-primary" th:text="${r.transactionNo}">REQ-2026-0001</code></td>
+                            <td>
+                                <span th:if="${r.businessType == 'SES_REQUEST'}" class="badge bg-primary-subtle text-primary border border-primary-subtle">Pengajuan Baru</span>
+                                <span th:if="${r.businessType == 'SES_STICKER_REQUEST'}" class="badge bg-info-subtle text-info border border-info-subtle">Stiker Kendaraan</span>
+                            </td>
+                            <td th:text="${r.moduleName}">Badge (new)</td>
+                            <td>
+                                <div th:text="${r.requestorDisplay}">Siti Aminah</div>
+                                <small class="text-muted" th:if="${r.requestorUserId != null and r.requestorUserId != r.requestorDisplay}" th:text="${r.requestorUserId}">123456</small>
+                            </td>
+                            <td>
+                                <span th:if="${r.status == 'DRAFT'}" class="shadcn-badge shadcn-badge-secondary">
+                                    <i data-lucide="file-edit" class="h-3 w-3"></i>Draft
+                                </span>
+                                <span th:if="${r.status == 'WAITING_FOR_UPLOAD'}" class="shadcn-badge shadcn-badge-info">
+                                    <i data-lucide="upload-cloud" class="h-3 w-3"></i>Menunggu Dokumen
+                                </span>
+                                <span th:if="${r.status == 'WAITING_APPROVAL'}" class="shadcn-badge shadcn-badge-warning">
+                                    <i data-lucide="clock" class="h-3 w-3"></i>Menunggu Approval
+                                </span>
+                                <span th:if="${r.status == 'WAITING_PAYMENT'}" class="shadcn-badge shadcn-badge-purple">
+                                    <i data-lucide="credit-card" class="h-3 w-3"></i>Menunggu Verif Pembayaran
+                                </span>
+                                <span th:if="${r.status == 'WAITING_SCREENING'}" class="shadcn-badge shadcn-badge-blue">
+                                    <i data-lucide="user-check" class="h-3 w-3"></i>Menunggu Screening
+                                </span>
+                                <span th:if="${r.status == 'WAITING_RETRIEVAL'}" class="shadcn-badge shadcn-badge-indigo">
+                                    <i data-lucide="id-card" class="h-3 w-3"></i>Menunggu Pengambilan Badge
+                                </span>
+                                <span th:if="${r.status == 'APPROVED'}" class="shadcn-badge shadcn-badge-success">
+                                    <i data-lucide="check-circle-2" class="h-3 w-3"></i>Selesai
+                                </span>
+                                <span th:if="${r.status == 'REJECTED'}" class="shadcn-badge shadcn-badge-danger">
+                                    <i data-lucide="x-circle" class="h-3 w-3"></i>Ditolak
+                                </span>
+                                <span th:if="${r.status == 'CANCELLED'}" class="shadcn-badge shadcn-badge-secondary">
+                                    <i data-lucide="ban" class="h-3 w-3"></i>Dibatalkan
+                                </span>
+                                <span th:if="${r.status == 'PENDING'}" class="shadcn-badge shadcn-badge-warning">
+                                    <i data-lucide="clock" class="h-3 w-3"></i>Menunggu
+                                </span>
+                            </td>
+                            <td th:text="${#dates.format(r.createdDate, 'dd-MM-yyyy HH:mm')}">18-08-2026 10:00</td>
+                            <td class="col-actions text-nowrap">
+                                <a th:if="${r.documentUrl != null}"
+                                   th:href="@{${r.documentUrl}}"
+                                   target="_blank"
+                                   class="btn btn-sm btn-outline-primary me-1"
+                                   title="Generate Dokumen">
+                                    <i class="bi bi-file-earmark-pdf me-1"></i>Dokumen
+                                </a>
+                                <a th:if="${r.viewUrl != null}" th:href="@{${r.viewUrl}}"
+                                   class="btn btn-sm btn-outline-secondary" title="Lihat">
+                                    <i class="bi bi-eye me-1"></i>Lihat
+                                </a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div th:replace="~{layout/fragments/pager :: pager(${page})}"></div>
+        </div>
+    </div>
+
+</div>
+
+<th:block layout:fragment="scripts-extra">
+<script th:inline="javascript">
+/*<![CDATA[*/
+$(document).ready(function () {
+    // Sorting only. Paging and search are the server's now (the filter form
+    // above and layout/fragments/pager.html); DataTables' own would operate on
+    // the single page it was handed.
+    $('#historyTable').DataTable({
+        paging: false,
+        searching: false,
+        info: false,
+        lengthChange: false,
+        order: [],
+        dom: 't'
+    });
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        window.lucide.createIcons();
+    }
+
+});
+/*]]>*/
+</script>
+</th:block>
+</body>
+</html>

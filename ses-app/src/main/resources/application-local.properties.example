@@ -1,0 +1,23 @@
+DB_HOST=localhost
+DB_PORT=1522
+DB_SERVICE=XEPDB1
+DB_SID=XEPDB1
+spring.datasource.url=jdbc:oracle:thin:@//localhost:1522/XEPDB1
+DB_USERNAME=ses
+DB_PASSWORD=ses2026
+
+server.port=8082
+# Dibiarkan true: berkas INI yang dipaket ke WEB-INF/classes pada WAR
+# produksi, jadi nilai false di sini berarti produksi mem-parse ulang
+# base + sidebar + navbar + footer + template halaman pada SETIAP request
+# (terukur ~400 ms biaya tetap per halaman). Ubah ke false hanya saat sedang
+# menyunting template di lokal, dan jangan ikut ter-commit/ter-package.
+spring.thymeleaf.cache=true
+app.scheduler.auto-start=false
+
+# LDAP tidak terjangkau offline — dan memang tidak dibutuhkan
+app.ldap.enabled=false
+
+# Cadangan saat APP_PARAMETER.APP_LINK kosong.
+ses.app.base-url=http://localhost:8082
+

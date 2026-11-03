@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<!-- Reconciled against RequestTypeController: row list attribute is "types". -->
+<div layout:fragment="content">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <span class="text-muted">Total: <strong th:text="${types.size()}">0</strong> request types</span>
+        <a th:if="${pageActions['/admin/request-type/form'] != null and pageActions['/admin/request-type/form'].contains('CREATE')}"
+           th:href="@{/admin/request-type/new}" class="btn btn-primary btn-sm">
+            <i data-lucide="plus" class="h-4 w-4 inline-block me-1"></i>New Request Type
+        </a>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table id="typeTable" class="table table-hover table-sm w-100 align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>#</th>
+                            <th>Type Code</th>
+                            <th>Type Name</th>
+                            <th>Needs Payment</th>
+                            <th>Payment Amount / Worker</th>
+                            <th>Mgr Pemohon</th>
+                            <th>Mgr Procurement</th>
+                            <th>Auth Type</th>
+                            <th>EXT Upload</th>
+                            <th>Order</th>
+                            <th class="text-center">Status</th>
+                            <th class="col-actions text-end">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="t, iter : ${types}">
+                            <td th:text="${iter.count}">1</td>
+                            <td><code class="fw-bold text-primary" th:text="${t.typeCode}">BADGE_NEW</code></td>
+                            <td th:text="${t.typeName}">Tanda Pengenal Pekerja</td>
+                            <td>
+                                <span th:if="${t.needsPaymentFlag == 'Y'}" class="badge bg-info text-dark">Yes</span>
+                                <span th:if="${t.needsPaymentFlag != 'Y'}" class="badge bg-secondary">No</span>
+                            </td>
+                            <td class="fw-semibold">
+                                <span th:if="${t.paymentAmount != null}" th:text="'Rp ' + ${#numbers.formatInteger(t.paymentAmount, 1, 'POINT')}">Rp 150.000</span>
+                                <span th:if="${t.paymentAmount == null}"></span>
+                            </td>
+                            <td>
+                                <span th:if="${t.needsMgrApprovalFlag != 'N'}" class="badge bg-success">Ya</span>
+                                <span th:if="${t.needsMgrApprovalFlag == 'N'}" class="badge bg-secondary"
+                                      title="Tahap Manager Pemohon dilewati untuk jenis ini">Dilewati</span>
+                            </td>
+                            <td>
+                                <span th:if="${t.needsProcApprovalFlag != 'N'}" class="badge bg-success">Ya</span>
+                                <span th:if="${t.needsProcApprovalFlag == 'N'}" class="badge bg-secondary"
+                                      title="Tahap Manager Procurement dilewati untuk jenis ini">Dilewati</span>
+                            </td>
+                            <td>
+                                <span th:if="${t.authType == 'LOCAL'}" class="badge bg-info text-dark">LOCAL</span>
+                                <span th:if="${t.authType == 'LDAP'}" class="badge bg-primary">LDAP</span>
+                                <span th:if="${t.authType != 'LOCAL' and t.authType != 'LDAP'}"
+                                      class="badge bg-secondary">ALL</span>
+                            </td>
+                            <td>
+                                <span th:if="${t.needExtPageUpload == 'Y'}" class="badge bg-warning text-dark">Yes</span>
+                                <span th:if="${t.needExtPageUpload != 'Y'}" class="badge bg-secondary">No</span>
+                            </td>
+                            <td th:text="${t.orderBy}">10</td>
+                            <td class="text-center">
+                                <span th:if="${t.activeFlag == 'Y'}" class="badge bg-success badge-status">
+                                    <i data-lucide="check-circle-2" class="h-4 w-4 inline-block me-1"></i>Active
+                                </span>
+                                <span th:if="${t.activeFlag != 'Y'}" class="badge bg-danger badge-status">
+                                    <i data-lucide="x-circle" class="h-4 w-4 inline-block me-1"></i>Inactive
+                                </span>
+                            </td>
+                            <td class="col-actions text-end text-nowrap">
+                                <a th:if="${pageActions['/admin/request-type/form'] != null and pageActions['/admin/request-type/form'].contains('UPDATE')}"
+                                   th:href="@{/admin/request-type/{code}(code=${t.typeCode})}"
+                                   class="btn btn-sm btn-outline-primary me-1" title="Edit">
+                                    <i data-lucide="pencil" class="h-4 w-4 inline-block me-1"></i>
+                                </a>
+                                <button th:if="${pageActions['/admin/request-type/form'] != null and pageActions['/admin/request-type/form'].contains('DELETE')}"
+                                        type="button" class="btn btn-sm btn-outline-danger"
+                                        th:disabled="${typeInUse[t.typeCode]}"
+                                        th:title="${typeInUse[t.typeCode]} ? 'Cannot delete: request type is in use' : 'Delete'"
+                                        th:data-code="${t.typeCode}"
+                                        th:data-name="${t.typeName}"
+                                        onclick="confirmDelete(this)">
+                                    <i data-lucide="trash-2" class="h-4 w-4 inline-block me-1"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <form id="deleteForm" method="post" style="display:none;">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+    </form>
+
+</div>
+<th:block layout:fragment="scripts-extra">
+<script th:inline="javascript">
+    var contextPath = /*[[@{/}]]*/ '/';
+</script>
+<script th:inline="none">
+$(document).ready(function () {
+    $('#typeTable').DataTable({
+        pageLength: 10,
+        lengthChange: false,
+        columnDefs: [{ targets: [0, -1], orderable: false, searchable: false }]
+    });
+});
+
+function confirmDelete(btn) {
+    if (btn.disabled) {
+        return;
+    }
+    Swal.fire({
+        title: 'Delete Request Type?',
+        text: btn.dataset.code + ' (' + btn.dataset.name + ') — this cannot be undone.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'Delete'
+    }).then(function (r) {
+        if (r.isConfirmed) {
+            var f = document.getElementById('deleteForm');
+            f.action = contextPath + 'admin/request-type/' + btn.dataset.code + '/delete';
+            f.submit();
+        }
+    });
+}
+</script>
+</th:block>
+</body>
+</html>

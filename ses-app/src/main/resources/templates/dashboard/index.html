@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+    layout:decorate="~{layout/base}">
+<th:block layout:fragment="head-extra">
+    <style>
+        /* Soft Slate Light Gray Frame Recap Cards */
+        .recap-ticker-container {
+            position: relative;
+            background: #f1f5f9;
+            border-radius: var(--radius);
+            border: 1.5px solid #e2e8f0;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+            padding: 0.75rem 0.75rem;
+        }
+
+        .ticker-kpi-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-left: 3.5px solid #0054a6;
+            border-radius: calc(var(--radius) - 2px);
+            padding: 0.65rem 1rem;
+            width: 100%;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+            cursor: pointer;
+        }
+
+        .ticker-kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
+            border-color: #94a3b8;
+        }
+
+        .ticker-kpi-card .ticker-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: calc(var(--radius) - 4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .ticker-kpi-card .ticker-value {
+            font-size: 1.25rem;
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.01em;
+            color: #001e3c;
+        }
+
+        .ticker-kpi-card .ticker-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.035em;
+            color: #64748b;
+            white-space: nowrap;
+        }
+
+        .chart-container-box {
+            position: relative;
+            height: 230px;
+            width: 100%;
+        }
+    </style>
+</th:block>
+
+<body>
+    <div layout:fragment="content">
+
+        <!-- KPI Recap Summary (Responsive 3-Column Grid) -->
+        <div class="recap-ticker-container mb-5 animate__animated animate__fadeIn">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <!-- Total Pengajuan -->
+                <div class="ticker-kpi-card">
+                    <div class="ticker-icon bg-blue-50 text-blue-600">
+                        <i data-lucide="file-text" class="h-4 w-4"></i>
+                    </div>
+                    <div>
+                        <div class="ticker-value" th:text="${#numbers.formatInteger(summary.totalRequests, 1, 'POINT')}">0</div>
+                        <div class="ticker-label">Total Pengajuan</div>
+                    </div>
+                </div>
+                <!-- Menunggu Persetujuan -->
+                <div class="ticker-kpi-card" style="border-left-color: #f59e0b;">
+                    <div class="ticker-icon bg-amber-50 text-amber-600">
+                        <i data-lucide="clock" class="h-4 w-4"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="ticker-value text-amber-600"
+                                th:text="${#numbers.formatInteger(summary.pending, 1, 'POINT')}">0</span>
+                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                        </div>
+                        <div class="ticker-label">Menunggu Persetujuan</div>
+                    </div>
+                </div>
+                <!-- Selesai / Approved -->
+                <div class="ticker-kpi-card" style="border-left-color: #10b981;">
+                    <div class="ticker-icon bg-emerald-50 text-emerald-600">
+                        <i data-lucide="check-circle-2" class="h-4 w-4"></i>
+                    </div>
+                    <div>
+                        <div class="ticker-value text-emerald-600"
+                            th:text="${#numbers.formatInteger(summary.approved, 1, 'POINT')}">0</div>
+                        <div class="ticker-label">Selesai / Approved</div>
+                    </div>
+                </div>
+                <!-- Ditolak -->
+                <div class="ticker-kpi-card" style="border-left-color: #f43f5e;">
+                    <div class="ticker-icon bg-rose-50 text-rose-600">
+                        <i data-lucide="x-circle" class="h-4 w-4"></i>
+                    </div>
+                    <div>
+                        <div class="ticker-value text-rose-600"
+                            th:text="${#numbers.formatInteger(summary.rejected, 1, 'POINT')}">0</div>
+                        <div class="ticker-label">Ditolak</div>
+                    </div>
+                </div>
+                <!-- Pekerja / Tamu -->
+                <div class="ticker-kpi-card">
+                    <div class="ticker-icon bg-slate-100 text-slate-700">
+                        <i data-lucide="users" class="h-4 w-4"></i>
+                    </div>
+                    <div>
+                        <div class="ticker-value" th:text="${#numbers.formatInteger(summary.totalWorkers, 1, 'POINT')}">0</div>
+                        <div class="ticker-label">Jumlah Pekerja</div>
+                    </div>
+                </div>
+                <!-- Pemohon -->
+                <div class="ticker-kpi-card" th:if="${adminView}">
+                    <div class="ticker-icon bg-blue-50 text-blue-600">
+                        <i data-lucide="user-check" class="h-4 w-4"></i>
+                    </div>
+                    <div>
+                        <div class="ticker-value" th:text="${#numbers.formatInteger(summary.distinctRequestors, 1, 'POINT')}">0</div>
+                        <div class="ticker-label">Jumlah Pemohon</div>
+                    </div>
+                </div>
+                <!-- Verifikasi Pembayaran -->
+                <div class="ticker-kpi-card" th:if="${adminView}" style="border-left-color: #0d9488;">
+                    <div class="ticker-icon bg-teal-50 text-teal-600">
+                        <i data-lucide="receipt" class="h-4 w-4"></i>
+                    </div>
+                    <div>
+                        <div class="ticker-value text-teal-600"
+                            th:text="${#numbers.formatInteger(summary.verifyingPayments, 1, 'POINT')}">0</div>
+                        <div class="ticker-label">Verifikasi Pembayaran</div>
+                    </div>
+                </div>
+                <!-- Stiker Kendaraan -->
+                <div class="ticker-kpi-card" th:if="${adminView}">
+                    <div class="ticker-icon bg-amber-50 text-amber-600">
+                        <i data-lucide="car" class="h-4 w-4"></i>
+                    </div>
+                    <div>
+                        <div class="ticker-value" th:text="${#numbers.formatInteger(summary.totalStickerRequests, 1, 'POINT')}">0</div>
+                        <div class="ticker-label">Stiker Kendaraan</div>
+                    </div>
+                </div>
+                <!-- Kas Masuk Bulan Ini -->
+                <div class="ticker-kpi-card" th:if="${isCashAdmin}" style="border-left-color: #10b981;">
+                    <div class="ticker-icon bg-emerald-50 text-emerald-600">
+                        <i data-lucide="wallet" class="h-4 w-4"></i>
+                    </div>
+                    <div>
+                        <div class="ticker-value text-emerald-600"
+                            th:text="'Rp ' + ${#numbers.formatInteger(summary.cashInflowThisMonth, 1, 'POINT')}">
+                            Rp 0</div>
+                        <div class="ticker-label">Kas Masuk Bulan Ini</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Visual Charts Row: Tremor / Shadcn Style Minimalist Area Chart & Donut Chart -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-5">
+            <!-- Area Chart: Tren Pengajuan -->
+            <div class="lg:col-span-8">
+                <div class="shadcn-card h-full">
+                    <div class="shadcn-card-header flex-row items-center justify-between py-3.5 px-5">
+                        <h6 class="shadcn-card-title text-sm">
+                            <i data-lucide="trending-up" class="h-4 w-4 text-blue-600"></i>
+                            <span>Tren Pengajuan (<span th:text="${scopeLabel} ?: '12 Bulan'">12 Bulan</span>)</span>
+                        </h6>
+                        <span class="text-xs text-slate-400 font-medium">Data Akumulatif</span>
+                    </div>
+                    <div class="shadcn-card-content p-4">
+                        <div class="chart-container-box">
+                            <canvas id="chartTrendCanvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Donut Chart: Distribusi Status -->
+            <div class="lg:col-span-4">
+                <div class="shadcn-card h-full">
+                    <div class="shadcn-card-header py-3.5 px-5">
+                        <h6 class="shadcn-card-title text-sm">
+                            <i data-lucide="pie-chart" class="h-4 w-4 text-teal-600"></i>
+                            <span>Distribusi Status Permohonan</span>
+                        </h6>
+                    </div>
+                    <div class="shadcn-card-content flex flex-col items-center justify-center p-4">
+                        <div style="position: relative; height: 210px; width: 100%;">
+                            <canvas id="chartStatusCanvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Requests Activity Table (Modern Shadcn Card-Table with Native Search/Filter) -->
+        <div class="shadcn-card mb-5">
+            <div class="shadcn-card-header flex-row flex-wrap items-center justify-between gap-3 py-3.5 px-5">
+                <div>
+                    <h6 class="shadcn-card-title text-sm">
+                        <i data-lucide="history" class="h-4 w-4 text-blue-600"></i>
+                        <span
+                            th:text="${adminView} ? 'Pengajuan Izin Terbaru' : 'Riwayat Pengajuan (' + (${scopeLabel} ?: 'Saya') + ')'">Riwayat
+                            Pengajuan</span>
+                    </h6>
+                    <p class="shadcn-card-description mt-0.5">Daftar permohonan terkini yang tercatat pada sistem</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a th:href="@{/history}" class="shadcn-btn-outline shadcn-btn-sm inline-flex items-center gap-1.5">
+                        <span>Buka Riwayat Lengkap</span>
+                        <i data-lucide="arrow-right" class="h-3.5 w-3.5"></i>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Filter Bar Toolbar (Matches History page filter pattern) -->
+            <div class="bg-light border-bottom py-2 px-3">
+                <div class="d-flex flex-wrap flex-lg-nowrap align-items-center gap-2">
+                    <div class="input-group input-group-sm flex-grow-1" style="min-width: 180px;">
+                        <span class="input-group-text bg-white border-end-0"><i data-lucide="search" class="h-3.5 w-3.5 text-slate-400"></i></span>
+                        <input type="text" id="filterDashSearch" class="form-control border-start-0"
+                               placeholder="Cari nomor pengajuan, pemohon, modul..."/>
+                    </div>
+                    <div style="min-width: 200px;" class="shrink-0">
+                        <select id="filterDashStatus" class="form-select form-select-sm">
+                            <option value="">Semua Status</option>
+                            <option value="WAITING_FOR_UPLOAD">Menunggu Dokumen</option>
+                            <option value="WAITING_APPROVAL">Menunggu Approval</option>
+                            <option value="WAITING_PAYMENT">Menunggu Verif Pembayaran</option>
+                            <option value="WAITING_SCREENING">Menunggu Screening</option>
+                            <option value="WAITING_RETRIEVAL">Menunggu Pengambilan Badge</option>
+                            <option value="DRAFT">Draft</option>
+                            <option value="APPROVED">Selesai</option>
+                            <option value="REJECTED">Ditolak</option>
+                            <option value="CANCELLED">Dibatalkan</option>
+                        </select>
+                    </div>
+                    <div style="width: 160px;" class="shrink-0">
+                        <select id="filterDashModule" class="form-select form-select-sm">
+                            <option value="">Semua Modul</option>
+                            <option value="SES_REQUEST">Badge Karyawan</option>
+                            <option value="SES_STICKER_REQUEST">Stiker Kendaraan</option>
+                        </select>
+                    </div>
+                    <div class="shrink-0">
+                        <button type="button" id="btnResetDashFilter" class="btn btn-sm btn-outline-secondary inline-flex items-center gap-1.5 text-nowrap px-3" title="Reset seluruh filter">
+                            <i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i>
+                            <span>Reset</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table View -->
+            <div class="p-0">
+                <div class="shadcn-table-container border-0 rounded-none">
+                    <table id="dashRecentTable" class="shadcn-table align-middle">
+                        <thead class="shadcn-thead">
+                            <tr>
+                                <th class="shadcn-th">No. Permohonan</th>
+                                <th class="shadcn-th">Kategori Izin</th>
+                                <th class="shadcn-th" th:if="${adminView}">Pemohon</th>
+                                <th class="shadcn-th">Status Saat Ini</th>
+                                <th class="shadcn-th">Waktu Pengajuan</th>
+                                <th class="shadcn-th text-end">Detail</th>
+                            </tr>
+                        </thead>
+                        <tbody class="shadcn-tbody">
+                            <tr th:if="${recentRows.isEmpty()}">
+                                <td th:attr="colspan=${adminView} ? 6 : 5" class="text-center py-8 text-slate-400">
+                                    <div class="flex flex-col items-center justify-center gap-2">
+                                        <i data-lucide="inbox" class="h-8 w-8 opacity-40"></i>
+                                        <span
+                                            th:text="${adminView} ? 'Belum ada data pengajuan dalam sistem.' : 'Anda belum memiliki riwayat pengajuan izin.'">Belum
+                                            ada pengajuan.</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr th:each="r : ${recentRows}" class="shadcn-tr" th:attr="data-status=${r.status}, data-module=${r.businessType}">
+                                <td class="shadcn-td">
+                                    <a th:if="${r.viewUrl != null}" th:href="@{${r.viewUrl}}" class="no-underline">
+                                        <code
+                                            class="font-bold text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200/50 hover:bg-blue-100 transition-colors"
+                                            th:text="${r.transactionNo}">REQ-2026-0001</code>
+                                    </a>
+                                    <code th:if="${r.viewUrl == null}"
+                                        class="font-bold text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded"
+                                        th:text="${r.transactionNo}">REQ-2026-0001</code>
+                                </td>
+                                <td class="shadcn-td">
+                                    <span class="shadcn-badge shadcn-badge-secondary" th:text="${r.moduleName}">Badge
+                                        Pekerja</span>
+                                </td>
+                                <td class="shadcn-td" th:if="${adminView}">
+                                    <div>
+                                        <div class="font-semibold text-slate-800 text-xs"
+                                            th:text="${r.requestorDisplay}">jdoe</div>
+                                        <div class="text-slate-400 text-[11px]"
+                                            th:if="${r.requestorUserId != null and r.requestorUserId != r.requestorDisplay}"
+                                            th:text="${r.requestorUserId}">123456</div>
+                                    </div>
+                                </td>
+                                <td class="shadcn-td">
+                                    <span th:if="${r.status == 'DRAFT'}" class="shadcn-badge shadcn-badge-secondary"><i
+                                            data-lucide="file-edit" class="h-3 w-3"></i>Draft</span>
+                                    <span th:if="${r.status == 'WAITING_FOR_UPLOAD'}"
+                                        class="shadcn-badge shadcn-badge-info"><i data-lucide="upload-cloud"
+                                            class="h-3 w-3"></i>Menunggu Dokumen</span>
+                                    <span th:if="${r.status == 'WAITING_APPROVAL'}"
+                                        class="shadcn-badge shadcn-badge-warning"><i data-lucide="clock"
+                                            class="h-3 w-3"></i>Menunggu Approval</span>
+                                    <span th:if="${r.status == 'WAITING_PAYMENT'}"
+                                        class="shadcn-badge shadcn-badge-purple"><i data-lucide="credit-card"
+                                            class="h-3 w-3"></i>Menunggu Verif Pembayaran</span>
+                                    <span th:if="${r.status == 'WAITING_SCREENING'}"
+                                        class="shadcn-badge shadcn-badge-blue"><i data-lucide="user-check"
+                                            class="h-3 w-3"></i>Menunggu Screening</span>
+                                    <span th:if="${r.status == 'WAITING_RETRIEVAL'}"
+                                        class="shadcn-badge shadcn-badge-indigo"><i data-lucide="id-card"
+                                            class="h-3 w-3"></i>Menunggu Pengambilan Badge</span>
+                                    <span th:if="${r.status == 'PENDING'}" class="shadcn-badge shadcn-badge-warning"><i
+                                            data-lucide="clock" class="h-3 w-3"></i>Menunggu</span>
+                                    <span th:if="${r.status == 'APPROVED'}" class="shadcn-badge shadcn-badge-success"><i
+                                            data-lucide="check-circle-2" class="h-3 w-3"></i>Disetujui</span>
+                                    <span th:if="${r.status == 'REJECTED'}" class="shadcn-badge shadcn-badge-danger"><i
+                                            data-lucide="x-circle" class="h-3 w-3"></i>Ditolak</span>
+                                    <span th:if="${r.status == 'CANCELLED'}"
+                                        class="shadcn-badge shadcn-badge-secondary"><i data-lucide="ban"
+                                            class="h-3 w-3"></i>Dibatalkan</span>
+                                </td>
+                                <td class="shadcn-td text-slate-500 text-xs"
+                                    th:text="${#dates.format(r.createdDate, 'dd-MM-yyyy HH:mm')}">18-08-2026 10:00</td>
+                                <td class="shadcn-td text-end">
+                                    <a th:if="${r.viewUrl != null}" th:href="@{${r.viewUrl}}"
+                                        class="shadcn-btn-outline shadcn-btn-sm shadcn-btn-icon" title="Lihat Detail">
+                                        <i data-lucide="eye" class="h-3.5 w-3.5 text-slate-600"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Scripts Fragment: Chart.js Minimalist Initialization & Lucide Icons -->
+    <th:block layout:fragment="scripts-extra">
+        <script th:src="@{/vendor/chartjs/chart.umd.min.js}" defer></script>
+        <script th:inline="javascript">
+            /*<![CDATA[*/
+            document.addEventListener('DOMContentLoaded', function () {
+                // 1. Re-render Lucide icons
+                if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                    window.lucide.createIcons();
+                }
+
+                (window.requestIdleCallback || function (cb) { setTimeout(cb, 50); })(function () {
+                    // 3. Chart.js Minimalist (Tremor / Shadcn Style)
+                    const trendCtx = document.getElementById('chartTrendCanvas');
+                    if (trendCtx && typeof Chart !== 'undefined') {
+                        const labels = /*[[${trend != null ? trend.labels : {}}]]*/['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+                        const reqSeries = /*[[${trend != null ? trend.requestSeries : {}}]]*/[];
+                        const reqData = Array.isArray(reqSeries) && reqSeries.length > 0 ? reqSeries.map(p => p.value || 0) : [12, 19, 15, 25, 22, 30, 28, 35, 40, 38, 45, 50];
+                        const stkSeries = /*[[${trend != null ? trend.stickerSeries : {}}]]*/[];
+                        const stkData = Array.isArray(stkSeries) && stkSeries.length > 0 ? stkSeries.map(p => p.value || 0) : [5, 8, 12, 10, 14, 18, 15, 20, 22, 25, 28, 30];
+
+                        new Chart(trendCtx, {
+                            type: 'line',
+                            data: {
+                                labels: Array.isArray(labels) && labels.length > 0 ? labels : ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8', 'M9', 'M10', 'M11', 'M12'],
+                                datasets: [
+                                    {
+                                        label: 'Badge Pekerja/Tamu',
+                                        data: reqData,
+                                        borderColor: '#0054a6',
+                                        backgroundColor: 'rgba(0, 84, 166, 0.08)',
+                                        fill: true,
+                                        tension: 0.35,
+                                        borderWidth: 2,
+                                        pointRadius: 3,
+                                        pointHoverRadius: 5,
+                                        pointBackgroundColor: '#0054a6'
+                                    },
+                                    {
+                                        label: 'Stiker Kendaraan',
+                                        data: stkData,
+                                        borderColor: '#f59e0b',
+                                        backgroundColor: 'rgba(245, 158, 11, 0.06)',
+                                        fill: true,
+                                        tension: 0.35,
+                                        borderWidth: 2,
+                                        pointRadius: 3,
+                                        pointHoverRadius: 5,
+                                        pointBackgroundColor: '#f59e0b'
+                                    }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: {
+                                        position: 'top',
+                                        labels: {
+                                            boxWidth: 8,
+                                            usePointStyle: true,
+                                            pointStyle: 'circle',
+                                            font: { family: "'Inter', sans-serif", size: 11, weight: '500' }
+                                        }
+                                    },
+                                    tooltip: {
+                                        backgroundColor: '#001e3c',
+                                        padding: 10,
+                                        cornerRadius: 8,
+                                        titleFont: { size: 12, weight: '600' },
+                                        bodyFont: { size: 11 }
+                                    }
+                                },
+                                scales: {
+                                    x: {
+                                        grid: { display: false },
+                                        ticks: { font: { family: "'Inter', sans-serif", size: 10 } }
+                                    },
+                                    y: {
+                                        beginAtZero: true,
+                                        grid: { color: 'rgba(226, 232, 240, 0.6)' },
+                                        ticks: { font: { family: "'Inter', sans-serif", size: 10 } }
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    // 4. Status Donut Chart (Minimalist)
+                    const statusCtx = document.getElementById('chartStatusCanvas');
+                    if (statusCtx && typeof Chart !== 'undefined') {
+                        const pendingCount = /*[[${summary.pending}]]*/ 0;
+                        const approvedCount = /*[[${summary.approved}]]*/ 0;
+                        const rejectedCount = /*[[${summary.rejected}]]*/ 0;
+
+                        new Chart(statusCtx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: ['Menunggu', 'Disetujui', 'Ditolak'],
+                                datasets: [{
+                                    data: [pendingCount || 1, approvedCount || 1, rejectedCount || 0],
+                                    backgroundColor: ['#f59e0b', '#10b981', '#ef4444'],
+                                    borderWidth: 2,
+                                    borderColor: '#ffffff'
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: {
+                                        position: 'bottom',
+                                        labels: {
+                                            boxWidth: 8,
+                                            usePointStyle: true,
+                                            pointStyle: 'circle',
+                                            font: { family: "'Inter', sans-serif", size: 11, weight: '500' }
+                                        }
+                                    }
+                                },
+                                cutout: '74%'
+                            }
+                        });
+                    }
+
+                });
+                // 5. Client-side Table Filter Bar for Dashboard Recent Table
+                const searchInput = document.getElementById('filterDashSearch');
+                const statusSelect = document.getElementById('filterDashStatus');
+                const moduleSelect = document.getElementById('filterDashModule');
+                const resetBtn = document.getElementById('btnResetDashFilter');
+                const table = document.getElementById('dashRecentTable');
+
+                function applyTableFilter() {
+                    if (!table) return;
+                    const searchTerm = (searchInput ? searchInput.value : '').toLowerCase().trim();
+                    const selectedStatus = (statusSelect ? statusSelect.value : '').toUpperCase().trim();
+                    const selectedModule = (moduleSelect ? moduleSelect.value : '').toUpperCase().trim();
+
+                    const rows = table.querySelectorAll('tbody tr');
+                    rows.forEach(row => {
+                        if (row.cells.length <= 1) return;
+                        const text = row.innerText.toLowerCase();
+                        const rowStatus = (row.getAttribute('data-status') || '').toUpperCase().trim();
+                        const rowModule = (row.getAttribute('data-module') || '').toUpperCase().trim();
+                        const statusCell = row.cells[row.cells.length - 3] ? row.cells[row.cells.length - 3].innerText.toUpperCase() : '';
+                        const moduleCell = row.cells[1] ? row.cells[1].innerText.toUpperCase() : '';
+
+                        let matchSearch = !searchTerm || text.includes(searchTerm);
+                        let matchStatus = !selectedStatus || rowStatus === selectedStatus || statusCell.includes(selectedStatus) ||
+                            (selectedStatus === 'WAITING_APPROVAL' && (rowStatus === 'PENDING' || statusCell.includes('MENUNGGU'))) ||
+                            (selectedStatus === 'APPROVED' && (rowStatus === 'APPROVED' || statusCell.includes('DISETUJUI') || statusCell.includes('SELESAI'))) ||
+                            (selectedStatus === 'REJECTED' && (rowStatus === 'REJECTED' || statusCell.includes('DITOLAK'))) ||
+                            (selectedStatus === 'WAITING_FOR_UPLOAD' && (rowStatus === 'WAITING_FOR_UPLOAD' || statusCell.includes('UNGGAH')));
+                        let matchModule = !selectedModule || rowModule === selectedModule ||
+                            (selectedModule === 'SES_REQUEST' && (rowModule.includes('REQUEST') || moduleCell.includes('BADGE') || moduleCell.includes('PEKERJA'))) ||
+                            (selectedModule === 'SES_STICKER_REQUEST' && (rowModule.includes('STICKER') || moduleCell.includes('STIKER') || moduleCell.includes('KENDARAAN')));
+
+                        row.style.display = (matchSearch && matchStatus && matchModule) ? '' : 'none';
+                    });
+                }
+
+                if (searchInput) searchInput.addEventListener('input', applyTableFilter);
+                if (statusSelect) statusSelect.addEventListener('change', applyTableFilter);
+                if (moduleSelect) moduleSelect.addEventListener('change', applyTableFilter);
+                if (resetBtn) {
+                    resetBtn.addEventListener('click', function () {
+                        if (searchInput) searchInput.value = '';
+                        if (statusSelect) statusSelect.value = '';
+                        if (moduleSelect) moduleSelect.value = '';
+                        applyTableFilter();
+                    });
+                }
+            });
+            /*]]>*/
+        </script>
+    </th:block>
+</body>
+
+</html>

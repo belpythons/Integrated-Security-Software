@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content">
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <h5 class="card-title mb-3">
+                <i data-lucide="badge-check" class="h-4 w-4 inline-block me-1"></i>Switch User
+            </h5>
+            <p class="text-muted small">
+                Impersonate another user for troubleshooting. Use "Return to Admin" in the navbar to switch back.
+            </p>
+            <div class="table-responsive">
+                <table id="switchUserTable" class="table table-hover table-sm align-middle">
+                    <thead class="table-light text-secondary text-uppercase fw-semibold">
+                        <tr>
+                            <th>Username</th>
+                            <th>Full Name</th>
+                            <th>Email</th>
+                            <th>Auth Type</th>
+                            <th class="text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="u : ${users}">
+                            <td><code class="fw-bold text-primary" th:text="${u.username}">jdoe</code></td>
+                            <td th:text="${u.fullName}">John Doe</td>
+                            <td th:text="${u.email}"></td>
+                            <td>
+                                <span class="badge bg-secondary-subtle text-secondary border" th:text="${u.authType}">LOCAL</span>
+                            </td>
+                            <td class="text-center text-nowrap">
+                                <button type="button" class="btn btn-sm btn-outline-primary btn-switch-user" th:data-username="${u.username}">
+                                    <i class="bi bi-box-arrow-in-right me-1"></i> Switch
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Single global hidden form: eliminates 500+ redundant CSRF tokens & nested forms -->
+            <form id="globalSwitchForm" th:action="@{/switchuser/impersonate}" method="post" class="d-none">
+                <input type="hidden" id="switchTargetUsername" name="username" value="" />
+            </form>
+        </div>
+    </div>
+
+</div>
+
+<th:block layout:fragment="scripts-extra">
+<script th:inline="none">
+$(document).ready(function() {
+    $('#switchUserTable').DataTable({
+        pageLength: 10,
+        lengthChange: false,
+        order: [[0, 'asc']]
+    });
+
+    $(document).on('click', '.btn-switch-user', function() {
+        var target = $(this).data('username');
+        if (target) {
+            $('#switchTargetUsername').val(target);
+            $('#globalSwitchForm').submit();
+        }
+    });
+});
+</script>
+</th:block>
+</body>
+</html>

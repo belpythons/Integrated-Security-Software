@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="refresh" th:attr="content='0; url=' + @{/dashboard}">
+    <title>Redirecting to Dashboard...</title>
+</head>
+<body>
+<script th:inline="javascript">
+    window.location.replace(/*[[@{/dashboard}]]*/ '/dashboard');
+</script>
+<p>Redirecting to <a th:href="@{/dashboard}">Dashboard</a>...</p>
+</body>
+</html>

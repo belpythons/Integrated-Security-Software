@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<body>
+<div layout:fragment="content" class="space-y-4">
+
+    <!-- Top Action Bar -->
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <span class="text-sm font-medium text-slate-500">Antrean Verifikasi Pembayaran:</span>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                <strong th:text="${page.totalElements}">0</strong>&nbsp;menunggu verifikasi
+            </span>
+        </div>
+    </div>
+
+    <!-- Main Table Card with Embedded Filter Toolbar -->
+    <div class="shadcn-card overflow-hidden">
+        <!-- Filter Bar Toolbar (Matches Dashboard pattern) -->
+        <div class="bg-light border-bottom py-2 px-3">
+            <form method="get" th:action="@{/payment/verify}">
+                <div class="d-flex flex-wrap flex-lg-nowrap align-items-center gap-2">
+                    <div class="input-group input-group-sm flex-grow-1" style="min-width: 180px;">
+                        <span class="input-group-text bg-white border-end-0"><i data-lucide="search" class="h-3.5 w-3.5 text-slate-400"></i></span>
+                        <input type="text" name="q" th:value="${param.q}" class="form-control border-start-0"
+                               placeholder="Cari pemohon, nama, no. transaksi..."/>
+                    </div>
+                    <div style="width: 180px;" class="shrink-0">
+                        <select name="module" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="" th:selected="${param.module == null or #strings.isEmpty(param.module[0])}">Semua Modul</option>
+                            <option value="SES_REQUEST" th:selected="${param.module != null and param.module[0] == 'SES_REQUEST'}">Badge Karyawan</option>
+                            <option value="SES_STICKER_REQUEST" th:selected="${param.module != null and param.module[0] == 'SES_STICKER_REQUEST'}">Stiker Kendaraan</option>
+                        </select>
+                    </div>
+                    <div class="shrink-0">
+                        <a th:href="@{/payment/verify}" class="btn btn-sm btn-outline-secondary inline-flex items-center gap-1.5 text-nowrap px-3" title="Reset seluruh filter">
+                            <i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i>
+                            <span>Reset</span>
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="p-0">
+            <div class="table-responsive">
+                <table id="paymentVerifyTable" class="w-full text-left text-sm">
+                    <thead>
+                        <tr>
+                            <th style="width: 48px;" class="no-sort">#</th>
+                            <th>Pemohon</th>
+                            <th>Nama Lengkap</th>
+                            <th>No. Transaksi</th>
+                            <th>Jenis</th>
+                            <th>Nominal</th>
+                            <th>Tanggal Masuk</th>
+                            <th class="col-actions text-right no-sort" style="width: 110px;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="p, iter : ${payments}">
+                            <td class="text-slate-400 font-medium text-xs" th:text="${iter.count}">1</td>
+                            <td class="text-slate-500 font-mono text-xs" th:text="${p.requestorUserId}">jdoe</td>
+                            <td class="text-slate-700 font-medium" th:text="${requestorNames != null} ? (${requestorNames[p.requestorUserId]} ?: ${p.requestorUserId}) : ${p.requestorUserId}">Siti Aminah</td>
+                            <td>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-md font-mono text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200/60" th:text="${p.transactionNo}">REQ-2026-0001</span>
+                            </td>
+                            <td class="text-slate-600 font-medium" th:text="${p.moduleName}">Pengajuan Baru</td>
+                            <td class="font-semibold text-slate-800">
+                                <span th:if="${p.amount != null}" th:text="'Rp ' + ${#numbers.formatInteger(p.amount, 1, 'POINT')}">Rp 150.000</span>
+                                <span th:if="${p.amount == null}"></span>
+                            </td>
+                            <td class="text-xs text-slate-500" th:text="${#dates.format(p.createdDate, 'dd-MM-yyyy HH:mm')}">18-08-2026 10:00</td>
+                            <td class="col-actions text-right text-nowrap">
+                                <a th:href="@{/payment/verify/{id}(id=${p.paymentId})}"
+                                   class="shadcn-btn shadcn-btn-outline shadcn-btn-sm text-blue-600 hover:bg-blue-50/50 hover:border-blue-200" title="Review Pembayaran">
+                                    <i data-lucide="clipboard-check" class="h-3.5 w-3.5"></i>
+                                    <span>Review</span>
+                                </a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div th:replace="~{layout/fragments/pager :: pager(${page})}"></div>
+            <div th:if="${page.totalElements == 0 and (param.q == null or #strings.isEmpty(param.q[0])) and (param.module == null or #strings.isEmpty(param.module[0]))}" class="flex flex-col items-center justify-center py-12 text-center text-slate-400">
+                <i data-lucide="check-check" class="h-10 w-10 text-emerald-400 mb-2"></i>
+                <p class="text-sm font-medium text-slate-600">Tidak ada pembayaran yang menunggu verifikasi</p>
+                <p class="text-xs text-slate-400 mt-0.5">Semua bukti pembayaran yang masuk telah selesai diproses.</p>
+            </div>
+            <div th:if="${page.totalElements == 0 and ((param.q != null and !#strings.isEmpty(param.q[0])) or (param.module != null and !#strings.isEmpty(param.module[0])))}" class="flex flex-col items-center justify-center py-12 text-center text-slate-400">
+                <i data-lucide="search-x" class="h-10 w-10 text-slate-300 mb-2"></i>
+                <p class="text-sm font-medium text-slate-600">Tidak ada pembayaran yang sesuai filter</p>
+                <p class="text-xs text-slate-400 mt-0.5">Coba ubah kata kunci pencarian atau modul filter.</p>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<th:block layout:fragment="scripts-extra">
+<script th:inline="none">
+document.addEventListener('DOMContentLoaded', function () {
+    var tableEl = document.getElementById('paymentVerifyTable');
+    if (tableEl && tableEl.querySelectorAll('tbody tr').length > 0) {
+        // serverPaged: the server sends one page and searches the whole
+        // table (layout/fragments/pager.html). Client-side search here
+        // could only filter the rows it was given.
+        new ShadcnTable(tableEl, { serverPaged: true });
+    }
+});
+</script>
+</th:block>
+</body>
+</html>

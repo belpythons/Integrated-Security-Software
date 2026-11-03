@@ -1,0 +1,1204 @@
+/* ============================================
+   SES — Theme Overrides (Security Suite navy/blue restyle)
+   Loaded AFTER platform's app.css. Additive only —
+   does not touch layout/positioning rules owned by app.css.
+   ============================================ */
+
+:root {
+    --navy: #001e3c;
+    --navy-d: #001024;
+    --blue: #0054a6;
+    --blue-d: #003f7d;
+    --blue-active: #00264d;
+    --blue-rgb: 0, 84, 166;
+    --blue-subtle-bg: #e6f0fa;
+    --blue-subtle-border: #b9d4ef;
+    --blue-text-emphasis: #123a5e;
+    --yellow: #ffd600;
+
+    /* "Info" accent (create/CTA buttons) — Bootstrap's default #0dcaf0 is too
+       light for white text (templates apply .btn-info + text-white). Darker
+       teal-blue keeps it visually distinct from --blue while staying legible. */
+    --info: #0a6e8c;
+    --info-d: #085a72;
+    --info-active: #06485c;
+    --info-rgb: 10, 110, 140;
+
+    /* Retheme Bootstrap's --bs-primary family (was #0d6efd blue) to the
+       security suite blue. Utilities that read these vars at runtime
+       (bg-primary, text-primary, border-primary, link-primary, alert-primary, ...)
+       pick this up for free; components below hardcode the blue hex at compile
+       time and need their own override rules. */
+    --bs-primary: var(--blue);
+    --bs-primary-rgb: var(--blue-rgb);
+    --bs-primary-text-emphasis: var(--blue-text-emphasis);
+    --bs-primary-bg-subtle: var(--blue-subtle-bg);
+    --bs-primary-border-subtle: var(--blue-subtle-border);
+    --bs-link-color: var(--blue);
+    --bs-link-color-rgb: var(--blue-rgb);
+    --bs-link-hover-color: var(--blue-d);
+
+    /* Modern rounded look — shared radius/shadow scale used below. */
+    --radius-sm: .5rem;
+    --radius: .85rem;
+    --radius-lg: 1.1rem;
+    --shadow-sm: 0 1px 3px rgba(0, 30, 60, .07), 0 1px 2px rgba(0, 30, 60, .05);
+    --shadow-md: 0 6px 20px rgba(0, 30, 60, .09), 0 2px 6px rgba(0, 30, 60, .06);
+    --shadow-lg: 0 12px 32px rgba(0, 30, 60, .14);
+}
+
+/* ---- Base surface: soft page background so cards read as raised panels ---- */
+body {
+    background-color: #f4f7fb;
+}
+
+/* ---- Components that hardcode #0d6efd instead of referencing
+   --bs-primary — need explicit overrides ---- */
+.btn-primary {
+    --bs-btn-bg: var(--blue);
+    --bs-btn-border-color: var(--blue);
+    --bs-btn-hover-bg: var(--blue-d);
+    --bs-btn-hover-border-color: var(--blue-d);
+    --bs-btn-active-bg: var(--blue-active);
+    --bs-btn-active-border-color: var(--blue-active);
+    --bs-btn-disabled-bg: var(--blue);
+    --bs-btn-disabled-border-color: var(--blue);
+    --bs-btn-focus-shadow-rgb: var(--blue-rgb);
+}
+
+.btn-info {
+    --bs-btn-bg: var(--info);
+    --bs-btn-border-color: var(--info);
+    --bs-btn-color: #fff;
+    --bs-btn-hover-bg: var(--info-d);
+    --bs-btn-hover-border-color: var(--info-d);
+    --bs-btn-hover-color: #fff;
+    --bs-btn-active-bg: var(--info-active);
+    --bs-btn-active-border-color: var(--info-active);
+    --bs-btn-active-color: #fff;
+    --bs-btn-disabled-bg: var(--info);
+    --bs-btn-disabled-border-color: var(--info);
+    --bs-btn-disabled-color: #fff;
+    --bs-btn-focus-shadow-rgb: var(--info-rgb);
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--blue);
+    --bs-btn-border-color: var(--blue);
+    --bs-btn-hover-bg: var(--blue);
+    --bs-btn-hover-border-color: var(--blue);
+    --bs-btn-active-bg: var(--blue);
+    --bs-btn-active-border-color: var(--blue);
+    --bs-btn-disabled-color: var(--blue);
+    --bs-btn-disabled-border-color: var(--blue);
+    --bs-btn-focus-shadow-rgb: var(--blue-rgb);
+}
+
+.table-primary {
+    --bs-table-bg: var(--blue-subtle-bg);
+    --bs-table-border-color: var(--blue-subtle-border);
+    --bs-table-striped-bg: #d7e7f7;
+    --bs-table-active-bg: #ccdff3;
+    --bs-table-hover-bg: #d2e3f5;
+}
+
+.nav-pills {
+    --bs-nav-pills-link-active-bg: var(--blue);
+}
+
+.pagination {
+    --bs-pagination-active-bg: var(--blue);
+    --bs-pagination-active-border-color: var(--blue);
+    --bs-pagination-focus-box-shadow: 0 0 0 .25rem rgba(var(--blue-rgb), .25);
+}
+
+.progress-bar {
+    --bs-progress-bar-bg: var(--blue);
+}
+
+.dropdown-menu {
+    --bs-dropdown-link-active-bg: var(--blue);
+}
+
+.accordion-button:not(.collapsed) {
+    --bs-accordion-active-color: var(--blue-text-emphasis);
+    --bs-accordion-active-bg: var(--blue-subtle-bg);
+}
+
+.form-check-input:checked {
+    background-color: var(--blue);
+    border-color: var(--blue);
+}
+
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 .25rem rgba(var(--blue-rgb), .25);
+}
+
+.form-range::-webkit-slider-thumb {
+    background-color: var(--blue);
+}
+
+.form-range::-moz-range-thumb {
+    background-color: var(--blue);
+}
+
+/* ============================================
+   Rounded / modern surface treatment
+   Softer corners + gentle depth across the shared
+   Bootstrap components used by every ses view.
+   ============================================ */
+
+.btn {
+    --bs-btn-border-radius: var(--radius-sm);
+    transition: transform .12s ease, box-shadow .12s ease, background-color .12s ease, border-color .12s ease;
+}
+
+.btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.btn-primary,
+.btn-info {
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:hover:not(:disabled),
+.btn-info:hover:not(:disabled) {
+    box-shadow: var(--shadow-md);
+}
+
+.btn-group > .btn,
+.input-group > .btn {
+    transform: none !important;
+}
+
+.form-control,
+.form-select,
+.input-group-text {
+    border-radius: var(--radius-sm);
+}
+
+.input-group > .form-control,
+.input-group > .form-select {
+    border-radius: var(--radius-sm);
+}
+
+.card {
+    border-radius: var(--radius);
+    border: 1px solid rgba(var(--blue-rgb), .08);
+    box-shadow: var(--shadow-sm);
+}
+
+.card.shadow-sm {
+    box-shadow: var(--shadow-md) !important;
+}
+
+.card-header {
+    border-top-left-radius: var(--radius) !important;
+    border-top-right-radius: var(--radius) !important;
+}
+
+/* Tables: round the wrapping card's corners through to the header row so
+   the table-dark head doesn't square off a rounded card. */
+.card > .card-body > .table-responsive:first-child > table,
+.card > .card-body > table:first-child {
+    overflow: hidden;
+}
+
+.table {
+    --bs-table-border-color: rgba(var(--blue-rgb), .12);
+}
+
+.table thead.table-dark th,
+.table > :not(caption) > thead.table-dark > tr > th {
+    background: linear-gradient(180deg, var(--blue) 0%, var(--navy) 100%);
+    border-color: var(--navy);
+    color: #ffffff;
+    font-weight: 600;
+    vertical-align: middle;
+}
+
+.table thead.table-dark th:first-child,
+.table > :not(caption) > thead.table-dark > tr > th:first-child {
+    border-top-left-radius: var(--radius-sm);
+}
+
+.table thead.table-dark th:last-child,
+.table > :not(caption) > thead.table-dark > tr > th:last-child {
+    border-top-right-radius: var(--radius-sm);
+}
+
+/* DataTables sort indicators contrast on table-dark header */
+table.dataTable thead.table-dark > tr > th.sorting:before,
+table.dataTable thead.table-dark > tr > th.sorting:after,
+table.dataTable thead.table-dark > tr > th.sorting_asc:before,
+table.dataTable thead.table-dark > tr > th.sorting_asc:after,
+table.dataTable thead.table-dark > tr > th.sorting_desc:before,
+table.dataTable thead.table-dark > tr > th.sorting_desc:after {
+    color: #ffffff !important;
+    opacity: 0.55;
+}
+table.dataTable thead.table-dark > tr > th.sorting_asc:before,
+table.dataTable thead.table-dark > tr > th.sorting_desc:after {
+    opacity: 1 !important;
+}
+
+.badge {
+    border-radius: var(--radius-lg);
+    font-weight: 600;
+    letter-spacing: .2px;
+    padding-inline: .6em;
+}
+
+.alert {
+    border-radius: var(--radius-sm);
+    border: none;
+    box-shadow: var(--shadow-sm);
+}
+
+.modal-content {
+    border-radius: var(--radius);
+    border: none;
+    box-shadow: var(--shadow-lg);
+}
+
+.modal-header {
+    border-top-left-radius: var(--radius);
+    border-top-right-radius: var(--radius);
+}
+
+.dropdown-menu {
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(var(--blue-rgb), .1);
+    box-shadow: var(--shadow-md);
+}
+
+.pagination .page-link {
+    border-radius: var(--radius-sm);
+    margin-inline: 2px;
+    border: none;
+    color: var(--blue-d);
+}
+
+.pagination .page-item.active .page-link {
+    color: #fff;
+    box-shadow: var(--shadow-sm);
+}
+
+/* ---- Low-contrast Bootstrap defaults ----
+   .text-warning / .text-info use the raw brand hue (#ffc107 / #0dcaf0) as
+   text color — both fail contrast on a white card background. Swap to
+   Bootstrap's own darker "-text-emphasis" tokens, which exist for exactly
+   this. Same problem on the outline-button idle state (hover is fine —
+   it flips to solid bg + black text). */
+.text-warning {
+    color: var(--bs-warning-text-emphasis) !important;
+}
+
+.text-info {
+    color: var(--bs-info-text-emphasis) !important;
+}
+
+.btn-outline-warning {
+    --bs-btn-color: var(--bs-warning-text-emphasis);
+}
+
+.btn-outline-info {
+    --bs-btn-color: var(--bs-info-text-emphasis);
+}
+
+.nav-tabs {
+    border-bottom-color: rgba(var(--blue-rgb), .15);
+}
+
+.nav-tabs .nav-link {
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    color: var(--blue-d);
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--navy);
+    border-color: rgba(var(--blue-rgb), .15) rgba(var(--blue-rgb), .15) #fff;
+}
+
+.nav-pills .nav-link {
+    border-radius: var(--radius-sm);
+}
+
+.list-group-item {
+    border-radius: var(--radius-sm) !important;
+    margin-bottom: .35rem;
+    border: 1px solid rgba(var(--blue-rgb), .1);
+}
+
+.list-group-item.active {
+    background-color: var(--blue);
+    border-color: var(--blue);
+}
+
+/* DataTables chrome inherits Bootstrap form classes; keep it visually consistent. */
+.dataTables_wrapper .dataTables_filter input,
+.dataTables_wrapper .dataTables_length select {
+    border-radius: var(--radius-sm);
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+    border-radius: var(--radius-sm) !important;
+}
+
+/* ============================================
+   BOOTSTRAP COLLAPSE RESCUE (TAILWIND COLLISION FIX)
+   Ensures submenus inside sidebar and accordions
+   are fully visible when .show is added.
+   ============================================ */
+.collapse.show {
+    visibility: visible !important;
+    display: block !important;
+}
+.collapsing {
+    visibility: visible !important;
+}
+
+/* ============================================
+   CYBERPUNK LITE DESIGN SYSTEM (ENTERPRISE BLUE)
+   For Navbar and Sidebar Navigation Elements
+   ============================================ */
+:root {
+    --cyber-blue: #0054a6;
+    --cyber-blue-hover: #2563eb;
+    --cyber-blue-pill: rgba(0, 84, 166, 0.12);
+    --cyber-blue-border: rgba(0, 84, 166, 0.4);
+    --cyber-blue-glow: 0 0 10px rgba(0, 84, 166, 0.25);
+}
+
+/* NAVBAR: solid, matching sidebar's navy */
+.navbar {
+    background: var(--navy) !important;
+    border-bottom: 1px solid rgba(0, 84, 166, 0.25);
+    transition: border-color 0.3s ease;
+}
+
+/* Navbar Brand Cyberpunk Lite Hover */
+.navbar .navbar-brand {
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.navbar .navbar-brand:hover {
+    color: #60a5fa !important;
+    transform: translateY(-1px);
+}
+
+/* Navbar Links (Approval, Switch User, etc.) Cyberpunk Lite Up/Down Hover */
+.navbar .nav-link {
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease !important;
+    position: relative;
+    border-top: 2.5px solid transparent !important;
+    border-bottom: 2.5px solid transparent !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-radius: var(--radius-sm);
+    padding: 0.38rem 0.75rem !important;
+    box-sizing: border-box;
+}
+.navbar .nav-link:hover,
+.navbar .nav-link:focus,
+.navbar .nav-link.show {
+    color: #ffffff !important;
+    background: rgba(0, 84, 166, 0.22) !important;
+    border-top: 2.5px solid #0054a6 !important;
+    border-bottom: 2.5px solid #38bdf8 !important;
+    box-shadow: inset 0 2px 6px rgba(0, 84, 166, 0.3), inset 0 -2px 6px rgba(56, 189, 248, 0.35), 0 2px 10px rgba(0, 84, 166, 0.25) !important;
+    text-shadow: none !important;
+}
+.navbar .nav-link:hover i,
+.navbar .nav-link:focus i,
+.navbar .nav-link.show i {
+    color: #60a5fa !important;
+}
+
+/* Sidebar Toggle Button Hover */
+#sidebarToggle {
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    border-top: 2px solid transparent !important;
+    border-bottom: 2px solid transparent !important;
+}
+#sidebarToggle:hover {
+    color: #ffffff !important;
+    background: rgba(0, 84, 166, 0.22) !important;
+    border-top: 2px solid #0054a6 !important;
+    border-bottom: 2px solid #38bdf8 !important;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.25) !important;
+}
+
+/* User Profile Dropdown Toggle (No white border, Up/Down Neon Hover) */
+.navbar .dropdown .dropdown-toggle {
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease !important;
+    border: none !important;
+    border-top: 2.5px solid transparent !important;
+    border-bottom: 2.5px solid transparent !important;
+    border-radius: var(--radius-sm) !important;
+    padding: 0.35rem 0.75rem !important;
+    box-shadow: none !important;
+}
+.navbar .dropdown .dropdown-toggle:hover,
+.navbar .dropdown .dropdown-toggle:focus,
+.navbar .dropdown .dropdown-toggle.show {
+    color: #ffffff !important;
+    background: rgba(0, 84, 166, 0.22) !important;
+    border-top: 2.5px solid #0054a6 !important;
+    border-bottom: 2.5px solid #38bdf8 !important;
+    box-shadow: inset 0 2px 6px rgba(0, 84, 166, 0.3), inset 0 -2px 6px rgba(56, 189, 248, 0.35), 0 2px 10px rgba(0, 84, 166, 0.25) !important;
+}
+.navbar .dropdown .dropdown-toggle:hover img,
+.navbar .dropdown .dropdown-toggle.show img {
+    border: 2px solid #38bdf8 !important;
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.5) !important;
+    transition: all 0.2s ease;
+}
+
+/* Return to Admin Form Button in Navbar */
+.navbar form .btn-outline-light {
+    border-top: 2px solid transparent !important;
+    border-bottom: 2px solid transparent !important;
+}
+.navbar form .btn-outline-light:hover {
+    color: #ffffff !important;
+    border-top: 2px solid #0054a6 !important;
+    border-bottom: 2px solid #38bdf8 !important;
+    background: rgba(0, 84, 166, 0.22) !important;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.25) !important;
+}
+
+/* ---- Sidebar: navy gradient ---- */
+#sidebar-wrapper,
+#sidebar-wrapper.bg-dark {
+    background: linear-gradient(180deg, var(--navy) 0%, var(--navy-d) 100%) !important;
+    border-right: 1px solid rgba(0, 84, 166, 0.2);
+}
+
+#sidebar-wrapper .sidebar-heading {
+    border-color: rgba(0, 84, 166, 0.2) !important;
+    transition: all 0.25s ease;
+}
+#sidebar-wrapper .sidebar-heading:hover {
+    color: #93c5fd !important;
+}
+
+/* ---- Sidebar item Cyberpunk Lite hover / focus states (ZERO LAYOUT SHIFT) ---- */
+#sidebar-wrapper .sidebar-item,
+#sidebar-wrapper .sidebar-item-sub,
+#sidebar-wrapper .sidebar-leaf,
+#sidebar-wrapper .list-group-item,
+#sidebar-wrapper a.list-group-item-action,
+#sidebar-wrapper .nav-link {
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease !important;
+    position: relative;
+    border-left: 3px solid transparent !important;
+    box-sizing: border-box;
+}
+
+#sidebar-wrapper .sidebar-item:hover,
+#sidebar-wrapper .sidebar-item-sub:hover,
+#sidebar-wrapper .sidebar-leaf:hover,
+#sidebar-wrapper .list-group-item:hover,
+#sidebar-wrapper a.list-group-item-action:hover,
+#sidebar-wrapper .nav-link:hover,
+#sidebar-wrapper .sidebar-item:focus,
+#sidebar-wrapper .sidebar-item-sub:focus,
+#sidebar-wrapper .sidebar-leaf:focus,
+#sidebar-wrapper .list-group-item:focus,
+#sidebar-wrapper a.list-group-item-action:focus,
+#sidebar-wrapper .nav-link:focus {
+    background: rgba(0, 84, 166, 0.16) !important;
+    color: #ffffff !important;
+    border-left: 3px solid var(--blue) !important;
+    box-shadow: inset 3px 0 8px rgba(0, 84, 166, 0.25) !important;
+    text-shadow: none !important;
+    /* Stable padding: absolutely NO padding changes on hover to prevent jitter */
+}
+
+#sidebar-wrapper .sidebar-item:hover i,
+#sidebar-wrapper .sidebar-item-sub:hover i,
+#sidebar-wrapper .sidebar-leaf:hover i,
+#sidebar-wrapper .list-group-item:hover i,
+#sidebar-wrapper a.list-group-item-action:hover i,
+#sidebar-wrapper .nav-link:hover i,
+#sidebar-wrapper .sidebar-item:focus i,
+#sidebar-wrapper .sidebar-item-sub:focus i,
+#sidebar-wrapper .sidebar-leaf:focus i,
+#sidebar-wrapper .list-group-item:focus i,
+#sidebar-wrapper a.list-group-item-action:focus i,
+#sidebar-wrapper .nav-link:focus i {
+    color: #60a5fa !important;
+    filter: none !important;
+    transform: none !important; /* Zero scale jump to prevent cursor displacement */
+}
+
+/* Submenu tree guide lines */
+#sidebar-wrapper ul ul {
+    border-left: 1px dashed rgba(255, 255, 255, 0.12);
+    margin-left: 1.15rem;
+    padding-left: 0.35rem;
+}
+
+/* Accent hook for the "active/current page" indicator */
+#sidebar-wrapper .sidebar-item.active,
+#sidebar-wrapper .sidebar-leaf.active,
+#sidebar-wrapper .list-group-item.active,
+#sidebar-wrapper .nav-link.active {
+    background: linear-gradient(90deg, rgba(0, 84, 166, 0.25) 0%, rgba(0, 84, 166, 0.08) 100%) !important;
+    border-left: 3px solid #38bdf8 !important;
+    color: #ffffff !important;
+    box-shadow: inset 3px 0 8px rgba(0, 84, 166, 0.3) !important;
+}
+#sidebar-wrapper .sidebar-item.active:hover,
+#sidebar-wrapper .sidebar-leaf.active:hover,
+#sidebar-wrapper .list-group-item.active:hover,
+#sidebar-wrapper .nav-link.active:hover {
+    border-left: 3px solid #60a5fa !important;
+    color: #ffffff !important;
+}
+
+/* ============================================
+   CYBERPUNK LITE HIGH-TECH ACCENTS (WHITE SURFACES)
+   Subtle blueprint gridlines, precision hairlines & tech tags
+   ============================================ */
+/* Subtle micro-grid blueprint watermark on main content wrapper */
+#page-content-wrapper {
+    background-image: 
+        radial-gradient(rgba(0, 84, 166, 0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
+    background-position: 0 0;
+}
+
+/* Techwear Card Styling */
+.card {
+    border: 1px solid rgba(0, 84, 166, 0.1) !important;
+    background: #ffffff !important;
+    position: relative;
+}
+.card-header {
+    background-color: #fafcff !important;
+    border-bottom: 1px solid rgba(0, 84, 166, 0.08) !important;
+}
+
+/* Monospace Tech Tag utility for Codes and IDs */
+.tech-code,
+.badge-tech {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    font-size: 0.75rem !important;
+    letter-spacing: 0.03em;
+}
+
+/* ---- Typography: Nunito-style bold headings ---- */
+.page-header h4,
+.card-title,
+.navbar .navbar-brand {
+    font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+    font-weight: 800;
+}
+
+/* ---- Cards: colored top-border accents (radius set earlier) ---- */
+.card.bt-primary { border-top: 4px solid var(--bs-primary); }
+.card.bt-success { border-top: 4px solid var(--bs-success); }
+.card.bt-info    { border-top: 4px solid var(--bs-info); }
+.card.bt-warning { border-top: 4px solid var(--bs-warning); }
+.card.bt-danger  { border-top: 4px solid var(--bs-danger); }
+
+/* ---- Pill utility: opt-in, not forced on every button ---- */
+.btn-pill {
+    border-radius: 2rem;
+}
+
+/* ============================================
+   Mobile off-canvas sidebar override
+   app.css's sidebar is desktop-only (fixed 240px push-layout,
+   no media query). Below 992px we turn it into a hidden
+   off-canvas panel instead. Reuses platform app.js's existing
+   `body.sidebar-collapsed` toggle class — on desktop that class
+   means "hidden" (app.css), on mobile it's redefined below to
+   mean "shown". Same class, opposite meaning per breakpoint,
+   since app.js (platform, not editable here) can't be branched.
+   ============================================ */
+@media (max-width: 991.98px) {
+    #sidebar-wrapper {
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        width: 240px !important;
+        min-width: 0;
+        box-shadow: 4px 0 16px rgba(0, 0, 0, .35);
+    }
+
+    body.sidebar-collapsed #sidebar-wrapper {
+        transform: translateX(0);
+    }
+
+    /* Content never gets pushed on mobile — sidebar always overlays */
+    .navbar.fixed-top,
+    #page-content-wrapper,
+    footer.fixed-bottom {
+        left: 0 !important;
+    }
+
+    .mobile-sidebar-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, .45);
+        z-index: 1030;
+    }
+
+    body.sidebar-collapsed .mobile-sidebar-backdrop {
+        display: block;
+    }
+
+    /* More breathing room below the fixed navbar — app.css's p-4 (1.5rem)
+       reads too tight on mobile where the navbar sits right above content
+       with no sidebar column to visually separate them. */
+    #page-content-wrapper {
+        padding-top: 2.5rem;
+    }
+}
+
+/* Plaintext read-only fields: mark editable-looking bottom border, kill text
+   cursor + blinking caret so they read unambiguously as non-editable. */
+.form-control-plaintext {
+    border-bottom: 1px solid var(--bs-border-color, #dee2e6);
+    cursor: default;
+    caret-color: transparent;
+}
+
+/* ==========================================================================
+   MODERN UI / UX REFACTORING EXTENSIONS (14 FOCUS AREAS)
+   ========================================================================== */
+
+/* 1. Custom Minimalist Scrollbar (Area 8) */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(0, 30, 60, 0.22);
+    border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 30, 60, 0.45);
+}
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 30, 60, 0.22) transparent;
+}
+
+/* 2. Glassmorphism Native Toasts (Area 1) */
+.toast-glass {
+    background: rgba(255, 255, 255, 0.92) !important;
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    border: 1px solid rgba(0, 84, 166, 0.15) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: 0 10px 30px rgba(0, 30, 60, 0.12) !important;
+}
+
+/* 3. Modal Backdrop Blur & Navy Styling (Area 4) */
+.modal-backdrop.show {
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    background-color: rgba(0, 16, 36, 0.55);
+}
+.modal-content {
+    border-radius: var(--radius-lg);
+    box-shadow: 0 20px 50px rgba(0, 30, 60, 0.2);
+    border: 1px solid rgba(0, 84, 166, 0.08);
+}
+.modal-header.bg-navy {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%);
+    color: #fff;
+    border-top-left-radius: var(--radius-lg);
+    border-top-right-radius: var(--radius-lg);
+}
+
+/* 4. Soft-Badge Icons (Area 6) */
+.icon-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: transform 0.2s ease;
+}
+.icon-badge-primary { background: var(--blue-subtle-bg); color: var(--blue); }
+.icon-badge-success { background: #e8f7ee; color: #198754; }
+.icon-badge-warning { background: #fff8e1; color: #f59e0b; }
+.icon-badge-danger  { background: #fee2e2; color: #dc2626; }
+.icon-badge-info    { background: #e0f2fe; color: var(--info); }
+.icon-badge-navy    { background: #e2e8f0; color: var(--navy); }
+
+.card:hover .icon-badge {
+    transform: scale(1.08);
+}
+
+/* 5. Soft Buttons & Tactile Feedback (Area 12) */
+.btn {
+    user-select: none;
+}
+.btn:active:not(:disabled) {
+    transform: scale(0.97) !important;
+}
+.btn-soft-primary {
+    background-color: var(--blue-subtle-bg);
+    color: var(--blue);
+    border: 1px solid transparent;
+    font-weight: 600;
+}
+.btn-soft-primary:hover:not(:disabled) {
+    background-color: var(--blue);
+    color: #fff;
+}
+.btn-soft-success {
+    background-color: #e8f7ee;
+    color: #198754;
+    border: 1px solid transparent;
+    font-weight: 600;
+}
+.btn-soft-success:hover:not(:disabled) {
+    background-color: #198754;
+    color: #fff;
+}
+.btn-soft-danger {
+    background-color: #fee2e2;
+    color: #dc2626;
+    border: 1px solid transparent;
+    font-weight: 600;
+}
+.btn-soft-danger:hover:not(:disabled) {
+    background-color: #dc2626;
+    color: #fff;
+}
+.btn-soft-warning {
+    background-color: #fff8e1;
+    color: #b45309;
+    border: 1px solid transparent;
+    font-weight: 600;
+}
+.btn-soft-warning:hover:not(:disabled) {
+    background-color: #f59e0b;
+    color: #fff;
+}
+.btn-soft-info {
+    background-color: #e0f2fe;
+    color: var(--info);
+    border: 1px solid transparent;
+    font-weight: 600;
+}
+.btn-soft-info:hover:not(:disabled) {
+    background-color: var(--info);
+    color: #fff;
+}
+
+/* 6. Modern Dropdowns with Elevasi & Smooth Transitions (Area 10) */
+.dropdown-menu {
+    border-radius: var(--radius);
+    border: 1px solid rgba(0, 84, 166, 0.08);
+    box-shadow: 0 12px 32px rgba(0, 30, 60, 0.12);
+    padding: 0.5rem;
+    animation: fadeInSlideUp 0.18s ease-out;
+}
+.dropdown-item {
+    border-radius: var(--radius-sm);
+    padding: 0.45rem 0.85rem;
+    font-size: 0.88rem;
+    font-weight: 500;
+    transition: all 0.12s ease;
+}
+.dropdown-item:hover {
+    background-color: var(--blue-subtle-bg);
+    color: var(--blue);
+    transform: translateX(2px);
+}
+.dropdown-toggle::after {
+    transition: transform 0.2s ease;
+}
+.dropdown.show .dropdown-toggle::after {
+    transform: rotate(180deg);
+}
+
+/* 7. Native CSS Animations & Radar Indicator (Area 11) */
+@keyframes fadeInSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+@keyframes pulseRadar {
+    0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(0, 84, 166, 0.5);
+    }
+    70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 8px rgba(0, 84, 166, 0);
+    }
+    100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(0, 84, 166, 0);
+    }
+}
+
+.anim-fade-in {
+    animation: fadeInSlideUp 0.4s ease-out forwards;
+}
+.hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+.hover-lift:hover {
+    transform: translateY(-3px) !important;
+    box-shadow: var(--shadow-md) !important;
+}
+.pulse-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    animation: pulseRadar 1.8s infinite;
+}
+.pulse-dot-warning {
+    background-color: #f59e0b;
+    animation: pulseRadar 1.8s infinite rgba(245, 158, 11, 0.5);
+}
+.pulse-dot-success {
+    background-color: #10b981;
+    animation: pulseRadar 1.8s infinite rgba(16, 185, 129, 0.5);
+}
+
+/* 8. Modern Table & Card Table View (Area 14) */
+.card-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+}
+.card-table thead th {
+    background: #f8fafc;
+    color: #475569;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.85rem 1rem;
+    border-bottom: 2px solid #e2e8f0;
+}
+.card-table tbody tr {
+    transition: background-color 0.12s ease;
+}
+.card-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+.card-table tbody td {
+    padding: 0.85rem 1rem;
+    vertical-align: middle;
+    border-bottom: 1px solid #f1f5f9;
+}
+.avatar-circle {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, var(--blue) 0%, var(--navy) 100%);
+    flex-shrink: 0;
+}
+
+/* 9. Wizard Stepper UI (Area 2) */
+.wizard-stepper {
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+    margin-bottom: 2rem;
+}
+.wizard-stepper::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 10%;
+    right: 10%;
+    height: 2px;
+    background: #e2e8f0;
+    z-index: 1;
+}
+.wizard-step {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    cursor: pointer;
+    flex: 1;
+}
+.wizard-step-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #cbd5e1;
+    color: #64748b;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+    transition: all 0.2s ease;
+}
+.wizard-step.active .wizard-step-circle {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: #fff;
+    box-shadow: 0 0 0 4px rgba(var(--blue-rgb), 0.2);
+}
+.wizard-step.completed .wizard-step-circle {
+    background: #10b981;
+    border-color: #10b981;
+    color: #fff;
+}
+.wizard-step-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #64748b;
+}
+.wizard-step.active .wizard-step-title {
+    color: var(--navy);
+    font-weight: 700;
+}
+
+/* 10. Drag & Drop Upload Zone (Area 13) */
+.upload-dropzone {
+    border: 2px dashed #cbd5e1;
+    border-radius: var(--radius);
+    padding: 2rem 1.5rem;
+    text-align: center;
+    background: #fafbfc;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.upload-dropzone:hover,
+.upload-dropzone.drop-active {
+    border-color: var(--blue);
+    background: #f0f7ff;
+    transform: scale(1.01);
+}
+.file-preview-card {
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-sm);
+    background: #fff;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+}
+
+/* 11. Unified Enterprise Status Badges (.badge-status) */
+.badge-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 125px;
+    padding: 0.38rem 0.7rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border-radius: 50rem;
+    text-align: center;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    transition: all 0.15s ease;
+}
+.badge-status i {
+    font-size: 0.72rem;
+}
+
+/* 12. Compact Enterprise Navy Table Design System (#001e3c) */
+table thead,
+table > thead,
+.shadcn-thead,
+table.dataTable thead,
+.table thead,
+.table > :not(caption) > thead {
+    background-color: #001e3c !important;
+    background: linear-gradient(180deg, #001e3c 0%, #001024 100%) !important;
+}
+
+table thead th,
+table > thead > tr > th,
+.shadcn-th,
+table.dataTable thead th,
+.table thead th,
+.table thead.table-light th,
+.table thead.table-dark th,
+.table > :not(caption) > thead > tr > th,
+table[id*="Table"] thead th {
+    background-color: #001e3c !important;
+    background-image: none !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    font-size: 0.73rem !important;
+    line-height: 1.25rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    border-bottom: 2px solid #000c1c !important;
+    border-top: none !important;
+    padding: 0.65rem 0.85rem !important;
+    vertical-align: middle !important;
+    white-space: nowrap !important;
+}
+
+table thead th a,
+table thead th span,
+table thead th div,
+.shadcn-th span {
+    color: #ffffff !important;
+}
+
+/* DataTables Sorting Icons in Header */
+table.dataTable thead .sorting:before,
+table.dataTable thead .sorting:after,
+table.dataTable thead .sorting_asc:before,
+table.dataTable thead .sorting_asc:after,
+table.dataTable thead .sorting_desc:before,
+table.dataTable thead .sorting_desc:after {
+    color: #ffffff !important;
+    opacity: 0.65 !important;
+}
+table.dataTable thead .sorting_asc:before,
+table.dataTable thead .sorting_desc:after {
+    opacity: 1 !important;
+}
+
+/* Table Container Rounding */
+.shadcn-table-container,
+.table-responsive {
+    border-radius: var(--radius);
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    background-color: #ffffff !important;
+    overflow: hidden;
+}
+
+/* Table Body: Compact Data Rows with Alternating Zebra */
+table tbody,
+.shadcn-tbody,
+table.dataTable tbody,
+.table tbody,
+.table > :not(caption) > tbody {
+    background-color: #ffffff !important;
+}
+
+/* Subtle Alternating Zebra Striping */
+table tbody tr:nth-child(even),
+.shadcn-tr:nth-child(even),
+table.dataTable tbody tr:nth-child(even),
+.table tbody tr:nth-child(even) {
+    background-color: #f8fafc !important;
+}
+table tbody tr:nth-child(odd),
+.shadcn-tr:nth-child(odd),
+table.dataTable tbody tr:nth-child(odd),
+.table tbody tr:nth-child(odd) {
+    background-color: #ffffff !important;
+}
+
+table tbody tr,
+.shadcn-tr,
+table.dataTable tbody tr,
+.table tbody tr,
+.table > :not(caption) > tbody > tr {
+    border-bottom: 1px solid #edf2f7 !important;
+    transition: background-color 0.15s ease !important;
+}
+
+table tbody tr:hover,
+.shadcn-tr:hover,
+table.dataTable tbody tr:hover,
+.table tbody tr:hover,
+.table > :not(caption) > tbody > tr:hover {
+    background-color: #eaf0f8 !important;
+}
+
+table tbody td,
+.shadcn-td,
+table.dataTable tbody td,
+.table tbody td,
+.table > :not(caption) > tbody > tr > td {
+    padding: 0.55rem 0.85rem !important;
+    vertical-align: middle !important;
+    color: #1e293b !important;
+    background-color: transparent !important;
+    font-size: 0.8125rem !important;
+    line-height: 1.35 !important;
+}
+
+/* Long text auto-handling in dense tables */
+.table td.text-truncate-cell,
+table td .truncate-text {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* 13. Multi-Modal Stacking & Attachment Preview Always On Top */
+#attachmentPreviewModal {
+    z-index: 1075 !important;
+}
+.modal-backdrop.modal-backdrop-stacked {
+    z-index: 1070 !important;
+}
+
+
+/* 14. Animate.css replacement — the five classes this app actually uses.
+   Animate.css ships 71 KB to provide ~90 effects; a repo-wide grep finds only
+   animate__animated, animate__fadeIn, animate__fadeInDown, animate__fadeInUp
+   and animate__delay-1s in use (base.html flash alerts, login.html, the error
+   pages, dashboard, home). Class names are kept identical so no markup
+   changes, and the <link> to vendor/animate is dropped from base.html and
+   login.html. The vendor file stays in the platform jar for other apps. */
+.animate__animated {
+    animation-duration: .6s;
+    animation-fill-mode: both;
+}
+.animate__delay-1s { animation-delay: 1s; }
+
+@keyframes animate__fadeIn { from { opacity: 0 } to { opacity: 1 } }
+.animate__fadeIn { animation-name: animate__fadeIn; }
+
+@keyframes animate__fadeInDown {
+    from { opacity: 0; transform: translate3d(0, -100%, 0) }
+    to   { opacity: 1; transform: none }
+}
+.animate__fadeInDown { animation-name: animate__fadeInDown; }
+
+@keyframes animate__fadeInUp {
+    from { opacity: 0; transform: translate3d(0, 100%, 0) }
+    to   { opacity: 1; transform: none }
+}
+.animate__fadeInUp { animation-name: animate__fadeInUp; }
+
+/* Animate.css honours this; keep the parity so motion-sensitive users are not
+   worse off than before the swap. */
+@media (prefers-reduced-motion: reduce) {
+    .animate__animated {
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        animation-delay: 0ms !important;
+    }
+}
