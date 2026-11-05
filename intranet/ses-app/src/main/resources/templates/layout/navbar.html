@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<body>
+    <nav th:fragment="navbar" class="navbar navbar-expand-lg navbar-dark bg-navy fixed-top shadow-sm border-b border-blue-500/20 backdrop-blur-md">
+        <div class="container-fluid px-3 px-lg-4">
+
+            <!-- Brand & Toggle Section aligned with sidebar width -->
+            <div class="ses-navbar-brand-section d-flex align-items-center">
+                <!-- Sidebar toggle button with Lucide menu icon -->
+                <button class="btn btn-sm btn-outline-light border-0 me-2 p-1.5 rounded-lg hover:bg-blue-600/20 hover:text-blue-300 transition-colors" id="sidebarToggle" type="button" title="Toggle Sidebar">
+                    <i data-lucide="menu" class="h-5 w-5"></i>
+                </button>
+
+                <!-- Brand text: no icon, text-only hover neon glow -->
+                <a class="navbar-brand font-extrabold text-white tracking-wider navbar-brand-neon m-0" th:href="@{/dashboard}">
+                    <span th:text="${appName ?: 'Security Suite'}">Security Suite</span>
+                </a>
+            </div>
+
+            <!-- Separator Divider positioned between Brand and Module Switcher -->
+            <div class="ses-nav-divider d-none d-sm-block"></div>
+
+            <!-- Module Switcher (Shadcn/Bootstrap Custom Dropdown with Badak Neon Glow) -->
+            <div class="dropdown ses-module-dropdown d-none d-sm-block">
+                <button class="btn btn-sm ses-module-btn dropdown-toggle inline-flex items-center gap-2" type="button" id="sesModuleMenuBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i id="sesActiveModIcon" data-lucide="shield-check" class="h-4 w-4 text-sky-400"></i>
+                    <span id="sesActiveModLabel" class="fw-semibold text-xs text-white">Badge Request</span>
+                    <i data-lucide="chevron-down" class="h-3 w-3 text-slate-300 opacity-70"></i>
+                </button>
+                <ul class="dropdown-menu ses-module-menu shadow-xl border border-slate-200/80 rounded-xl p-1.5" aria-labelledby="sesModuleMenuBtn">
+                    <li>
+                        <a class="dropdown-item ses-mod-item rounded-lg p-2 flex items-center gap-2.5 transition-colors" href="javascript:void(0)" onclick="window.switchSesModule('badge')">
+                            <div class="p-1.5 rounded-md bg-blue-50 text-blue-600">
+                                <i data-lucide="shield-check" class="h-4 w-4"></i>
+                            </div>
+                            <div class="flex-grow">
+                                <div class="font-bold text-xs text-slate-800">Badge Request (SES)</div>
+                                <div class="text-[11px] text-slate-500">Tanda Pengenal &amp; Izin Masuk Pekerja</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item ses-mod-item rounded-lg p-2 flex items-center gap-2.5 transition-colors" href="javascript:void(0)" onclick="window.switchSesModule('sticker')">
+                            <div class="p-1.5 rounded-md bg-amber-50 text-amber-600">
+                                <i data-lucide="car-front" class="h-4 w-4"></i>
+                            </div>
+                            <div class="flex-grow">
+                                <div class="font-bold text-xs text-slate-800">Vehicle Sticker</div>
+                                <div class="text-[11px] text-slate-500">Izin Masuk &amp; Stiker Kendaraan Bermotor</div>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item ses-mod-item rounded-lg p-2 flex items-center gap-2.5 transition-colors" href="javascript:void(0)" onclick="window.switchSesModule('goods')">
+                            <div class="p-1.5 rounded-md bg-emerald-50 text-emerald-600">
+                                <i data-lucide="package-check" class="h-4 w-4"></i>
+                            </div>
+                            <div class="flex-grow">
+                                <div class="font-bold text-xs text-slate-800">Goods Entry Permit</div>
+                                <div class="text-[11px] text-slate-500">Izin Pengantaran Barang &amp; Logistik PO/DO</div>
+                            </div>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Approval Worklist Link -->
+            <a class="nav-link text-white ms-3 me-3 position-relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors" th:href="@{/approval}">
+                <i data-lucide="check-square" class="h-4 w-4 text-blue-400"></i>
+                <span>Approval</span>
+                <span th:if="${pendingApprovalCount != null and pendingApprovalCount > 0}"
+                      th:text="${pendingApprovalCount}"
+                      class="badge rounded-full bg-rose-500 text-white font-bold text-[10px] px-1.5 py-0.5 position-absolute top-0 start-100 translate-middle shadow-sm">
+                </span>
+            </a>
+
+            <!-- Switch User -->
+            <a class="nav-link text-white me-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors" th:href="@{/switchuser}"
+               th:if="${pageActions != null and pageActions['/switchuser'] != null and pageActions['/switchuser'].contains('READ')}">
+                <i data-lucide="users" class="h-4 w-4 text-blue-400"></i>
+                <span>Switch User</span>
+            </a>
+            <form th:action="@{/switchuser/exit}" method="post" class="d-inline me-3"
+                  sec:authorize="hasRole('PREVIOUS_ADMINISTRATOR')">
+                <button type="submit" class="btn btn-sm btn-outline-light inline-flex items-center gap-1.5 rounded-lg text-xs font-semibold px-2.5 py-1">
+                    <i data-lucide="corner-down-left" class="h-3.5 w-3.5 text-blue-400"></i>
+                    <span>Return to Admin</span>
+                </button>
+            </form>
+
+            <div class="d-flex ms-auto align-items-center">
+
+                <!-- User profile dropdown (Shadcn style with high contrast .show state) -->
+                <div class="dropdown">
+                    <a class="nav-link dropdown-toggle dropdown-profile-toggle text-white inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors shadow-none" href="#" role="button" data-bs-toggle="dropdown"
+                        aria-expanded="false">
+                        <img th:with="photoBase=${appParams != null ? appParams['APP_PHOTO_URL'] : null}, fallback=@{/image/anonymous.svg}, uname=${currentUser?.username}"
+                            th:src="${photoBase != null and uname != null} ? ${photoBase + uname + '.jpg'} : ${fallback}"
+                            th:attr="onerror=|this.onerror=null;this.src='${fallback}'|" class="rounded-full ring-2 ring-blue-400/50"
+                            width="26" height="26" alt="Profile">
+                        <span class="profile-name-text text-xs font-semibold tracking-wide" th:text="${currentUser?.fullName ?: currentUser?.username ?: 'User'}">Full Name</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end rounded-xl border border-slate-200/80 bg-white p-1.5 text-slate-700 shadow-xl">
+                        <li th:if="${currentUser?.authType == 'LOCAL'}">
+                            <a class="dropdown-item flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100" th:href="@{/profile/change-password}">
+                                <i data-lucide="key" class="h-4 w-4 text-slate-400"></i>
+                                <span>Change Password</span>
+                            </a>
+                        </li>
+                        <li th:if="${currentUser?.authType == 'LOCAL'}">
+                            <hr class="dropdown-divider my-1 border-slate-100" />
+                        </li>
+                        <li>
+                            <form th:action="@{/logout}" method="post">
+                                <button type="submit" class="dropdown-item flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 w-full text-start">
+                                    <i data-lucide="log-out" class="h-4 w-4 text-rose-500"></i>
+                                    <span>Logout</span>
+                                </button>
+                            </form>
+                        </li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Module Switcher & Sidebar Formatter Script (Inside Fragment) -->
+        <script>
+            (function() {
+                window.getSesActiveModule = function() {
+                    var p = window.location.pathname.toLowerCase();
+                    // 1. URL path priority
+                    if (p.indexOf('/goods-permit') !== -1 || p.indexOf('/material-permit') !== -1) {
+                        return 'goods';
+                    }
+                    if (p.indexOf('/sticker') !== -1 || p.indexOf('/admin/sticker-type') !== -1) {
+                        return 'sticker';
+                    }
+                    // 2. Local storage preference
+                    try {
+                        var stored = localStorage.getItem('ses_active_module');
+                        if (stored === 'goods' || stored === 'sticker' || stored === 'badge') {
+                            return stored;
+                        }
+                    } catch (e) {}
+                    // 3. Default
+                    return 'badge';
+                };
+
+                window.formatSesSidebar = function(mod) {
+                    if (!mod) mod = window.getSesActiveModule();
+
+                    // 1. Update Navbar Switcher UI
+                    var modLabel = document.getElementById('sesActiveModLabel');
+                    var modIcon = document.getElementById('sesActiveModIcon');
+                    if (modLabel && modIcon) {
+                        if (mod === 'goods') {
+                            modLabel.textContent = 'Goods Entry Permit';
+                            modIcon.setAttribute('data-lucide', 'package-check');
+                            modIcon.className = 'h-4 w-4 text-emerald-400';
+                        } else if (mod === 'sticker') {
+                            modLabel.textContent = 'Vehicle Sticker';
+                            modIcon.setAttribute('data-lucide', 'car-front');
+                            modIcon.className = 'h-4 w-4 text-amber-400';
+                        } else {
+                            modLabel.textContent = 'Badge Request';
+                            modIcon.setAttribute('data-lucide', 'shield-check');
+                            modIcon.className = 'h-4 w-4 text-sky-400';
+                        }
+                    }
+
+                    // 2. Format Sidebar Modules
+                    if (typeof window.applyActiveModuleSidebar === 'function') {
+                        window.applyActiveModuleSidebar(mod);
+                    } else {
+                        var badgeNav = document.getElementById('sidebar-module-badge');
+                        var stickerNav = document.getElementById('sidebar-module-sticker');
+                        var goodsNav = document.getElementById('sidebar-module-goods');
+                        var titleEl = document.getElementById('sidebarModuleTitle') || document.getElementById('sidebarModuleBadge');
+                        var taglineEl = document.getElementById('sidebarModuleTagline');
+
+                        if (badgeNav) badgeNav.classList.add('d-none');
+                        if (stickerNav) stickerNav.classList.add('d-none');
+                        if (goodsNav) goodsNav.classList.add('d-none');
+
+                        if (mod === 'goods') {
+                            if (goodsNav) goodsNav.classList.remove('d-none');
+                            if (titleEl) {
+                                titleEl.textContent = 'Goods Entry Permit';
+                                titleEl.className = 'mt-2.5 text-sm font-bold uppercase tracking-wider text-white';
+                            }
+                            if (taglineEl) taglineEl.textContent = 'Izin Pengantaran Barang & Logistik PO/DO';
+                        } else if (mod === 'sticker') {
+                            if (stickerNav) stickerNav.classList.remove('d-none');
+                            if (titleEl) {
+                                titleEl.textContent = 'Vehicle Sticker';
+                                titleEl.className = 'mt-2.5 text-sm font-bold uppercase tracking-wider text-white';
+                            }
+                            if (taglineEl) taglineEl.textContent = 'Izin Masuk & Stiker Kendaraan Bermotor';
+                        } else {
+                            if (badgeNav) badgeNav.classList.remove('d-none');
+                            if (titleEl) {
+                                titleEl.textContent = 'Badge Request';
+                                titleEl.className = 'mt-2.5 text-sm font-bold uppercase tracking-wider text-white';
+                            }
+                            if (taglineEl) taglineEl.textContent = 'Tanda Pengenal & Izin Masuk Pekerja';
+                        }
+                    }
+
+                    // 3. Refresh Lucide icons
+                    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                        window.lucide.createIcons();
+                    }
+                };
+
+                window.switchSesModule = function(val) {
+                    try {
+                        localStorage.setItem('ses_active_module', val);
+                        document.cookie = "ses_active_module=" + val + ";path=/;max-age=31536000";
+                    } catch (e) {}
+
+                    window.formatSesSidebar(val);
+
+                    var cp = (window.contextPath || '/');
+                    if (cp.charAt(cp.length - 1) !== '/') cp += '/';
+                    var p = window.location.pathname.toLowerCase();
+
+                    if (val === 'goods') {
+                        if (p.indexOf('/goods-permit/dashboard') === -1) {
+                            window.location.href = cp + 'goods-permit/dashboard';
+                        }
+                    } else if (val === 'sticker') {
+                        if (p.indexOf('/sticker/dashboard') === -1) {
+                            window.location.href = cp + 'sticker/dashboard';
+                        }
+                    } else { // badge
+                        if (p.indexOf('/dashboard') === -1 || p.indexOf('/sticker') !== -1 || p.indexOf('/goods') !== -1) {
+                            window.location.href = cp + 'dashboard?stay=true';
+                        }
+                    }
+                };
+
+                // Apply on initial load
+                window.formatSesSidebar();
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', function() {
+                        window.formatSesSidebar();
+                    });
+                }
+            })();
+        </script>
+    </nav>
+</body>
+</html>

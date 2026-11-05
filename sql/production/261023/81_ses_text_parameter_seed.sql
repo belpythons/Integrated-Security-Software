@@ -70,21 +70,21 @@ MERGE INTO app_parameter t
 USING (SELECT 'SES_TXT_BRAND_COMPANY' AS param_id FROM dual) s ON (t.param_id = s.param_id)
 WHEN NOT MATCHED THEN INSERT (param_id, param_value, param_desc, updated_by, updated_date)
   VALUES ('SES_TXT_BRAND_COMPANY',
-          'PT Badak NGL',
+          'PT Seterah',
           'Nama perusahaan, bentuk umum', 'SYSTEM', SYSDATE);
 
 MERGE INTO app_parameter t
 USING (SELECT 'SES_TXT_BRAND_COMPANY_FORMAL' AS param_id FROM dual) s ON (t.param_id = s.param_id)
 WHEN NOT MATCHED THEN INSERT (param_id, param_value, param_desc, updated_by, updated_date)
   VALUES ('SES_TXT_BRAND_COMPANY_FORMAL',
-          'PT. Badak NGL',
+          'PT. Seterah',
           'Nama perusahaan bentuk formal, dipakai di blok tanda tangan surat', 'SYSTEM', SYSDATE);
 
 MERGE INTO app_parameter t
 USING (SELECT 'SES_TXT_BRAND_COMPANY_SHORT' AS param_id FROM dual) s ON (t.param_id = s.param_id)
 WHEN NOT MATCHED THEN INSERT (param_id, param_value, param_desc, updated_by, updated_date)
   VALUES ('SES_TXT_BRAND_COMPANY_SHORT',
-          'PT BADAK NGL',
+          'PT. S',
           'Nama perusahaan bentuk singkat/kapital untuk footer', 'SYSTEM', SYSDATE);
 
 MERGE INTO app_parameter t
@@ -98,7 +98,7 @@ MERGE INTO app_parameter t
 USING (SELECT 'SES_TXT_BRAND_WORDMARK' AS param_id FROM dual) s ON (t.param_id = s.param_id)
 WHEN NOT MATCHED THEN INSERT (param_id, param_value, param_desc, updated_by, updated_date)
   VALUES ('SES_TXT_BRAND_WORDMARK',
-          'Badak LNG',
+          'PT. S',
           'Wordmark letterhead (halaman verifikasi + header email)', 'SYSTEM', SYSDATE);
 
 
@@ -304,7 +304,7 @@ MERGE INTO app_parameter t
 USING (SELECT 'SES_TXT_VERIFY_NOT_FOUND_HINT' AS param_id FROM dual) s ON (t.param_id = s.param_id)
 WHEN NOT MATCHED THEN INSERT (param_id, param_value, param_desc, updated_by, updated_date)
   VALUES ('SES_TXT_VERIFY_NOT_FOUND_HINT',
-          'Periksa kembali nomor dokumen yang tercetak, atau hubungi Security PT Badak NGL.',
+          'Periksa kembali nomor dokumen yang tercetak, atau hubungi Security PT. S.',
           'Teks user-facing (lihat fallback di call site)', 'SYSTEM', SYSDATE);
 
 MERGE INTO app_parameter t
@@ -332,7 +332,7 @@ MERGE INTO app_parameter t
 USING (SELECT 'SES_TXT_VERIFY_SIGN_LEFT' AS param_id FROM dual) s ON (t.param_id = s.param_id)
 WHEN NOT MATCHED THEN INSERT (param_id, param_value, param_desc, updated_by, updated_date)
   VALUES ('SES_TXT_VERIFY_SIGN_LEFT',
-          'Mengetahui (PT Badak NGL)',
+          'Mengetahui (PT. S)',
           'Teks user-facing (lihat fallback di call site)', 'SYSTEM', SYSDATE);
 
 MERGE INTO app_parameter t
@@ -400,7 +400,7 @@ MERGE INTO app_parameter t
 USING (SELECT 'SES_TXT_MAIL_FOOTER' AS param_id FROM dual) s ON (t.param_id = s.param_id)
 WHEN NOT MATCHED THEN INSERT (param_id, param_value, param_desc, updated_by, updated_date)
   VALUES ('SES_TXT_MAIL_FOOTER',
-          'PT Badak NGL. All rights reserved.',
+          'PT. S. All rights reserved.',
           'Teks user-facing (lihat fallback di call site)', 'SYSTEM', SYSDATE);
 
 MERGE INTO app_parameter t
@@ -949,14 +949,14 @@ MERGE INTO app_parameter t
 USING (SELECT 'SES_TXT_FORM_REQUEST_DECLARATION' AS param_id FROM dual) s ON (t.param_id = s.param_id)
 WHEN NOT MATCHED THEN INSERT (param_id, param_value, param_desc, updated_by, updated_date)
   VALUES ('SES_TXT_FORM_REQUEST_DECLARATION',
-          'Dengan mengirimkan formulir ini, Anda menyatakan bahwa data yang diisi adalah benar dan mematuhi seluruh protokol keamanan dan K3 Kawasan Kilang PT Badak NGL.',
+          'Dengan mengirimkan formulir ini, Anda menyatakan bahwa data yang diisi adalah benar dan mematuhi seluruh protokol keamanan dan K3 Kawasan Kilang PT. S.',
           'Teks user-facing (lihat fallback di call site)', 'SYSTEM', SYSDATE);
 
 MERGE INTO app_parameter t
 USING (SELECT 'SES_TXT_FORM_STICKER_DECLARATION' AS param_id FROM dual) s ON (t.param_id = s.param_id)
 WHEN NOT MATCHED THEN INSERT (param_id, param_value, param_desc, updated_by, updated_date)
   VALUES ('SES_TXT_FORM_STICKER_DECLARATION',
-          'Dengan mengirimkan formulir ini, Anda menyatakan bahwa data identitas dan seluruh kendaraan serta pengemudi yang didaftarkan adalah benar, sah, serta mematuhi seluruh protokol keselamatan dan keamanan berkendara di area PT Badak NGL.',
+          'Dengan mengirimkan formulir ini, Anda menyatakan bahwa data identitas dan seluruh kendaraan serta pengemudi yang didaftarkan adalah benar, sah, serta mematuhi seluruh protokol keselamatan dan keamanan berkendara di area PT. S.',
           'Teks user-facing (lihat fallback di call site)', 'SYSTEM', SYSDATE);
 
 

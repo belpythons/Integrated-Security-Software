@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<head>
+    <title>Goods Entry Permit - Secure Entry System</title>
+    <link rel="stylesheet" th:href="@{/css/goods-permit.css}" />
+    <script th:src="@{/vendor/qrcode.min.js}"></script>
+</head>
+<body>
+<div layout:fragment="content">
+    <div id="gep-app"></div>
+    <div id="dlg"></div>
+    <div class="toast" id="toast"></div>
+
+    <script th:inline="javascript">
+        window.SES_CONFIG = {
+            activeRole: /*[[${activeRole}]]*/ 'vendor',
+            roleLabel: /*[[${roleLabel}]]*/ 'Vendor / Requestor',
+            username: /*[[${currentUsername}]]*/ 'anonymous',
+            displayName: /*[[${currentDisplayName}]]*/ 'User',
+            initialView: /*[[${initialView}]]*/ 'home'
+        };
+    </script>
+    <script th:src="@{/js/goods-permit.js}"></script>
+</div>
+</body>
+</html>
+

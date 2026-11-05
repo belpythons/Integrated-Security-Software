@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title th:text="'Unggah Dokumen - ' + ${request.requestNo}">Unggah Dokumen</title>
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+
+    <!--
+      NO LAYOUT DECORATOR, on purpose — same reasoning as request/verify.html.
+      layout/base renders the sidebar, the navbar and the user menu, all of
+      which read from an authenticated principal. There is none here. Half of
+      that chrome would render blank and the other half would throw.
+
+      Assets come from /vendor/**, /css/** and /image/**, all of which
+      SecurityConfig permits anonymously (they have to, or the login page would
+      have no styling and no logo).
+    -->
+    <link rel="stylesheet" th:href="@{/vendor/bootstrap/css/bootstrap.min.css}"/>
+    <link rel="stylesheet" th:href="@{/vendor/fontawesome/css/all.min.css}"/>
+    <link rel="stylesheet" th:href="@{/css/pdf-splitter.css}"/>
+    <link rel="preload" as="image" th:href="@{/image/ptb_logo.png}" fetchpriority="high" type="image/png"/>
+    <style>
+        * { font-display: swap; }
+        /* Badak LNG palette. Kept inline rather than added to theme.css: that
+           file is loaded on every authenticated page, and these rules exist
+           for one anonymous page. */
+        :root {
+            --badak-navy: #003B73;
+            --badak-blue: #0054a6;
+            --line: #e2e8f0;
+            --radius: 12px;
+        }
+        body { background: #f8fafc; color: #1e293b; font-family: system-ui, -apple-system, sans-serif; }
+        .shell { max-width: 960px; margin: 0 auto; padding: 24px 16px 80px; transition: max-width .3s ease; }
+        .shell.shell-wide { max-width: 1440px; }
+
+        .topbar { background: linear-gradient(135deg, #001e3c 0%, #003B73 100%); border-radius: var(--radius); padding: 20px 24px;
+                  color: #fff; display: flex; align-items: center; justify-content: space-between;
+                  gap: 16px; flex-wrap: wrap; box-shadow: 0 10px 25px rgba(0, 30, 60, 0.12);
+                  border-bottom: 4px solid #10b981; }
+        .logo-wrapper { background: #ffffff; padding: 6px 12px; border-radius: 10px; display: inline-flex;
+                        align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16); }
+        .logo-wrapper img { height: 38px; width: auto; display: block; }
+        .topbar .title { font-size: 13px; letter-spacing: .08em; text-transform: uppercase;
+                         opacity: .85; }
+
+        .label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #64748b; font-weight: 600; }
+        .value { font-weight: 700; color: #0f172a; }
+
+        .card-soft { border: 1px solid var(--line); border-radius: var(--radius); background: #fff; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03); }
+
+        .onetime { border: 1px solid #bbf7d0; border-left: 5px solid #059669; background: #f0fdf4;
+                   border-radius: 10px; padding: 14px 18px; }
+
+        .progress-wrap { position: sticky; top: 0; z-index: 10; background: #f8fafc;
+                         padding: 12px 0 14px; }
+        .progress { height: 10px; border-radius: 8px; background: #e2e8f0; }
+        .progress-bar { background: linear-gradient(90deg, #0054a6, #10b981); transition: width 0.3s ease; }
+
+        .worker-card { border: 1px solid var(--line); border-radius: var(--radius); background: #fff;
+                       margin-bottom: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
+        .worker-head { padding: 14px 18px; border-bottom: 1px solid #f1f5f9; background: #f8fafc; }
+        .worker-head .ln { background: var(--badak-navy); }
+
+        .doc-row { padding: 14px 18px; border-top: 1px solid #f1f5f9; }
+        .doc-row:first-child { border-top: 0; }
+
+        .drop { border: 2px dashed #cbd5e1; border-radius: 10px; padding: 14px 16px;
+                background: #f8fafc; cursor: pointer; transition: all .15s ease; text-align: center; }
+        .drop:hover, .drop.over { background: #f0f7ff; border-color: var(--badak-blue); transform: scale(1.005); }
+        .drop.busy { opacity: .6; pointer-events: none; }
+        .drop .hint { font-size: 13px; color: #64748b; font-weight: 500; }
+
+        .chip { font-size: 11px; font-weight: 600; letter-spacing: .03em; }
+        .saved-box { border: 1px solid #bbf7d0; background: #f0fdf4; border-radius: 8px;
+                     padding: 10px 14px; }
+        .saved-box .fname { font-size: 13px; font-weight: 600; color: #15803d; word-break: break-all; }
+        .row-err { font-size: 12px; color: #dc2626; font-weight: 500; }
+
+        @media (max-width: 575.98px) {
+            .topbar { padding: 16px 18px; }
+            .doc-row { padding: 12px 14px; }
+        }
+    </style>
+</head>
+<body>
+<div class="shell">
+
+    <!-- Header context: Identitas PT. S (bukan navbar) -->
+    <div class="topbar mb-4">
+        <div class="d-flex align-items-center gap-3">
+            <div class="logo-wrapper">
+                <img th:src="@{/image/ptb_logo.png}" alt="PT. S" width="45" height="38" loading="eager" fetchpriority="high"/>
+            </div>
+            <div>
+                <div class="fw-bold fs-5">PT. S</div>
+                <div class="title small opacity-75">Security Suite</div>
+            </div>
+        </div>
+        <span class="badge text-white fw-bold px-3 py-2 shadow-sm" style="background-color: #059669; border: 1px solid rgba(255,255,255,0.25);">
+            <i class="fa-solid fa-circle-check me-1"></i>Tautan Valid &bull; Unggah Dokumen
+        </span>
+    </div>
+
+    <div th:if="${errorMsg}" class="alert alert-danger">
+        <i class="fa-solid fa-circle-exclamation me-1"></i>
+        <span th:text="${errorMsg}">pesan</span>
+    </div>
+
+    <!-- Request identity. Deliberately only what the recipient already knows
+         from the email plus the worker roster they are supplying papers for —
+         no contract values, no payment amount, no requestor email. -->
+    <div class="card-soft mb-3">
+        <div class="p-3 p-sm-4">
+            <h6 class="fw-bold mb-3">Rincian Pengajuan</h6>
+            <div class="row g-3">
+                <div class="col-sm-6 col-lg-3">
+                    <div class="label">Nomor Pengajuan</div>
+                    <div class="value" th:text="${request.requestNo}">REQ-2026-0001</div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="label">Jenis Pengajuan</div>
+                    <div class="value" th:text="${typeName}">Badge Baru</div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="label">Pemohon</div>
+                    <div class="value" th:text="${requestorName}">Nama Pemohon</div>
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <div class="label">Instansi</div>
+                    <div class="value" th:text="${request.instance} ?: '-'">PT Kontraktor</div>
+                </div>
+                <div class="col-12" th:if="${request.contractNo}">
+                    <div class="label">Kontrak</div>
+                    <div class="value">
+                        <span th:text="${request.contractNo}">CA-0000</span>
+                        <span class="text-muted fw-normal" th:if="${request.contractTitle}"
+                              th:text="' — ' + ${request.contractTitle}"> — judul</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- The one-time-token notice. Two separate promises, and they are easy to
+         confuse: every file is kept the moment it is chosen, but the LINK dies
+         on final submit. Saying only the second makes people hoard files and
+         upload in one risky batch; saying only the first makes the dead link a
+         nasty surprise. -->
+    <div class="onetime mb-3">
+        <div class="fw-bold mb-1 text-success">
+            <i class="fa-solid fa-circle-check me-1" style="color:#059669"></i>
+            Tautan berlaku untuk 1 sesi
+        </div>
+        <p class="mb-0 small text-secondary">
+            Halaman ini hanya dapat diakses dalam 1 sesi. Pastikan semua berkas telah lengkap dan terunggah sebelum menutup halaman atau menekan tombol Kirim Dokumen.
+        </p>
+    </div>
+
+    <!-- Progress over MANDATORY documents only. Including optional ones would
+         leave the bar short of 100% on a submission that is actually ready,
+         which reads as "something is missing" — the one thing a progress bar
+         must not get wrong. -->
+    <div class="progress-wrap" th:if="${mandatoryTotal > 0}">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="label mb-0">Kelengkapan dokumen wajib</span>
+            <span class="small fw-semibold">
+                <span id="docDone" th:text="${mandatoryDone}">0</span> /
+                <span id="docTotal" th:text="${mandatoryTotal}">0</span>
+            </span>
+        </div>
+        <div class="progress" role="progressbar" aria-label="Kelengkapan dokumen wajib"
+             th:attr="aria-valuenow=${mandatoryPercent}" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-bar bg-success" id="docBar"
+                 th:style="'width:' + ${mandatoryPercent} + '%'"></div>
+        </div>
+    </div>
+
+    <!--
+      Files are uploaded asynchronously one-by-one via AJAX save-draft to staging.
+      Submitting this form is purely a lightweight confirmation request that finalizes
+      the submission without re-uploading large multipart file payloads.
+    -->
+    <!-- Mode Selection: File Terpisah vs Mode Bundle PDF Splitter -->
+    <div class="card-soft mb-4 p-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <div class="label mb-1">Pilih Metode Pengunggahan Dokumen:</div>
+                <div class="ps-mode-switch">
+                    <button type="button" class="ps-mode-btn active" id="btnModeRegular">
+                        <i class="fa-solid fa-file me-1"></i>Unggah Terpisah (Default)
+                    </button>
+                    <button type="button" class="ps-mode-btn" id="btnModeBundle">
+                        <i class="fa-solid fa-file-pdf me-1 text-danger"></i>Mode Bundle &amp; PDF Splitter
+                    </button>
+                </div>
+            </div>
+            <div class="small text-secondary" id="modeHintText">
+                <i class="fa-solid fa-circle-info me-1 text-primary"></i>Pilih file satuan per slot, atau aktifkan <b>Mode Bundle</b> untuk memecah 1 file PDF besar (maks 200 MB).
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4" id="uploadMainRow">
+        <div class="col-12 col-lg-6 d-none" id="pdfSplitterCol">
+            <div class="sticky-top" style="top: 16px; z-index: 5;">
+                <div id="pdfSplitterContainer"></div>
+            </div>
+        </div>
+        <div class="col-12" id="requirementsCol">
+            <form th:action="@{/request/upload-docs}" method="post" id="uploadForm">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <input type="hidden" name="token" th:value="${token}"/>
+
+        <div th:if="${#lists.isEmpty(workers)}" class="alert alert-secondary">
+            Belum ada data pekerja pada pengajuan ini. Hubungi pemohon.
+        </div>
+
+        <div th:each="w : ${workers}" class="worker-card">
+            <div class="worker-head d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <span class="badge ln me-2" th:text="${w.lineNo}">1</span>
+                    <b th:text="${w.workerName}">Nama Pekerja</b>
+                    <span class="text-muted small ms-2" th:text="'NIK ' + ${w.nik}">NIK</span>
+                </div>
+                <span class="text-muted small" th:text="${w.jabatan} ?: ''">Jabatan</span>
+            </div>
+
+            <div th:if="${#lists.isEmpty(w.docs)}" class="doc-row text-muted small">
+                Jenis pengajuan ini tidak meminta dokumen apa pun.
+            </div>
+
+            <div th:each="d : ${w.docs}" class="doc-row"
+                 th:attr="data-worker=${w.workerId},data-worker-name=${w.workerName},data-doc=${d.docCode},data-doc-name=${d.docName},data-mandatory=${d.mandatory}">
+                <div class="row align-items-start g-3">
+                    <div class="col-md-4">
+                        <div class="fw-semibold" th:text="${d.docName}">Nama Dokumen</div>
+                        <span th:if="${d.mandatory}" class="badge chip bg-danger-subtle text-danger-emphasis">Wajib</span>
+                        <span th:unless="${d.mandatory}" class="badge chip bg-secondary-subtle text-secondary-emphasis">Opsional</span>
+                        <span class="badge chip bg-secondary-subtle text-secondary-emphasis js-status-pending"
+                              th:classappend="${d.fileId != null} ? 'd-none' : ''">
+                            <i class="fa-regular fa-clock me-1"></i>Belum diunggah
+                        </span>
+                        <span class="badge chip bg-warning text-dark js-status-saving d-none">
+                            <span class="spinner-border spinner-border-sm me-1" role="status" style="width: 12px; height: 12px;"></span>Menyimpan ke DB...
+                        </span>
+                        <span class="badge chip bg-success js-status-saved"
+                              th:classappend="${d.fileId == null} ? 'd-none' : ''">
+                            <i class="fa-solid fa-circle-check me-1"></i>Tersimpan di DB
+                        </span>
+                    </div>
+
+                    <div class="col-md-8">
+                        <!-- Saved state. Rendered server-side when a file is
+                             already in, and rebuilt by JS after each save. -->
+                        <div class="saved-box mb-2 js-saved" th:classappend="${d.fileId == null} ? 'd-none' : ''">
+                            <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+                                <span class="fname js-saved-name"
+                                      th:text="${d.fileName} ?: 'Berkas tersimpan'">berkas.pdf</span>
+                                <span class="d-flex gap-2">
+                                    <a class="btn btn-outline-secondary btn-sm py-0 px-2 js-saved-preview"
+                                       target="_blank" rel="noopener"
+                                       th:href="${d.fileId != null}
+                                                ? @{/request/upload-docs/file(token=${token},fileId=${d.fileId})}
+                                                : '#'">
+                                        <i class="fa-solid fa-eye me-1"></i>Lihat
+                                    </a>
+                                    <!-- Delete only for rows this session put there.
+                                         A renewal's carried-forward document shares its
+                                         app_file row with the previous, already-approved
+                                         request; offering Delete for it would reach into
+                                         that request's documents. -->
+                                    <button type="button"
+                                            class="btn btn-outline-danger btn-sm py-0 px-2 js-saved-delete"
+                                            th:classappend="${!d.deletable} ? 'd-none' : ''"
+                                            th:attr="data-ext-doc-id=${d.extDocId}">
+                                        <i class="fa-solid fa-trash me-1"></i>Hapus
+                                    </button>
+                                </span>
+                            </div>
+                        </div>
+
+                        <label class="drop d-block mb-0 js-drop">
+                            <input type="file" class="d-none js-file"
+                                   th:name="'doc-' + ${w.workerId} + '-' + ${d.docCode}"
+                                   accept=".pdf,.jpg,.jpeg,.png"/>
+                            <span class="hint">
+                                <i class="fa-solid fa-cloud-arrow-up me-1"></i>
+                                Tarik berkas ke sini atau klik untuk memilih — PDF/JPG/PNG,
+                                maks <span th:text="${maxUploadMb}">10</span>&nbsp;MB
+                                <span class="js-replace-hint"
+                                      th:classappend="${d.fileId == null} ? 'd-none' : ''">
+                                    (berkas baru akan menggantikan yang tersimpan)
+                                </span>
+                            </span>
+                            <span class="d-none js-busy">
+                                <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                                Menyimpan…
+                            </span>
+                        </label>
+                        <div class="row-err mt-1 d-none js-err"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-4" th:if="${!#lists.isEmpty(workers)}">
+            <button type="submit" class="btn btn-success fw-semibold px-4" id="btnSubmitDocs">
+                <span class="spinner-border spinner-border-sm me-1 d-none" id="submitSpinner" role="status"></span>
+                <i class="fa-solid fa-paper-plane me-1"></i>Kirim Dokumen
+            </button>
+        </div>
+    </form>
+        </div>
+    </div>
+
+    <div class="text-center text-muted small mt-4">
+        Pertanyaan mengenai pengajuan ini dapat disampaikan ke pemohon,
+        <span th:text="${requestorName}">Nama Pemohon</span>.
+    </div>
+
+    <!-- Footer identitas -->
+    <footer class="text-center text-muted small mt-5 pt-3 border-top">
+        &copy; 2026 Security Suite | PT. S
+    </footer>
+</div>
+
+<script th:src="@{/vendor/bootstrap/js/bootstrap.bundle.min.js}"></script>
+<script th:src="@{/vendor/pdfjs/pdf.min.js}"></script>
+<script th:src="@{/vendor/pdf-lib/pdf-lib.min.js}"></script>
+<script th:src="@{/js/pdf-splitter-workbench.js}"></script>
+<script th:inline="javascript">
+/*<![CDATA[*/
+(function () {
+    'use strict';
+
+    var TOKEN       = /*[[${token}]]*/ '';
+    var CSRF_PARAM  = /*[[${_csrf.parameterName}]]*/ '_csrf';
+    var CSRF_TOKEN  = /*[[${_csrf.token}]]*/ '';
+    var URL_SAVE    = /*[[@{/request/upload-docs/file/save-draft}]]*/ '';
+    var URL_DELETE  = /*[[@{/request/upload-docs/file/delete}]]*/ '';
+    var URL_PREVIEW = /*[[@{/request/upload-docs/file}]]*/ '';
+
+    function post(url, formData) {
+        formData.append(CSRF_PARAM, CSRF_TOKEN);
+        formData.append('token', TOKEN);
+        return fetch(url, {method: 'POST', body: formData, credentials: 'same-origin'})
+            .then(function (res) {
+                return res.json().catch(function () {
+                    // A non-JSON body means the request never reached the
+                    // controller — most often the servlet container rejecting
+                    // an oversized multipart before Spring sees it.
+                    throw new Error('Server tidak dapat dihubungi. Coba lagi.');
+                }).then(function (body) {
+                    if (!res.ok || !body.ok) {
+                        var err = new Error(body.message || 'Gagal menyimpan berkas.');
+                        err.expired = !!body.expired;
+                        throw err;
+                    }
+                    return body;
+                });
+            });
+    }
+
+    function q(row, sel) { return row.querySelector(sel); }
+
+    function setBusy(row, busy) {
+        q(row, '.js-drop').classList.toggle('busy', busy);
+        q(row, '.js-busy').classList.toggle('d-none', !busy);
+        q(row, '.js-drop .hint').classList.toggle('d-none', busy);
+        var savingBadge = q(row, '.js-status-saving');
+        if (savingBadge) {
+            savingBadge.classList.toggle('d-none', !busy);
+            if (busy) {
+                q(row, '.js-status-pending').classList.add('d-none');
+                q(row, '.js-status-saved').classList.add('d-none');
+            }
+        }
+        checkSubmittingState();
+    }
+
+    function checkSubmittingState() {
+        var busyRows = document.querySelectorAll('.doc-row .js-drop.busy');
+        var submitBtn = document.getElementById('btnSubmitDocs');
+        if (submitBtn) {
+            if (busyRows.length > 0) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Menyimpan ' + busyRows.length + ' Dokumen ke Database...';
+            } else {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-paper-plane me-2"></i>Kirim Semua Dokumen';
+            }
+        }
+    }
+
+    function showError(row, message) {
+        var el = q(row, '.js-err');
+        el.textContent = message;
+        el.classList.remove('d-none');
+    }
+
+    function clearError(row) {
+        q(row, '.js-err').classList.add('d-none');
+    }
+
+    /* Repaints one row into its saved state. */
+    function markSaved(row, info) {
+        q(row, '.js-status-pending').classList.add('d-none');
+        q(row, '.js-status-saved').classList.remove('d-none');
+        q(row, '.js-replace-hint').classList.remove('d-none');
+
+        var box = q(row, '.js-saved');
+        box.classList.remove('d-none');
+        q(row, '.js-saved-name').textContent = info.fileName || 'Berkas tersimpan';
+        q(row, '.js-saved-preview').href =
+            URL_PREVIEW + '?token=' + encodeURIComponent(TOKEN) + '&fileId=' + encodeURIComponent(info.fileId);
+
+        var del = q(row, '.js-saved-delete');
+        del.setAttribute('data-ext-doc-id', info.extDocId);
+        del.classList.remove('d-none');
+    }
+
+    function markEmpty(row) {
+        q(row, '.js-status-saved').classList.add('d-none');
+        q(row, '.js-status-pending').classList.remove('d-none');
+        q(row, '.js-replace-hint').classList.add('d-none');
+        q(row, '.js-saved').classList.add('d-none');
+    }
+
+    /* Recounts from the DOM rather than incrementing a tally. A counter drifts
+       the first time a save and a delete overlap; the DOM is the thing the
+       visitor is actually looking at. */
+    function refreshProgress() {
+        var bar = document.getElementById('docBar');
+        if (!bar) { return; }
+        var rows = document.querySelectorAll('.doc-row[data-mandatory="true"]');
+        var done = 0;
+        rows.forEach(function (row) {
+            if (!q(row, '.js-saved').classList.contains('d-none')) { done++; }
+        });
+        var total = rows.length;
+        var pct = total === 0 ? 100 : Math.round(done * 100 / total);
+        bar.style.width = pct + '%';
+        bar.parentElement.setAttribute('aria-valuenow', pct);
+        document.getElementById('docDone').textContent = done;
+        document.getElementById('docTotal').textContent = total;
+    }
+
+    function handleExpired(message) {
+        // The link died while the page was open — cancelled, swept up by
+        // RequestExpiryJob, or finalised from another tab. Nothing further can
+        // be saved, so say so once and stop pretending the form works.
+        document.querySelectorAll('.js-drop').forEach(function (d) { d.classList.add('busy'); });
+        var btn = document.getElementById('btnSubmitDocs');
+        if (btn) { btn.disabled = true; }
+        alert(message);
+    }
+
+    function upload(row, file) {
+        clearError(row);
+        setBusy(row, true);
+
+        var fd = new FormData();
+        fd.append('workerId', row.getAttribute('data-worker'));
+        fd.append('docCode', row.getAttribute('data-doc'));
+        fd.append('file', file);
+
+        post(URL_SAVE, fd)
+            .then(function (body) {
+                markSaved(row, body);
+                refreshProgress();
+                // Clear the input so this file does NOT ride along on final
+                // submit and get stored a second time through the no-JS path.
+                q(row, '.js-file').value = '';
+            })
+            .catch(function (err) {
+                showError(row, err.message);
+                q(row, '.js-file').value = '';
+                if (err.expired) { handleExpired(err.message); }
+            })
+            .then(function () { setBusy(row, false); });
+    }
+
+    document.addEventListener('change', function (e) {
+        var input = e.target.closest('.js-file');
+        if (!input || !input.files || !input.files.length) { return; }
+        upload(input.closest('.doc-row'), input.files[0]);
+    });
+
+    document.addEventListener('click', function (e) {
+        var del = e.target.closest('.js-saved-delete');
+        if (!del) { return; }
+        e.preventDefault();
+        if (!confirm('Hapus berkas ini? Anda dapat mengunggah ulang setelahnya.')) { return; }
+
+        var row = del.closest('.doc-row');
+        var shelfItemId = row.getAttribute('data-shelf-item-id');
+        clearError(row);
+        setBusy(row, true);
+
+        var fd = new FormData();
+        fd.append('extDocId', del.getAttribute('data-ext-doc-id'));
+
+        post(URL_DELETE, fd)
+            .then(function () {
+                markEmpty(row);
+                refreshProgress();
+                if (shelfItemId && window.splitterWorkbench) {
+                    var workerName = row.getAttribute('data-worker-name') || 'Pekerja';
+                    var docName = row.getAttribute('data-doc-name') || row.getAttribute('data-doc');
+                    window.splitterWorkbench.unmarkItemUsed(shelfItemId, docName + ' (' + workerName + ')');
+                    row.removeAttribute('data-shelf-item-id');
+                }
+            })
+            .catch(function (err) {
+                showError(row, err.message);
+                if (err.expired) { handleExpired(err.message); }
+            })
+            .then(function () { setBusy(row, false); });
+    });
+
+    /* Drag and drop. Assigning to input.files via DataTransfer keeps one code
+       path for picked and dropped files — the change event does the rest. */
+    document.querySelectorAll('.js-drop').forEach(function (drop) {
+        ['dragenter', 'dragover'].forEach(function (evt) {
+            drop.addEventListener(evt, function (e) {
+                e.preventDefault();
+                drop.classList.add('over');
+            });
+        });
+        ['dragleave', 'drop'].forEach(function (evt) {
+            drop.addEventListener(evt, function () { drop.classList.remove('over'); });
+        });
+        drop.addEventListener('drop', function (e) {
+            e.preventDefault();
+            drop.classList.remove('over');
+
+            if (window.PdfSplitterWorkbench && window.PdfSplitterWorkbench.currentDragItem) {
+                var item = window.PdfSplitterWorkbench.currentDragItem;
+                var row = drop.closest('.doc-row');
+                var workerName = row.getAttribute('data-worker-name') || 'Pekerja';
+                var docName = row.getAttribute('data-doc-name') || row.getAttribute('data-doc');
+                var targetDesc = docName + ' (' + workerName + ')';
+                var formattedName = docName + ' - ' + workerName + '.pdf';
+                var formattedFile = new File([item.blob], formattedName, { type: 'application/pdf' });
+
+                // If this row already held a different shelf item, unmark it first
+                var prevShelfId = row.getAttribute('data-shelf-item-id');
+                if (prevShelfId && prevShelfId !== item.id && window.splitterWorkbench) {
+                    window.splitterWorkbench.unmarkItemUsed(prevShelfId, targetDesc);
+                }
+                row.setAttribute('data-shelf-item-id', item.id);
+
+                upload(row, formattedFile);
+                if (window.splitterWorkbench) {
+                    window.splitterWorkbench.markItemUsed(item.id, targetDesc);
+                }
+                window.PdfSplitterWorkbench.currentDragItem = null;
+                return;
+            }
+
+            if (!e.dataTransfer || !e.dataTransfer.files.length) { return; }
+            var input = drop.querySelector('.js-file');
+            var dt = new DataTransfer();
+            dt.items.add(e.dataTransfer.files[0]);
+            input.files = dt.files;
+            input.dispatchEvent(new Event('change', {bubbles: true}));
+        });
+    });
+
+    /* Mode Switching Logic */
+    var btnReg = document.getElementById('btnModeRegular');
+    var btnBundle = document.getElementById('btnModeBundle');
+    var splitterCol = document.getElementById('pdfSplitterCol');
+    var reqCol = document.getElementById('requirementsCol');
+    var shell = document.querySelector('.shell');
+    var splitterInitialized = false;
+
+    function setMode(mode) {
+        if (mode === 'bundle') {
+            if (btnBundle) btnBundle.classList.add('active');
+            if (btnReg) btnReg.classList.remove('active');
+            if (splitterCol) {
+                splitterCol.classList.remove('d-none');
+                splitterCol.classList.add('col-lg-6');
+            }
+            if (reqCol) {
+                reqCol.classList.remove('col-12');
+                reqCol.classList.add('col-lg-6');
+            }
+            if (shell) shell.classList.add('shell-wide');
+
+            if (!splitterInitialized && window.PdfSplitterWorkbench) {
+                var workerUrl = /*[[@{/vendor/pdfjs/pdf.worker.min.js}]]*/ '/ses-ext/vendor/pdfjs/pdf.worker.min.js';
+                window.splitterWorkbench = new window.PdfSplitterWorkbench({
+                    containerId: 'pdfSplitterContainer',
+                    workerPath: workerUrl,
+                    maxFileSizeMb: 200
+                });
+                splitterInitialized = true;
+            }
+        } else {
+            if (btnReg) btnReg.classList.add('active');
+            if (btnBundle) btnBundle.classList.remove('active');
+            if (splitterCol) {
+                splitterCol.classList.add('d-none');
+                splitterCol.classList.remove('col-lg-6');
+            }
+            if (reqCol) {
+                reqCol.classList.remove('col-lg-6');
+                reqCol.classList.add('col-12');
+            }
+            if (shell) shell.classList.remove('shell-wide');
+        }
+    }
+
+    if (btnReg) btnReg.addEventListener('click', function () { setMode('regular'); });
+    if (btnBundle) btnBundle.addEventListener('click', function () { setMode('bundle'); });
+
+    /* Final submit. The confirm is not ceremony: this is the click that burns
+       the link, and the page has no way to give it back. */
+    var form = document.getElementById('uploadForm');
+    if (form) {
+        form.addEventListener('submit', function (e) {
+            if (!confirm('Kirim dokumen sekarang?\n\nTautan ini akan ditutup permanen '
+                       + 'dan tidak dapat dipakai lagi.')) {
+                e.preventDefault();
+                return;
+            }
+            var btn = document.getElementById('btnSubmitDocs');
+            document.getElementById('submitSpinner').classList.remove('d-none');
+            btn.disabled = true;
+        });
+    }
+
+    refreshProgress();
+})();
+/*]]>*/
+</script>
+</body>
+</html>

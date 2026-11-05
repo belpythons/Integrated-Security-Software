@@ -1,6 +1,6 @@
 # SES — Database Production Deployments (`sql/production/`)
 
-Direktori ini berisi paket deployment database resmi untuk lingkungan **Production (PT Badak LNG — ELLPRD)**.
+Direktori ini berisi paket deployment database resmi untuk lingkungan **Production (PT Seterah (PT. S) — ELLPRD)**.
 
 ---
 
@@ -45,7 +45,8 @@ sql/production/YYMMDD/
 sql/production/
 ├── 261019/                      <-- Rilis Baseline (19 Oktober 2026) [BEKU / IMMUTABLE]
 ├── 261023/                      <-- Rilis Delta (23 Oktober 2026) [BEKU / IMMUTABLE]
-├── 261029/                      <-- Rilis Delta (29 Oktober 2026) [TERBARU: Integrasi BIMA Approval]
+├── 261029/                      <-- Rilis Delta (29 Oktober 2026) [BEKU / IMMUTABLE]
+├── 261105/                      <-- Rilis Delta (05 November 2026) [TERBARU: Modul Baru & RBAC Hardening]
 └── README.md
 ```
 
@@ -124,7 +125,7 @@ Paket ini merupakan paket delta yang dijalankan di atas skema yang **telah berha
 
 ---
 
-## 📦 Rilis Delta: 261029 (29 Oktober 2026) — *RILIS AKTIF*
+## 📦 Rilis Delta: 261029 (29 Oktober 2026) — *BEKU*
 
 ### Prasyarat
 Paket ini merupakan paket integrasi BIMA yang dijalankan di atas skema yang **telah berhasil menjalankan rilis 261019 & 261023** (SES_APPROVAL_PENDING_VIEW telah aktif).
@@ -135,3 +136,35 @@ Paket ini merupakan paket integrasi BIMA yang dijalankan di atas skema yang **te
 | 56 | 56_ses_bima_approval_pkg.sql | View SES_BIMA_APPROVAL_V (9 kolom standar BIMA) dan Package PKG_SES_BIMA_APPROVAL (Spec & Body). |
 | -- | Recompile | DBMS_UTILITY.COMPILE_SCHEMA untuk menyegarkan dependensi objek. |
 | 99 | 99_verify_bima_pkg.sql | Verifikasi status VALID untuk View, Package Spec, Package Body, serta uji eksekusi fungsi/cursor. |
+
+
+---
+
+## 📦 Rilis Delta: `261105` (05 November 2026) — *TERBARU / RILIS AKTIF*
+
+### Prasyarat
+Paket ini merupakan paket delta modul baru dan pengerasan RBAC yang dijalankan di atas skema yang **telah berhasil menjalankan rilis `261019`, `261023`, dan `261029`**.
+
+### Urutan Eksekusi `261105`
+| Langkah | File | Isi Ringkas |
+| :--- | :--- | :--- |
+| 00 | `00_precheck.sql` | Memvalidasi keberadaan tabel & view baseline (`SES_BIMA_APPROVAL_V`, `SES_HISTORY_V`, master RBAC) sebelum eksekusi (read-only). |
+| 95 | `95_goods_driver_ddl.sql` | DDL idempoten tabel `SES_GOODS_DRIVER`, sequence `SEQ_SES_GOODS_DRIVER`, dan indeks `IDX_SES_GDRV_REQ_ID`. |
+| 96 | `96_app_page_new_modules.sql` | Pendaftaran halaman baru `/sticker/dashboard` (58) dan `/goods-permit` (59) ke `APP_PAGE` via `MERGE`. |
+| 97 | `97_rbac_hardening_and_grants.sql` | Penataan izin `APP_ROLE_PAGE` (pemberian hak operasional SECURITY, pencabutan izin admin dari REQUESTOR, sinkronisasi ADMIN/SYSADM/VIEWER) dan pembersihan role redundan pada akun Umar Hakim (`136141`). |
+| -- | Recompile | `DBMS_UTILITY.COMPILE_SCHEMA` untuk menyegarkan dependensi objek. |
+| 99 | `99_verify.sql` | Verifikasi menyeluruh: tabel, sequence, status halaman di `APP_PAGE`, kepatuhan hak akses RBAC, integritas akun, dan nol objek invalid. |
+
+### Panduan Eksekusi di ELLPRD
+1. Dari direktori `sql/production/261105/`, jalankan:
+   ```cmd
+   cd sql/production/261105
+   sqlplus ses@//10.10.217.252:1521/ELLPRD @INSTALL-261105.sql
+   ```
+2. Pantau log output pada file `install_261105.log`.
+3. Pastikan verifikasi akhir berstatus:
+   ```
+   >> HASIL VERIFIKASI: 100% PASS (SEMUA PERSYARATAN TERPENUHI).
+   >> Paket Deployment SES 261105 VALID & SIAP PRODUKSI.
+   ```
+4. Deploy WAR `ses-app` ke server dan lakukan restart managed server.

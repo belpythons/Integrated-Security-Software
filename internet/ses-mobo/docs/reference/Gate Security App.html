@@ -1,0 +1,593 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<meta charset="utf-8">
+<title>Gate Security App</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: iPhone frame centred on desktop, full-bleed on phones; iOS navigation stack + tab bar inside */
+:root{
+  --desk:#dfe3ea; --bezel:#111214;
+  --bg:#f2f2f7; --card:#ffffff; --label:#000000; --label2:rgba(60,60,67,.62); --label3:rgba(60,60,67,.32);
+  --sep:rgba(60,60,67,.18); --fill:rgba(120,120,128,.12); --fill2:rgba(120,120,128,.2);
+  --blue:#007aff; --green:#34c759; --red:#ff3b30; --orange:#ff9500; --indigo:#5856d6;
+  --green-bg:rgba(52,199,89,.14); --red-bg:rgba(255,59,48,.12); --orange-bg:rgba(255,149,0,.15); --blue-bg:rgba(0,122,255,.12);
+  --bar:rgba(249,249,249,.86); --on-tint:#ffffff;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --desk:#1a1c20; --bezel:#2a2b2f;
+  --bg:#000000; --card:#1c1c1e; --label:#ffffff; --label2:rgba(235,235,245,.6); --label3:rgba(235,235,245,.3);
+  --sep:rgba(84,84,88,.6); --fill:rgba(118,118,128,.24); --fill2:rgba(118,118,128,.32);
+  --blue:#0a84ff; --green:#30d158; --red:#ff453a; --orange:#ff9f0a; --indigo:#5e5ce6;
+  --green-bg:rgba(48,209,88,.18); --red-bg:rgba(255,69,58,.2); --orange-bg:rgba(255,159,10,.2); --blue-bg:rgba(10,132,255,.2);
+  --bar:rgba(22,22,24,.86); --on-tint:#ffffff; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --desk:#1a1c20; --bezel:#2a2b2f;
+  --bg:#000000; --card:#1c1c1e; --label:#ffffff; --label2:rgba(235,235,245,.6); --label3:rgba(235,235,245,.3);
+  --sep:rgba(84,84,88,.6); --fill:rgba(118,118,128,.24); --fill2:rgba(118,118,128,.32);
+  --blue:#0a84ff; --green:#30d158; --red:#ff453a; --orange:#ff9f0a; --indigo:#5e5ce6;
+  --green-bg:rgba(48,209,88,.18); --red-bg:rgba(255,69,58,.2); --orange-bg:rgba(255,159,10,.2); --blue-bg:rgba(10,132,255,.2);
+  --bar:rgba(22,22,24,.86); --on-tint:#ffffff; color-scheme:dark}
+
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:var(--desk);color:var(--label);font-family:var(--font);font-size:17px;line-height:1.3;-webkit-font-smoothing:antialiased;
+  display:flex;align-items:center;justify-content:center;gap:40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+.side{max-width:300px;font-size:14px;color:var(--label2);line-height:1.5}
+.side h1{font-size:22px;color:var(--label);margin:0 0 8px}
+.side ol{padding-left:18px;margin:8px 0}
+.side code{font-family:var(--mono);font-size:12.5px;background:var(--fill);padding:1px 5px;border-radius:4px;color:var(--label)}
+@media (max-width:860px){.side{display:none}}
+
+.phone{width:390px;height:844px;border-radius:56px;background:var(--bezel);padding:12px;box-shadow:0 30px 80px rgba(0,0,0,.35),inset 0 0 0 2px rgba(255,255,255,.08);flex:none}
+.screen{position:relative;width:100%;height:100%;border-radius:44px;overflow:hidden;background:var(--bg);display:flex;flex-direction:column}
+.island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:120px;height:34px;border-radius:20px;background:#000;z-index:40}
+.sbar{height:50px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:6px 32px 0;font-size:15px;font-weight:600;z-index:30}
+.sbar .r{display:flex;gap:5px;align-items:center}
+@media (max-width:500px){
+  body{padding:0;display:block;background:var(--bg)}
+  .phone{width:100%;height:100%;border-radius:0;padding:0;box-shadow:none;background:var(--bg)}
+  .screen{border-radius:0}
+  .island,.sbar{display:none}
+}
+
+.view{flex:1;overflow-y:auto;overflow-x:hidden;position:relative;-webkit-overflow-scrolling:touch}
+.view.anim{animation:push .28s cubic-bezier(.2,.8,.2,1)}
+.view.back{animation:pop .28s cubic-bezier(.2,.8,.2,1)}
+@keyframes push{from{transform:translateX(30%);opacity:.4}to{transform:none;opacity:1}}
+@keyframes pop{from{transform:translateX(-20%);opacity:.5}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.view.anim,.view.back{animation:none}}
+
+.nav{position:sticky;top:0;z-index:20;background:var(--bar);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);min-height:44px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 8px;border-bottom:.5px solid var(--sep)}
+.nav .t{font-weight:600;font-size:17px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+.nav .l{justify-self:start}.nav .rr{justify-self:end}
+.navbtn{background:none;border:0;color:var(--blue);font-size:17px;display:flex;align-items:center;gap:2px;padding:8px;cursor:pointer}
+.navbtn[disabled]{color:var(--label3)}
+.large{padding:4px 20px 8px;font-size:34px;font-weight:700;letter-spacing:.01em}
+.large-sub{padding:0 20px 12px;color:var(--label2);font-size:15px;margin-top:-6px}
+.nav.clear{border-bottom-color:transparent;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none}
+
+.content{padding:0 16px 28px;display:flex;flex-direction:column;gap:22px}
+.sec-h{font-size:13px;text-transform:uppercase;color:var(--label2);padding:0 16px 6px;letter-spacing:.02em}
+.sec-f{font-size:13px;color:var(--label2);padding:6px 16px 0;line-height:1.4}
+.group{background:var(--card);border-radius:12px;overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:11px 16px;min-height:44px;position:relative;background:var(--card);width:100%;border:0;text-align:left;font-size:17px}
+.row+.row::before{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}
+.row.ind+.row::before,.row.ind::before{left:60px}
+.row.tap{cursor:pointer}.row.tap:active{background:var(--fill)}
+.row .main{flex:1;min-width:0}
+.row .ttl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .sub{font-size:14px;color:var(--label2);margin-top:1px}
+.row .val{color:var(--label2);font-size:16px;text-align:right}
+.row .chev{color:var(--label3);flex:none}
+.row.dis{opacity:.45;cursor:not-allowed}
+.ico{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;flex:none}
+.ico svg{width:18px;height:18px}
+
+.btn{width:100%;border:0;border-radius:14px;height:52px;font-size:17px;font-weight:600;background:var(--blue);color:var(--on-tint);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn:active{opacity:.75}
+.btn.sec{background:var(--blue-bg);color:var(--blue)}
+.btn.red{background:var(--red)}
+.btn.green{background:var(--green)}
+.btn.plain{background:none;color:var(--blue);height:44px}
+.btn[disabled]{background:var(--fill2);color:var(--label3);cursor:not-allowed}
+.stack{display:flex;flex-direction:column;gap:10px}
+
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:600;padding:3px 9px;border-radius:20px}
+.pill.g{background:var(--green-bg);color:var(--green)}.pill.r{background:var(--red-bg);color:var(--red)}.pill.o{background:var(--orange-bg);color:var(--orange)}.pill.b{background:var(--blue-bg);color:var(--blue)}.pill.n{background:var(--fill);color:var(--label2)}
+.mono{font-family:var(--mono);font-size:.92em}
+.num{font-variant-numeric:tabular-nums}
+
+/* Home */
+.hero{background:linear-gradient(160deg,#0a6ed1,#1d2d3e);color:#fff;border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:14px}
+.hero .g{font-size:14px;opacity:.85}
+.hero .gate{font-size:22px;font-weight:700}
+.scanbtn{background:#fff;color:#0a4f99;border:0;border-radius:16px;height:64px;font-size:19px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.2)}
+.scanbtn:active{transform:scale(.98)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:var(--card);border-radius:14px;padding:12px}
+.stat b{display:block;font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--label2)}
+
+/* Scanner */
+.cam{position:absolute;inset:0;background:#0b0c0e;color:#fff;display:flex;flex-direction:column;z-index:25}
+.cam .top{display:flex;justify-content:space-between;align-items:center;padding:56px 16px 0}
+@media (max-width:500px){.cam .top{padding-top:calc(12px + env(safe-area-inset-top,0px))}}
+.cam .round{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.16);border:0;color:#fff;display:grid;place-items:center;cursor:pointer}
+.finder{width:240px;height:240px;margin:36px auto 12px;position:relative;border-radius:20px;background:radial-gradient(circle at 30% 30%,rgba(255,255,255,.07),transparent 60%),repeating-linear-gradient(45deg,rgba(255,255,255,.025) 0 6px,transparent 6px 12px)}
+.finder i{position:absolute;width:44px;height:44px;border:4px solid #ffd60a}
+.finder i:nth-child(1){top:0;left:0;border-right:0;border-bottom:0;border-radius:20px 0 0 0}
+.finder i:nth-child(2){top:0;right:0;border-left:0;border-bottom:0;border-radius:0 20px 0 0}
+.finder i:nth-child(3){bottom:0;left:0;border-right:0;border-top:0;border-radius:0 0 0 20px}
+.finder i:nth-child(4){bottom:0;right:0;border-left:0;border-top:0;border-radius:0 0 20px 0}
+.laser{position:absolute;left:14px;right:14px;height:2px;background:#ffd60a;box-shadow:0 0 12px #ffd60a;animation:scan 2s ease-in-out infinite alternate;top:20px}
+@keyframes scan{to{top:216px}}
+@media (prefers-reduced-motion:reduce){.laser{animation:none;top:120px}}
+.cam .hint{text-align:center;font-size:15px;opacity:.8}
+.sheet{margin-top:auto;background:var(--bg);color:var(--label);border-radius:22px 22px 0 0;padding:8px 16px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px;max-height:58%;overflow:auto}
+.grab{width:36px;height:5px;border-radius:3px;background:var(--fill2);margin:0 auto 4px}
+.qrmini{width:34px;height:34px;flex:none;border-radius:6px;background:var(--label);-webkit-mask:var(--qrm) center/cover;mask:var(--qrm) center/cover}
+
+/* Fields */
+.field{background:var(--card);border-radius:12px;display:flex;flex-direction:column}
+.field input,.field textarea{border:0;background:transparent;padding:13px 16px;font-size:17px;outline:none;width:100%}
+.field textarea{min-height:96px;resize:none}
+.field input+input{border-top:.5px solid var(--sep)}
+
+/* Segmented */
+.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--fill);border-radius:9px;padding:2px;gap:2px}
+.seg button{border:0;background:none;border-radius:7px;padding:7px 2px;font-size:12.5px;font-weight:500;cursor:pointer;line-height:1.15;color:var(--label)}
+.seg button.on{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.15);font-weight:600}
+.seg button.on.g{background:var(--green);color:#fff}.seg button.on.o{background:var(--orange);color:#fff}.seg button.on.r{background:var(--red);color:#fff}
+.seg.two{grid-template-columns:repeat(2,1fr)}.seg.four{grid-template-columns:repeat(4,1fr)}
+
+.insp{padding:14px 16px;display:flex;flex-direction:column;gap:10px;position:relative}
+.insp+.insp::before{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}
+.insp .h{display:flex;gap:8px;align-items:flex-start}
+.insp .h b{font-weight:500;flex:1}
+.req{font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap;margin-top:3px}
+.photo{display:flex;align-items:center;gap:10px}
+.photo label{display:inline-flex;align-items:center;gap:6px;color:var(--blue);font-size:15px;cursor:pointer;padding:6px 10px;border-radius:8px;background:var(--blue-bg)}
+.photo input{display:none}
+.photo img{width:44px;height:44px;object-fit:cover;border-radius:8px}
+.photo .need{font-size:13px;color:var(--orange)}
+.progress{height:4px;background:var(--fill);border-radius:2px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--blue);transition:width .2s}
+
+.choice{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.choice button{background:var(--card);border:2px solid transparent;border-radius:16px;padding:16px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;font-weight:600}
+.choice button svg{width:36px;height:36px}
+.choice .fit{color:var(--green)}.choice .unfit{color:var(--red)}
+.choice .fit.on{border-color:var(--green);background:var(--green-bg)}
+.choice .unfit.on{border-color:var(--red);background:var(--red-bg)}
+.choice button span{color:var(--label);font-size:15px}
+
+.banner{border-radius:12px;padding:12px 14px;display:flex;gap:10px;font-size:15px;line-height:1.35}
+.banner svg{flex:none;width:22px;height:22px;margin-top:1px}
+.banner.o{background:var(--orange-bg)}.banner.o svg{color:var(--orange)}
+.banner.r{background:var(--red-bg)}.banner.r svg{color:var(--red)}
+.banner.g{background:var(--green-bg)}.banner.g svg{color:var(--green)}
+.banner.b{background:var(--blue-bg)}.banner.b svg{color:var(--blue)}
+.banner ul{margin:4px 0 0;padding-left:18px}
+
+.permit{background:var(--card);border-radius:16px;overflow:hidden}
+.permit .ph{padding:16px;display:flex;gap:12px;align-items:center}
+.permit .bigic{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;flex:none}
+.permit .bigic svg{width:30px;height:30px}
+.permit .id{font-family:var(--mono);font-size:15px;color:var(--label2)}
+.permit .st{font-size:21px;font-weight:700}
+
+.result{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:36px 20px 12px}
+.result .circle{width:96px;height:96px;border-radius:50%;display:grid;place-items:center;animation:popin .35s cubic-bezier(.2,1.4,.4,1)}
+.result .circle svg{width:56px;height:56px;color:#fff}
+.result h2{margin:6px 0 0;font-size:26px}
+.result p{margin:0;color:var(--label2);font-size:15px}
+@keyframes popin{from{transform:scale(.5);opacity:0}to{transform:none;opacity:1}}
+
+.tabbar{flex:none;display:grid;grid-template-columns:repeat(3,1fr);background:var(--bar);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:.5px solid var(--sep);padding:6px 0 26px}
+@media (max-width:500px){.tabbar{padding-bottom:calc(6px + env(safe-area-inset-bottom,0px))}}
+.tabbar button{background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:var(--label2);cursor:pointer}
+.tabbar button svg{width:26px;height:26px}
+.tabbar button.on{color:var(--blue)}
+
+.login{flex:1;display:flex;flex-direction:column;padding:40px 20px 30px;gap:20px;overflow:auto}
+.login .brand{display:flex;flex-direction:column;align-items:center;gap:10px;margin:30px 0 10px;text-align:center}
+.login .mark{width:76px;height:76px;border-radius:18px;background:linear-gradient(135deg,#0a6ed1,#14a3c9);display:grid;place-items:center;color:#fff;box-shadow:0 8px 20px rgba(10,110,209,.35)}
+.login .mark svg{width:40px;height:40px}
+.login h1{margin:0;font-size:28px}
+.login p{margin:0;color:var(--label2);font-size:15px}
+.err{color:var(--red);font-size:14px;padding:0 4px}
+.toast{position:absolute;left:50%;top:60px;transform:translateX(-50%) translateY(-20px);background:var(--card);color:var(--label);padding:10px 16px;border-radius:22px;font-size:14px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.18);opacity:0;transition:.25s;z-index:60;white-space:nowrap;pointer-events:none}
+.toast.on{opacity:1;transform:translateX(-50%)}
+</style>
+
+<div class="side">
+  <h1>Gate Security App</h1>
+  Prototype of the Security mobile app for Goods Entry Permits. Try these flows:
+  <ol>
+    <li>Sign in as <code>dedi.k</code>, PIN <code>123456</code>, pick a gate.</li>
+    <li>Scan <code>IMB-2026-000123</code>, choose <b>Agus</b> + <b>B 9876 FGH</b>: full inspection (rejected earlier today).</li>
+    <li>Scan <code>000123</code> again with <b>Budi</b> + <b>B 9123 KXT</b>: same-day re-entry, no inspection.</li>
+    <li>Scan <code>000121</code>: vehicle is on site, check it out.</li>
+    <li>Scan <code>000124</code>, <code>000125</code> or <code>000118</code>: not approved, not yet valid, expired.</li>
+  </ol>
+  Data is sample data and resets each day.
+</div>
+
+<div class="phone"><div class="screen" id="screen"></div></div>
+
+<script>
+/* ============ Helpers ============ */
+const TODAY=new Date();TODAY.setHours(0,0,0,0);
+const iso=dt=>{const z=new Date(dt.getTime()-dt.getTimezoneOffset()*60000);return z.toISOString().slice(0,10)};
+const d=n=>{const x=new Date(TODAY);x.setDate(x.getDate()+n);return iso(x)};
+const T0=d(0);
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const fd=s=>{const[y,m,dd]=s.slice(0,10).split('-');return `${+dd} ${MON[+m-1]} ${y}`};
+const hm=s=>s.slice(11,16);
+const nowStamp=()=>{const n=new Date();return iso(n)+'T'+n.toTimeString().slice(0,5)};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const dur=(a,b)=>{const m=Math.max(0,Math.round((new Date(b)-new Date(a))/60000));return m<60?`${m} min`:`${Math.floor(m/60)} h ${m%60} min`};
+
+const IC={
+ back:'<path d="M15 5l-7 7 7 7"/>',
+ chev:'<path d="M9 6l6 6-6 6"/>',
+ scan:'<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M4 12h16"/>',
+ list:'<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/>',
+ person:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',
+ truck:'<path d="M2 6h11v10H2zM13 10h4l4 4v2h-8"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',
+ check:'<path d="M5 12.5l4.5 4.5L19 7"/>',
+ x:'<path d="M6 6l12 12M18 6L6 18"/>',
+ warn:'<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>',
+ info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>',
+ clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+ camera:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+ shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+ in:'<path d="M10 17l5-5-5-5M15 12H3"/><path d="M14 4h5a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-5"/>',
+ out:'<path d="M15 17l5-5-5-5M20 12H8"/><path d="M10 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h5"/>',
+ gate:'<path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-7h6v7"/>',
+ kbd:'<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
+ flash:'<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+ box:'<path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/>',
+ door:'<path d="M5 21V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v17M3 21h18"/><path d="M15 12h.01"/>',
+};
+const ic=(n,s=22,w=2)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`;
+
+/* ============ Sample data (same records as the web portal) ============ */
+function seed(){return{
+ users:[{user:'dedi.k',pin:'123456',name:'Dedi Kurniawan',emp:'EMP-20211',gate:'Gate 1 · Main Gate',active:true},
+        {user:'slamet.r',pin:'123456',name:'Slamet Riyadi',emp:'EMP-20234',gate:'Gate 2 · Warehouse Gate',active:true},
+        {user:'rina.o',pin:'123456',name:'Rina Oktaviani',emp:'EMP-20301',gate:'Gate 2 · Warehouse Gate',active:false}],
+ gates:['Gate 1 · Main Gate','Gate 2 · Warehouse Gate'],
+ drivers:{
+  'DRV-0001':{name:'Budi Santoso',nik:'3175031204870001',sim:'8710-1204-000123',simType:'B1 Umum',simValid:d(410)},
+  'DRV-0002':{name:'Agus Prasetyo',nik:'3201150809900004',sim:'9008-0809-004512',simType:'B2 Umum',simValid:d(20)},
+  'DRV-0004':{name:'Rudi Hartono',nik:'3174070511850003',sim:'8505-0511-001877',simType:'B1 Umum',simValid:d(700)},
+ },
+ vehicles:{
+  'VEH-0001':{plate:'B 9123 KXT',type:'CDD',brand:'Mitsubishi Colt Diesel FE 74',taxValid:d(150),stnkValid:d(900),kirValid:d(90)},
+  'VEH-0002':{plate:'B 9876 FGH',type:'CDE',brand:'Isuzu Elf NMR 71',taxValid:d(25),stnkValid:d(400),kirValid:d(60)},
+  'VEH-0004':{plate:'B 9031 TRQ',type:'CDE',brand:'Toyota Dyna 130 HT',taxValid:d(260),stnkValid:d(1200),kirValid:d(140)},
+ },
+ requests:{
+  'IMB-2026-000123':{status:'Approved',vendor:'PT Sinar Logistik Abadi',start:d(-1),end:d(2),po:'4500012345',do:'8000056001, 8000056002',plant:'WH01 · Main Warehouse',drivers:['DRV-0001','DRV-0002'],vehicles:['VEH-0001','VEH-0002'],
+    items:[['Ball Bearing SKF 6205-2RS',200,'PC'],['Hydraulic Oil Shell Tellus S2 M46 209L',12,'DR'],['V-Belt Bando B-52',50,'PC']]},
+  'IMB-2026-000121':{status:'Approved',vendor:'PT Sinar Logistik Abadi',start:d(0),end:d(1),po:'4500012388',do:'8000056110',plant:'WH02 · Procurement Receiving',drivers:['DRV-0004'],vehicles:['VEH-0004'],
+    items:[['Safety Helmet MSA V-Gard, white',150,'PC'],['Safety Shoes Cheetah 7012H, size 42',60,'PR']]},
+  'IMB-2026-000124':{status:'In Approval',vendor:'PT Sinar Logistik Abadi',start:d(3),end:d(3),po:'4500012990',do:'8000056150',plant:'WH01 · Main Warehouse',drivers:['DRV-0001'],vehicles:['VEH-0001'],items:[['MCB Schneider 3P 32A',40,'PC'],['Cable NYY 4x16mm²',500,'M']]},
+  'IMB-2026-000125':{status:'Approved',vendor:'PT Sinar Logistik Abadi',start:d(4),end:d(6),po:'4500013002',do:'–',plant:'WH02 · Procurement Receiving',drivers:['DRV-0004'],vehicles:['VEH-0004'],items:[['Copy Paper A4 80gsm',100,'RM'],['Toner HP 26A CF226A',12,'PC']]},
+  'IMB-2026-000118':{status:'Approved',vendor:'PT Sinar Logistik Abadi',start:d(-12),end:d(-10),po:'4500012345',do:'8000056001',plant:'WH01 · Main Warehouse',drivers:['DRV-0002'],vehicles:['VEH-0002'],items:[['Ball Bearing SKF 6205-2RS',120,'PC']]},
+ },
+ checklist:[
+  {id:1,name:'Tires & tread depth',cat:'Vehicle',mandatory:true,photo:true},
+  {id:2,name:'Brakes & hand brake',cat:'Vehicle',mandatory:true,photo:false},
+  {id:3,name:'Head, brake & turn signal lights',cat:'Vehicle',mandatory:true,photo:false},
+  {id:8,name:'Oil / fuel leakage',cat:'Vehicle',mandatory:false,photo:true},
+  {id:4,name:'Fire extinguisher (APAR)',cat:'Safety',mandatory:true,photo:true},
+  {id:5,name:'First aid kit (P3K)',cat:'Safety',mandatory:false,photo:false},
+  {id:6,name:'Wheel chocks',cat:'Safety',mandatory:true,photo:true},
+  {id:7,name:'Cargo secured & covered',cat:'Cargo',mandatory:true,photo:true},
+  {id:9,name:'Driver PPE (helmet, vest, safety shoes)',cat:'Driver',mandatory:true,photo:true},
+  {id:10,name:'Driver fit to work (not fatigued)',cat:'Driver',mandatory:true,photo:false},
+ ],
+ log:[
+  {id:3,time:d(0)+'T06:55',req:'IMB-2026-000123',drv:'DRV-0002',veh:'VEH-0002',type:'Rejected',gate:'Gate 1 · Main Gate',officer:'Dedi Kurniawan',result:'Not Fit',summary:'Tires: Present, Not Fit · Wheel chocks: Not Present',remarks:'Rear tires worn below limit and no wheel chocks. Replace tires before re-entry.'},
+  {id:4,time:d(0)+'T07:40',req:'IMB-2026-000123',drv:'DRV-0001',veh:'VEH-0001',type:'Check-in',gate:'Gate 1 · Main Gate',officer:'Dedi Kurniawan',result:'Fit',summary:'10/10 Present & Fit'},
+  {id:5,time:d(0)+'T08:05',req:'IMB-2026-000121',drv:'DRV-0004',veh:'VEH-0004',type:'Check-in',gate:'Gate 2 · Warehouse Gate',officer:'Slamet Riyadi',result:'Fit',summary:'9/10 · First aid kit: Present, Not Fit'},
+  {id:6,time:d(0)+'T09:15',req:'IMB-2026-000123',drv:'DRV-0001',veh:'VEH-0001',type:'Check-out',gate:'Gate 1 · Main Gate',officer:'Dedi Kurniawan'},
+ ],
+}}
+const KEY='gep-mobile-v1';
+let DB;try{const r=localStorage.getItem(KEY);DB=r?JSON.parse(r):null;if(DB&&DB._day!==T0)DB=null}catch(e){DB=null}
+if(!DB){DB=seed();DB._day=T0}
+function save(){try{const c=JSON.parse(JSON.stringify(DB));c.log.forEach(l=>{if(l.photos)l.photos=l.photos.length});localStorage.setItem(KEY,JSON.stringify(c))}catch(e){}}
+
+/* ============ State ============ */
+const S={user:null,gate:null,tab:'home',stack:[],dir:'',login:{u:'dedi.k',p:''},loginErr:'',actFilter:'All'};
+const cur=()=>S.stack[S.stack.length-1];
+function push(scr){S.stack.push(scr);S.dir='anim';render()}
+function pop(){S.stack.pop();S.dir='back';render()}
+function popTo(n){S.stack.length=n;S.dir='back';render()}
+let tT;function toast(m){const t=document.getElementById('toast');if(!t)return;t.textContent=m;t.classList.add('on');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('on'),2200)}
+
+/* ============ Rules ============ */
+function permitState(id){
+ const R=DB.requests[id];
+ if(!R)return{k:'nf',t:'Permit not found',c:'r',msg:'This QR code is not a registered Goods Entry Permit. Refuse entry and ask the driver to contact the vendor.'};
+ if(R.status!=='Approved')return{k:'na',t:'Not approved yet',c:'o',msg:`Status is "${R.status}". The vehicle cannot enter until all approvals are complete.`};
+ if(T0<R.start)return{k:'early',t:'Not valid yet',c:'o',msg:`This permit is valid from ${fd(R.start)} to ${fd(R.end)}. Entry is not allowed today.`};
+ if(T0>R.end)return{k:'exp',t:'Permit expired',c:'r',msg:`This permit was valid until ${fd(R.end)}. The vendor must create a new request.`};
+ return{k:'ok',t:'Valid today',c:'g',msg:`Valid ${fd(R.start)} – ${fd(R.end)}`};
+}
+const todayLog=()=>DB.log.filter(l=>l.time.startsWith(T0));
+function inside(){const st={};todayLog().slice().sort((a,b)=>a.time.localeCompare(b.time)).forEach(l=>{const k=l.req+'|'+l.drv+'|'+l.veh;if(l.type==='Check-in')st[k]=l;else if(l.type==='Check-out')delete st[k]});return Object.values(st)}
+function insideBy(f){return inside().find(f)}
+function inspectedToday(req,drv,veh){return todayLog().filter(l=>l.req===req&&l.drv===drv&&l.veh===veh&&l.type==='Check-in'&&l.result==='Fit'&&!l.fast).sort((a,b)=>a.time.localeCompare(b.time))[0]}
+function drvBlock(req,id){const o=DB.drivers[id];if(o.simValid<T0)return`SIM expired ${fd(o.simValid)}`;const i=insideBy(l=>l.drv===id);if(i)return`On site since ${hm(i.time)}`;return''}
+function vehBlock(req,id){const o=DB.vehicles[id];const ex=[['STNK tax',o.taxValid],['STNK 5-yr',o.stnkValid],['KIR',o.kirValid]].filter(x=>x[1]<T0);if(ex.length)return`${ex.map(x=>x[0]).join(', ')} expired`;const i=insideBy(l=>l.veh===id);if(i)return`On site since ${hm(i.time)}`;return''}
+
+/* ============ Render ============ */
+function render(){
+ const el=document.getElementById('screen');
+ let h=`<div class="island"></div><div class="sbar"><span class="num">${new Date().toTimeString().slice(0,5)}</span><span class="r">${sigSvg()}</span></div>`;
+ if(!S.user)h+=vLogin();
+ else if(!S.gate)h+=vGate();
+ else{
+  const scr=cur();
+  h+=`<div class="view ${S.dir}" id="view">${scr?screen(scr):tabView()}</div>`;
+  if(!scr||scr.tabbar)h+=tabbar();
+  if(scr&&scr.k==='scanner')h+=vScanner();
+ }
+ h+='<div class="toast" id="toast"></div>';
+ el.innerHTML=h;S.dir='';
+}
+function sigSvg(){return `<svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg><svg width="26" height="12" viewBox="0 0 26 12" fill="none"><rect x=".5" y=".5" width="22" height="11" rx="3" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="16" height="8" rx="1.5" fill="currentColor"/><rect x="24" y="4" width="1.5" height="4" rx=".75" fill="currentColor" opacity=".4"/></svg>`}
+function tabbar(){
+ const T=[['home','Gate','scan'],['activity','Activity','list'],['profile','Profile','person']];
+ return `<nav class="tabbar">${T.map(t=>`<button class="${S.tab===t[0]&&!S.stack.length?'on':''}" onclick="S.stack=[];S.tab='${t[0]}';render()">${ic(t[2],26,1.8)}${t[1]}</button>`).join('')}</nav>`;
+}
+function navbar(title,left,right,clear){return `<div class="nav ${clear?'clear':''}"><div class="l">${left||''}</div><div class="t">${title||''}</div><div class="rr">${right||''}</div></div>`}
+const backBtn=(lbl='Back')=>`<button class="navbtn" onclick="pop()">${ic('back',22,2.4)}${lbl}</button>`;
+
+/* ---- Login ---- */
+function vLogin(){
+ return `<div class="login">
+  <div class="brand"><div class="mark">${ic('shield',40,1.8)}</div><h1>Gate Security</h1><p>Goods Entry Permit · Security Suite</p></div>
+  <div class="field"><input id="lu" placeholder="Username" autocapitalize="none" autocomplete="username" value="${esc(S.login.u)}" oninput="S.login.u=this.value"><input id="lp" type="password" inputmode="numeric" maxlength="6" placeholder="6-digit PIN" autocomplete="current-password" value="${esc(S.login.p)}" oninput="S.login.p=this.value" onkeydown="if(event.key==='Enter')doLogin()"></div>
+  ${S.loginErr?`<div class="err">${esc(S.loginErr)}</div>`:''}
+  <button class="btn" onclick="doLogin()">Sign In</button>
+  <p style="text-align:center;color:var(--label2);font-size:13px;margin-top:auto">Only Security team members registered by the administrator in the web portal can sign in.<br>Demo: dedi.k · PIN 123456</p>
+ </div>`;
+}
+function doLogin(){
+ const u=DB.users.find(x=>x.user===S.login.u.trim().toLowerCase());
+ if(!u){S.loginErr='This username is not registered as a Security user.';return render()}
+ if(!u.active){S.loginErr='Your account is inactive. Contact the Security administrator.';return render()}
+ if(S.login.p!==u.pin){S.loginErr='Incorrect PIN. Try again.';return render()}
+ S.user=u;S.loginErr='';S.pickGate=u.gate;render();
+}
+function vGate(){
+ return `<div class="view">${navbar('')}<div class="large">Select Gate</div><div class="large-sub">Hi ${esc(S.user.name.split(' ')[0])}, where are you on duty?</div>
+ <div class="content"><div><div class="group">${DB.gates.map(g=>`<button class="row tap ind" onclick="S.pickGate='${g}';render()"><span class="ico" style="background:var(--indigo)">${ic('gate',18)}</span><span class="main ttl">${g}</span>${S.pickGate===g?`<span style="color:var(--blue)">${ic('check',22,2.6)}</span>`:''}</button>`).join('')}</div>
+ <div class="sec-f">Every check-in and check-out you record is tagged with this gate.</div></div>
+ <button class="btn" onclick="S.gate=S.pickGate;render()">Start Shift</button></div></div>`;
+}
+
+/* ---- Tabs ---- */
+function tabView(){
+ if(S.tab==='home'){
+  const L=todayLog().filter(l=>l.gate===S.gate);
+  const ins=inside();
+  return navbar('',`<span style="padding-left:8px;font-size:13px;color:var(--label2)">${fd(T0)}</span>`,'',true)+`<div class="large">Gate</div>
+  <div class="content">
+   <div class="hero"><div><div class="g">On duty · ${esc(S.user.name)}</div><div class="gate">${S.gate}</div></div>
+    <button class="scanbtn" onclick="push({k:'scanner'})">${ic('scan',28,2.2)} Scan QR Code</button></div>
+   <div class="stats"><div class="stat"><b>${ins.length}</b><span>On site now</span></div><div class="stat"><b>${L.filter(l=>l.type==='Check-in').length}</b><span>Check-ins here</span></div><div class="stat"><b style="color:var(--red)">${L.filter(l=>l.type==='Rejected').length}</b><span>Rejected</span></div></div>
+   <div><div class="sec-h">On site now</div><div class="group">
+    ${ins.length?ins.map(l=>`<button class="row tap ind" onclick="openPermit('${l.req}')"><span class="ico" style="background:var(--green)">${ic('truck',18)}</span><span class="main"><div class="ttl"><span class="mono">${DB.vehicles[l.veh].plate}</span> · ${esc(DB.drivers[l.drv].name)}</div><div class="sub">In since ${hm(l.time)} · ${l.gate.split(' · ')[0]}</div></span><span class="chev">${ic('chev',18)}</span></button>`).join(''):`<div class="row"><span class="main sub">No vendor vehicle on site.</span></div>`}
+   </div><div class="sec-f">Scan the same QR code when the vehicle leaves to check it out.</div></div>
+  </div>`;
+ }
+ if(S.tab==='activity'){
+  const f=S.actFilter;
+  let L=todayLog().slice().sort((a,b)=>b.time.localeCompare(a.time));
+  if(f!=='All')L=L.filter(l=>l.type===f);
+  return navbar('',' ','',true)+`<div class="large">Activity</div><div class="large-sub">Today · all gates</div>
+  <div class="content"><div class="seg four">${['All','Check-in','Check-out','Rejected'].map(x=>`<button class="${f===x?'on':''}" onclick="S.actFilter='${x}';render()">${x}</button>`).join('')}</div>
+  <div class="group">${L.length?L.map(l=>{const c=l.type==='Check-in'?'green':l.type==='Check-out'?'blue':'red';return `<button class="row tap ind" onclick="push({k:'logdetail',id:${l.id},tabbar:true})"><span class="ico" style="background:var(--${c})">${ic(l.type==='Check-in'?'in':l.type==='Check-out'?'out':'x',18)}</span><span class="main"><div class="ttl"><span class="mono">${DB.vehicles[l.veh].plate}</span> · ${esc(DB.drivers[l.drv].name.split(' ')[0])}</div><div class="sub">${l.type}${l.fast?' · re-entry':''} · ${l.gate.split(' · ')[0]}</div></span><span class="val num">${hm(l.time)}</span><span class="chev">${ic('chev',18)}</span></button>`}).join(''):'<div class="row"><span class="main sub">No activity.</span></div>'}</div></div>`;
+ }
+ return navbar('',' ','',true)+`<div class="large">Profile</div><div class="content">
+  <div class="group"><div class="row ind"><span class="ico" style="background:var(--blue);border-radius:50%">${ic('person',18)}</span><span class="main"><div class="ttl">${esc(S.user.name)}</div><div class="sub">${S.user.emp} · Security</div></span></div></div>
+  <div><div class="sec-h">Duty</div><div class="group"><button class="row tap ind" onclick="S.gate=null;S.pickGate='${S.gate}';render()"><span class="ico" style="background:var(--indigo)">${ic('gate',18)}</span><span class="main ttl">Gate</span><span class="val">${S.gate.split(' · ')[0]}</span><span class="chev">${ic('chev',18)}</span></button></div></div>
+  <div class="group"><button class="row tap" style="color:var(--blue)" onclick="DB=seed();DB._day=T0;save();toast('Sample data restored');render()">Reset sample data</button><button class="row tap" style="color:var(--red)" onclick="S.user=null;S.gate=null;S.stack=[];S.tab='home';S.login.p='';render()">Sign Out</button></div>
+ </div>`;
+}
+
+/* ---- Screens on stack ---- */
+function screen(s){
+ switch(s.k){
+  case 'scanner':return '';
+  case 'manual':return vManual();
+  case 'permit':return vPermit(s);
+  case 'pick':return vPick(s);
+  case 'reentry':return vReentry(s);
+  case 'inspect':return vInspect(s);
+  case 'decide':return vDecide(s);
+  case 'checkout':return vCheckout(s);
+  case 'result':return vResult(s);
+  case 'logdetail':return vLogDetail(s);
+ }
+}
+function vScanner(){
+ const samples=Object.keys(DB.requests).concat(['IMB-2026-000999']);
+ const qrm=`url("data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 7 7"><path d="M0 0h3v3H0zM4 0h3v3H4zM0 4h3v3H0zM4 4h1v1H4zM6 4h1v1H6zM5 5h1v1H5zM4 6h1v1H4zM6 6h1v1H6z"/></svg>')}")`;
+ return `<div class="cam" style="--qrm:${qrm}"><div class="top"><button class="round" onclick="pop()" aria-label="Close">${ic('x',20)}</button><span style="font-weight:600">Scan Permit</span><button class="round" aria-label="Flash" onclick="toast('Flash on')">${ic('flash',18)}</button></div>
+ <div class="finder"><i></i><i></i><i></i><i></i><div class="laser"></div></div>
+ <div class="hint">Point the camera at the driver's QR code</div>
+ <div class="sheet"><div class="grab"></div><div style="font-size:13px;color:var(--label2);text-align:center">Prototype: tap a sample QR code to simulate a scan</div>
+  <div class="group">${samples.map(id=>{const st=permitState(id);return `<button class="row tap" onclick="scanned('${id}')"><span class="qrmini"></span><span class="main"><div class="ttl mono" style="font-size:15px">${id}</div><div class="sub">${st.t}</div></span><span class="pill ${st.c==='g'?'g':st.c==='o'?'o':'r'}">${st.k==='ok'?'Valid':st.k==='nf'?'Unknown':st.k==='na'?'Pending':st.k==='early'?'Future':'Expired'}</span></button>`}).join('')}</div>
+  <button class="btn sec" onclick="S.stack.pop();push({k:'manual'})">${ic('kbd',20)} Enter Number Manually</button>
+ </div></div>`;
+}
+function scanned(id){S.stack.pop();push({k:'permit',id})}
+function openPermit(id){push({k:'permit',id})}
+function vManual(){
+ return navbar('Enter Number',backBtn('Cancel'))+`<div class="content" style="padding-top:20px"><div><div class="field"><input id="mn" class="mono" placeholder="IMB-2026-000123" autocapitalize="characters" value="IMB-2026-" onkeydown="if(event.key==='Enter')manualGo()"></div><div class="sec-f">Use this when the QR code is damaged. The number is printed under the QR code.</div></div><button class="btn" onclick="manualGo()">Look Up</button></div>`;
+}
+function manualGo(){const v=document.getElementById('mn').value.trim().toUpperCase();S.stack.pop();push({k:'permit',id:v})}
+
+function vPermit(s){
+ const R=DB.requests[s.id];const st=permitState(s.id);
+ const icn=st.c==='g'?'check':st.c==='o'?'clock':'x';const col=st.c==='g'?'green':st.c==='o'?'orange':'red';
+ let h=navbar('Permit',backBtn('Gate'))+`<div class="content" style="padding-top:14px">
+ <div class="permit"><div class="ph"><div class="bigic" style="background:var(--${col})">${ic(icn,30,2.6).replace('currentColor','#fff')}</div><div style="min-width:0"><div class="id">${esc(s.id)}</div><div class="st" style="color:var(--${col})">${st.t}</div><div style="font-size:14px;color:var(--label2)">${R?esc(R.vendor):''}</div></div></div></div>`;
+ if(st.k!=='ok'){h+=`<div class="banner ${st.c==='o'?'o':'r'}">${ic('warn')}<div>${st.msg}</div></div>`}
+ if(R){
+  const ins=inside().filter(l=>l.req===s.id);
+  if(st.k==='ok'&&ins.length)h+=`<div><div class="sec-h">On site now · check out</div><div class="group">${ins.map(l=>`<button class="row tap ind" onclick="push({k:'checkout',id:'${s.id}',log:${l.id}})"><span class="ico" style="background:var(--green)">${ic('truck',18)}</span><span class="main"><div class="ttl"><span class="mono">${DB.vehicles[l.veh].plate}</span> · ${esc(DB.drivers[l.drv].name)}</div><div class="sub">In since ${hm(l.time)} · ${dur(l.time,nowStamp())}</div></span><span class="pill b">Check Out</span></button>`).join('')}</div></div>`;
+  if(st.k==='ok'){
+   const avail=R.drivers.some(id=>!drvBlock(s.id,id))&&R.vehicles.some(id=>!vehBlock(s.id,id));
+   h+=`<div class="stack"><button class="btn ${avail?'':''}" ${avail?'':'disabled'} onclick="push({k:'pick',id:'${s.id}',drv:null,veh:null})">${ic('in',22)} Check In</button>${avail?'':'<div class="sec-f" style="text-align:center">All registered drivers or vehicles on this permit are already on site.</div>'}</div>`;
+  }
+  h+=`<div><div class="sec-h">Permit details</div><div class="group">
+   <div class="row"><span class="main">Delivery period</span><span class="val num">${fd(R.start)} – ${fd(R.end)}</span></div>
+   <div class="row"><span class="main">PO</span><span class="val mono">${R.po}</span></div>
+   <div class="row"><span class="main">DO</span><span class="val mono" style="font-size:14px">${R.do}</span></div>
+   <div class="row"><span class="main">Destination</span><span class="val" style="font-size:15px">${R.plant}</span></div>
+  </div></div>
+  <div><div class="sec-h">Registered drivers</div><div class="group">${R.drivers.map(id=>{const o=DB.drivers[id];const b=drvBlock(s.id,id);return `<div class="row ind"><span class="ico" style="background:var(--blue)">${ic('person',18)}</span><span class="main"><div class="ttl">${esc(o.name)}</div><div class="sub">SIM ${o.simType} · valid to ${fd(o.simValid)}</div></span>${b?`<span class="pill ${b.startsWith('On')?'g':'r'}">${b.startsWith('On')?'On site':'Expired'}</span>`:''}</div>`}).join('')}</div></div>
+  <div><div class="sec-h">Registered vehicles</div><div class="group">${R.vehicles.map(id=>{const o=DB.vehicles[id];const b=vehBlock(s.id,id);return `<div class="row ind"><span class="ico" style="background:var(--indigo)">${ic('truck',18)}</span><span class="main"><div class="ttl mono">${o.plate}</div><div class="sub">${o.type} · ${esc(o.brand)}</div></span>${b?`<span class="pill ${b.startsWith('On')?'g':'r'}">${b.startsWith('On')?'On site':'Expired'}</span>`:''}</div>`}).join('')}</div></div>
+  <div><div class="sec-h">Items (${R.items.length})</div><div class="group">${R.items.map(i=>`<div class="row"><span class="main" style="font-size:15px">${esc(i[0])}</span><span class="val num">${i[1]} ${i[2]}</span></div>`).join('')}</div></div>`;
+ }
+ return h+'</div>';
+}
+
+function vPick(s){
+ const R=DB.requests[s.id];
+ const ready=s.drv&&s.veh;
+ return navbar('Check In',backBtn())+`<div class="content" style="padding-top:14px">
+ <div><div class="sec-h">Driver</div><div class="group">${R.drivers.map(id=>{const o=DB.drivers[id];const b=drvBlock(s.id,id);return `<button class="row ind ${b?'dis':'tap'}" ${b?'disabled':''} onclick="cur().drv='${id}';render()"><span class="ico" style="background:var(--blue)">${ic('person',18)}</span><span class="main"><div class="ttl">${esc(o.name)}</div><div class="sub">${b?`<span style="color:var(--red)">${b}</span>`:`NIK ${o.nik.slice(0,6)}•••••${o.nik.slice(-4)} · SIM ${o.simType}`}</div></span>${s.drv===id?`<span style="color:var(--blue)">${ic('check',22,2.6)}</span>`:''}</button>`}).join('')}</div><div class="sec-f">Match the driver's face and KTP / SIM with the registered data.</div></div>
+ <div><div class="sec-h">Vehicle</div><div class="group">${R.vehicles.map(id=>{const o=DB.vehicles[id];const b=vehBlock(s.id,id);return `<button class="row ind ${b?'dis':'tap'}" ${b?'disabled':''} onclick="cur().veh='${id}';render()"><span class="ico" style="background:var(--indigo)">${ic('truck',18)}</span><span class="main"><div class="ttl mono">${o.plate}</div><div class="sub">${b?`<span style="color:var(--red)">${b}</span>`:`${o.type} · KIR to ${fd(o.kirValid)}`}</div></span>${s.veh===id?`<span style="color:var(--blue)">${ic('check',22,2.6)}</span>`:''}</button>`}).join('')}</div><div class="sec-f">Only drivers and vehicles registered on this permit are listed.</div></div>
+ <button class="btn" ${ready?'':'disabled'} onclick="pickNext()">Continue</button></div>`;
+}
+function pickNext(){
+ const s=cur();const prev=inspectedToday(s.id,s.drv,s.veh);
+ if(prev)push({k:'reentry',id:s.id,drv:s.drv,veh:s.veh,prev:prev.id});
+ else push({k:'inspect',id:s.id,drv:s.drv,veh:s.veh,ans:{},photos:{},vphoto:null});
+}
+function vReentry(s){
+ const p=DB.log.find(l=>l.id===s.prev);
+ return navbar('Re-entry',backBtn())+`<div class="content" style="padding-top:14px">
+ <div class="banner g">${ic('shield')}<div><b>Already inspected today</b><br>${esc(DB.drivers[s.drv].name)} with <span class="mono">${DB.vehicles[s.veh].plate}</span> passed inspection at ${hm(p.time)} by ${esc(p.officer)} (${p.gate.split(' · ')[0]}). Per SOP, the same driver and vehicle can re-enter on the same day without a new inspection.</div></div>
+ <div class="group"><div class="row"><span class="main">Driver</span><span class="val">${esc(DB.drivers[s.drv].name)}</span></div><div class="row"><span class="main">Vehicle</span><span class="val mono">${DB.vehicles[s.veh].plate}</span></div><div class="row"><span class="main">First inspection</span><span class="val">${hm(p.time)} · ${p.result}</span></div></div>
+ <div class="stack"><button class="btn green" onclick="commitCheckin(true)">${ic('in',22)} Confirm Check-In</button>
+ <button class="btn plain" onclick="const t=cur();S.stack.pop();push({k:'inspect',id:t.id,drv:t.drv,veh:t.veh,ans:{},photos:{},vphoto:null})">Inspect again instead</button></div></div>`;
+}
+function vInspect(s){
+ const C=DB.checklist;const n=Object.keys(s.ans).length;
+ const cats=[...new Set(C.map(c=>c.cat))];
+ const opt=[['Present & Fit','g'],['Present, Not Fit','o'],['Not Present','r']];
+ return navbar('Inspection',backBtn(),`<button class="navbtn" onclick="allFit()">All Fit</button>`)+`<div class="content" style="padding-top:12px">
+ <div><div style="display:flex;justify-content:space-between;font-size:13px;color:var(--label2);margin-bottom:6px"><span><span class="mono">${DB.vehicles[s.veh].plate}</span> · ${esc(DB.drivers[s.drv].name)}</span><span class="num">${n}/${C.length}</span></div><div class="progress"><i style="width:${n/C.length*100}%"></i></div></div>
+ ${cats.map(cat=>`<div><div class="sec-h">${cat}</div><div class="group">${C.filter(c=>c.cat===cat).map(c=>{const a=s.ans[c.id];const ph=s.photos[c.id];return `<div class="insp"><div class="h"><b>${esc(c.name)}</b>${c.mandatory?'<span class="req">Mandatory</span>':''}</div>
+  <div class="seg">${opt.map((o,i)=>`<button class="${a===i?'on '+o[1]:''}" onclick="answer(${c.id},${i})">${o[0]}</button>`).join('')}</div>
+  ${c.photo?`<div class="photo">${ph?`<img src="${ph}" alt="Photo of ${esc(c.name)}">`:''}<label for="p${c.id}">${ic('camera',18)} ${ph?'Retake':'Take photo'}</label><input type="file" id="p${c.id}" accept="image/*" capture="environment" onchange="photo(${c.id},this)">${ph?'':'<span class="need">Photo required</span>'}</div>`:''}
+ </div>`}).join('')}</div></div>`).join('')}
+ <div><div class="sec-h">Vehicle overview photo</div><div class="group"><div class="insp"><div class="photo">${s.vphoto?`<img src="${s.vphoto}" alt="Vehicle photo">`:''}<label for="pv">${ic('camera',18)} ${s.vphoto?'Retake':'Take photo'}</label><input type="file" id="pv" accept="image/*" capture="environment" onchange="photo('v',this)"><span class="need" style="color:var(--label2)">${s.vphoto?'':'Front view, plate visible'}</span></div></div></div></div>
+ <button class="btn" ${n===C.length?'':'disabled'} onclick="toDecide()">Continue to Decision</button>
+ ${n<C.length?`<div class="sec-f" style="text-align:center;margin-top:-12px">Answer all ${C.length} items to continue.</div>`:''}
+ </div>`;
+}
+function keepScroll(fn){const v=document.getElementById('view');const y=v?v.scrollTop:0;fn();const n=document.getElementById('view');if(n)n.scrollTop=y}
+function answer(id,i){keepScroll(()=>{cur().ans[id]=i;render()})}
+function allFit(){keepScroll(()=>{DB.checklist.forEach(c=>{if(cur().ans[c.id]===undefined)cur().ans[c.id]=0});render()});toast('Unanswered items set to Present & Fit')}
+function photo(id,inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{keepScroll(()=>{if(id==='v')cur().vphoto=r.result;else cur().photos[id]=r.result;render()})};r.readAsDataURL(f)}
+function toDecide(){const s=cur();push({k:'decide',id:s.id,drv:s.drv,veh:s.veh,ans:s.ans,photos:s.photos,vphoto:s.vphoto,fit:null,remarks:''})}
+const OPT=['Present & Fit','Present, Not Fit','Not Present'];
+function vDecide(s){
+ const C=DB.checklist;
+ const bad=C.filter(c=>s.ans[c.id]!==0);
+ const badM=bad.filter(c=>c.mandatory);
+ const missingPh=C.filter(c=>c.photo&&!s.photos[c.id]);
+ const cnt=[0,1,2].map(i=>C.filter(c=>s.ans[c.id]===i).length);
+ const can=s.fit!==null&&(s.fit||s.remarks.trim().length>=5);
+ return navbar('Decision',backBtn('Checklist'))+`<div class="content" style="padding-top:14px">
+ <div class="stats"><div class="stat"><b style="color:var(--green)">${cnt[0]}</b><span>Present &amp; Fit</span></div><div class="stat"><b style="color:var(--orange)">${cnt[1]}</b><span>Not Fit</span></div><div class="stat"><b style="color:var(--red)">${cnt[2]}</b><span>Not Present</span></div></div>
+ ${badM.length?`<div class="banner r">${ic('warn')}<div><b>${badM.length} mandatory item${badM.length>1?'s are':' is'} not Present &amp; Fit</b><ul>${badM.map(c=>`<li>${esc(c.name)}: ${OPT[s.ans[c.id]]}</li>`).join('')}</ul></div></div>`:bad.length?`<div class="banner o">${ic('info')}<div>${bad.length} optional item${bad.length>1?'s':''} not fit: ${bad.map(c=>esc(c.name)).join(', ')}.</div></div>`:`<div class="banner g">${ic('check')}<div>All items Present &amp; Fit.</div></div>`}
+ ${missingPh.length?`<div class="banner o">${ic('camera')}<div>${missingPh.length} photo${missingPh.length>1?'s':''} missing: ${missingPh.map(c=>esc(c.name)).join(', ')}. You can still submit, the record will be flagged.</div></div>`:''}
+ <div><div class="sec-h">Your conclusion</div><div class="choice">
+  <button class="fit ${s.fit===true?'on':''}" onclick="keepScroll(()=>{cur().fit=true;render()})">${ic('check',36,2.6)}<span>Fit to enter</span></button>
+  <button class="unfit ${s.fit===false?'on':''}" onclick="keepScroll(()=>{cur().fit=false;render()})">${ic('x',36,2.6)}<span>Not fit</span></button>
+ </div>${s.fit&&badM.length?'<div class="sec-f" style="color:var(--orange)">You are allowing entry although mandatory items failed. Explain why in the remarks.</div>':''}</div>
+ <div><div class="sec-h">Remarks ${s.fit===false?'(required)':'(optional)'}</div><div class="field"><textarea id="rmk" placeholder="${s.fit===false?'Why is the vehicle not fit? What must the driver fix?':'Notes for this check-in'}" oninput="cur().remarks=this.value;document.getElementById('sub').disabled=!(cur().fit!==null&&(cur().fit||this.value.trim().length>=5))">${esc(s.remarks)}</textarea></div></div>
+ <button class="btn ${s.fit===false?'red':s.fit?'green':''}" id="sub" ${can?'':'disabled'} onclick="commitCheckin(false)">${s.fit===false?'Reject Check-In':'Complete Check-In'}</button>
+ </div>`;
+}
+function commitCheckin(fast){
+ const s=cur();const id=Math.max(...DB.log.map(l=>l.id),0)+1;
+ let e;
+ if(fast){e={id,time:nowStamp(),req:s.id,drv:s.drv,veh:s.veh,type:'Check-in',gate:S.gate,officer:S.user.name,result:'Fit',fast:true,summary:'Re-entry · inspected earlier today'}}
+ else{
+  const C=DB.checklist;const bad=C.filter(c=>s.ans[c.id]!==0);
+  e={id,time:nowStamp(),req:s.id,drv:s.drv,veh:s.veh,type:s.fit?'Check-in':'Rejected',gate:S.gate,officer:S.user.name,result:s.fit?'Fit':'Not Fit',
+   summary:bad.length?`${C.length-bad.length}/${C.length} · `+bad.map(c=>`${c.name}: ${OPT[s.ans[c.id]]}`).join(' · '):`${C.length}/${C.length} Present & Fit`,
+   remarks:s.remarks.trim(),answers:{...s.ans},photos:Object.values(s.photos).concat(s.vphoto?[s.vphoto]:[])};
+ }
+ DB.log.push(e);save();
+ const base=S.stack.findIndex(x=>x.k==='permit');
+ S.stack.length=base+1;push({k:'result',log:id});
+}
+function vCheckout(s){
+ const l=DB.log.find(x=>x.id===s.log);const now=nowStamp();
+ return navbar('Check Out',backBtn())+`<div class="content" style="padding-top:14px">
+ <div class="group"><div class="row"><span class="main">Driver</span><span class="val">${esc(DB.drivers[l.drv].name)}</span></div><div class="row"><span class="main">Vehicle</span><span class="val mono">${DB.vehicles[l.veh].plate}</span></div><div class="row"><span class="main">Checked in</span><span class="val">${hm(l.time)} · ${l.gate.split(' · ')[0]}</span></div><div class="row"><span class="main">Time on site</span><span class="val">${dur(l.time,now)}</span></div></div>
+ <div class="banner b">${ic('info')}<div>Check the cargo area is empty or matches the return documents before letting the vehicle out. The driver can re-enter today with the same vehicle without a new inspection.</div></div>
+ <button class="btn" onclick="doCheckout()">${ic('out',22)} Confirm Check-Out</button></div>`;
+}
+function doCheckout(){
+ const s=cur();const l=DB.log.find(x=>x.id===s.log);const id=Math.max(...DB.log.map(x=>x.id))+1;
+ DB.log.push({id,time:nowStamp(),req:l.req,drv:l.drv,veh:l.veh,type:'Check-out',gate:S.gate,officer:S.user.name});save();
+ const base=S.stack.findIndex(x=>x.k==='permit');S.stack.length=base+1;push({k:'result',log:id});
+}
+function vResult(s){
+ const l=DB.log.find(x=>x.id===s.log);
+ const m={'Check-in':['green','check','Check-In Successful',`${DB.vehicles[l.veh].plate} may enter.`],'Check-out':['blue','out','Checked Out',`${DB.vehicles[l.veh].plate} has left the site.`],'Rejected':['red','x','Check-In Rejected',`${DB.vehicles[l.veh].plate} is not allowed to enter.`]}[l.type];
+ return navbar('',`<span></span>`,`<button class="navbtn" style="font-weight:600" onclick="S.stack=[];S.tab='home';S.dir='back';render()">Done</button>`,true)+`<div class="result"><div class="circle" style="background:var(--${m[0]})">${ic(m[1],56,2.8)}</div><h2>${m[2]}</h2><p>${m[3]}</p></div>
+ <div class="content"><div class="group">
+  <div class="row"><span class="main">Time</span><span class="val num">${hm(l.time)}</span></div>
+  <div class="row"><span class="main">Permit</span><span class="val mono" style="font-size:14px">${l.req}</span></div>
+  <div class="row"><span class="main">Driver</span><span class="val">${esc(DB.drivers[l.drv].name)}</span></div>
+  <div class="row"><span class="main">Vehicle</span><span class="val mono">${DB.vehicles[l.veh].plate}</span></div>
+  <div class="row"><span class="main">Gate</span><span class="val">${l.gate.split(' · ')[0]}</span></div>
+  ${l.summary?`<div class="row"><span class="main">Inspection</span><span class="val" style="font-size:14px;max-width:62%">${esc(l.fast?'Re-entry, inspected earlier today':l.summary.split(' · ')[0])}</span></div>`:''}
+ </div>
+ ${l.remarks?`<div class="banner ${l.type==='Rejected'?'r':'b'}">${ic('info')}<div><b>Remarks</b><br>${esc(l.remarks)}</div></div>`:''}
+ <button class="btn sec" onclick="S.stack=[];S.tab='home';push({k:'scanner'})">${ic('scan',22)} Scan Next</button></div>`;
+}
+function vLogDetail(s){
+ const l=DB.log.find(x=>x.id===s.id);
+ return navbar(l.type,backBtn('Activity'))+`<div class="content" style="padding-top:14px"><div class="group">
+  <div class="row"><span class="main">Time</span><span class="val num">${fd(l.time)} ${hm(l.time)}</span></div>
+  <div class="row"><span class="main">Permit</span><span class="val mono" style="font-size:14px">${l.req}</span></div>
+  <div class="row"><span class="main">Vendor</span><span class="val" style="font-size:15px">${DB.requests[l.req]?.vendor||'–'}</span></div>
+  <div class="row"><span class="main">Driver</span><span class="val">${esc(DB.drivers[l.drv].name)}</span></div>
+  <div class="row"><span class="main">Vehicle</span><span class="val mono">${DB.vehicles[l.veh].plate}</span></div>
+  <div class="row"><span class="main">Gate</span><span class="val">${l.gate}</span></div>
+  <div class="row"><span class="main">Officer</span><span class="val">${esc(l.officer)}</span></div>
+  ${l.result?`<div class="row"><span class="main">Result</span><span class="pill ${l.result==='Fit'?'g':'r'}">${l.result}</span></div>`:''}
+ </div>
+ ${l.summary?`<div><div class="sec-h">Inspection</div><div class="group">${l.answers?DB.checklist.map(c=>`<div class="row"><span class="main" style="font-size:15px">${esc(c.name)}</span><span class="pill ${['g','o','r'][l.answers[c.id]]}">${OPT[l.answers[c.id]]}</span></div>`).join(''):`<div class="row"><span class="main" style="font-size:15px">${esc(l.summary)}</span></div>`}</div></div>`:''}
+ ${Array.isArray(l.photos)&&l.photos.length?`<div><div class="sec-h">Photos</div><div style="display:flex;gap:8px;flex-wrap:wrap">${l.photos.map(p=>`<img src="${p}" style="width:72px;height:72px;object-fit:cover;border-radius:10px" alt="Inspection photo">`).join('')}</div></div>`:''}
+ ${l.remarks?`<div class="banner ${l.type==='Rejected'?'r':'b'}">${ic('info')}<div><b>Remarks</b><br>${esc(l.remarks)}</div></div>`:''}
+ </div>`;
+}
+function fitPhone(){const p=document.querySelector('.phone');p.style.zoom=innerWidth>500?Math.min(1,(innerHeight-24)/868).toFixed(3):''}
+addEventListener('resize',fitPhone);fitPhone();
+render();
+setInterval(()=>{const t=document.querySelector('.sbar .num');if(t)t.textContent=new Date().toTimeString().slice(0,5)},30000);
+</script>
+
+</body></html>

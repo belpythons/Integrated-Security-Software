@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<body>
+    <nav th:fragment="sidebar" id="sidebar-wrapper" class="bg-navy text-white border-r border-blue-500/20">
+
+        <!-- Logo area with Enlarged Module Title (No Subheader Tagline) -->
+        <div class="sidebar-heading text-center py-4 px-2.5 border-b border-blue-500/20">
+            <img th:src="@{/image/ptb_logo_reverse_ori.png}" alt="PT. S" class="mx-auto" width="98" height="82" loading="lazy" decoding="async" style="max-width: 6.25rem; height: auto;" />
+            <div id="sidebarModuleTitle" class="mt-2.5 text-sm font-bold uppercase tracking-wider text-white">Badge Request</div>
+        </div>
+
+        <!-- ================================================================= -->
+        <!-- 1. MODULE: BADGE REQUEST (SES) MENU TREE                          -->
+        <!-- ================================================================= -->
+        <ul class="list-unstyled ps-0 mt-3 px-2 space-y-1 ses-sidebar-mod-nav" id="sidebar-module-badge">
+
+            <!-- Category 1: Administrasi & Pengaturan (DIATAS) -->
+            <li class="px-3 pt-2 pb-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider"
+                sec:authorize="hasAnyRole('ADMIN', 'SECURITY_ADMIN', 'SYSADM')">
+                Administrasi &amp; Pengaturan
+            </li>
+            <th:block th:each="menu : ${sidebarMenus}" th:if="${#strings.containsIgnoreCase(menu.menuName, 'administration')}">
+                <li class="mb-1" sec:authorize="hasAnyRole('ADMIN', 'SECURITY_ADMIN', 'SYSADM')">
+                    <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item collapsed transition-colors"
+                        data-bs-toggle="collapse" th:href="@{'#menu-plt-badge-' + ${menu.menuId}}"
+                        role="button" aria-expanded="false" th:attr="data-menu-title=${menu.menuName}">
+                        <i data-lucide="settings" class="sidebar-menu-icon me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                        <span class="truncate" th:text="${menu.menuName}">Administration</span>
+                        <i data-lucide="chevron-down" class="h-3.5 w-3.5 ms-auto text-slate-400 transition-transform duration-200 sidebar-chevron"></i>
+                    </a>
+                    <div class="collapse" th:id="'menu-plt-badge-' + ${menu.menuId}">
+                        <ul class="list-unstyled ps-2 mt-1 space-y-1">
+                            <th:block th:each="child : ${menu.children}">
+                                <li th:if="${!child.children.isEmpty()}" class="mb-1">
+                                    <a class="flex items-center px-3 py-1.5 text-slate-400 rounded-lg text-xs font-medium sidebar-item-sub collapsed transition-colors"
+                                        data-bs-toggle="collapse" th:href="@{'#menu-plt-badge-' + ${child.menuId}}" role="button"
+                                        th:attr="data-menu-title=${child.menuName}">
+                                        <i data-lucide="sliders" class="sidebar-sub-icon me-2 h-3.5 w-3.5 shrink-0 inline-block text-slate-400"></i>
+                                        <span class="truncate" th:text="${child.menuName}">Sub Group</span>
+                                        <i data-lucide="chevron-down" class="h-3 w-3 ms-auto text-slate-500 sidebar-chevron"></i>
+                                    </a>
+                                    <div class="collapse" th:id="'menu-plt-badge-' + ${child.menuId}">
+                                        <ul class="list-unstyled ps-2 mt-1 space-y-1">
+                                            <li th:each="leaf : ${child.children}" class="mb-1">
+                                                <a class="flex items-center px-3 py-1.5 text-slate-400 rounded-lg text-xs font-normal sidebar-leaf transition-colors"
+                                                    th:href="@{${leaf.menuUrl}}" th:attr="data-menu-title=${leaf.menuName}">
+                                                    <i th:attr="data-icon-raw=${leaf.menuIcon}" class="sidebar-leaf-icon me-2 h-3 w-3 shrink-0 inline-block text-slate-400"></i>
+                                                    <span class="truncate" th:text="${leaf.menuName}">Leaf</span>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </li>
+                                <li th:if="${child.children.isEmpty()}" class="mb-1">
+                                    <a class="flex items-center px-3 py-1.5 text-slate-300 rounded-lg text-xs font-normal sidebar-leaf transition-colors"
+                                        th:href="@{${child.menuUrl}}" th:attr="data-menu-title=${child.menuName}">
+                                        <i th:attr="data-icon-raw=${child.menuIcon}" class="sidebar-leaf-icon me-2 h-3 w-3 shrink-0 inline-block text-slate-400"></i>
+                                        <span class="truncate" th:text="${child.menuName}">Item</span>
+                                    </a>
+                                </li>
+                            </th:block>
+                        </ul>
+                    </div>
+                </li>
+            </th:block>
+
+            <!-- Admin Menus: SES (Admin) & SES Form Configuration placed DIATAS -->
+            <th:block th:each="menu : ${sidebarMenus}" th:if="${#strings.containsIgnoreCase(menu.menuName, 'ses (admin)') or #strings.containsIgnoreCase(menu.menuName, 'ses form configuration')}">
+                <li th:if="${!menu.children.isEmpty()}" class="mb-1" sec:authorize="hasAnyRole('ADMIN', 'SECURITY_ADMIN', 'SYSADM')">
+                    <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item collapsed transition-colors"
+                        data-bs-toggle="collapse" th:href="@{'#menu-adm-' + ${menu.menuId}}"
+                        role="button" aria-expanded="false" th:attr="data-menu-title=${menu.menuName}">
+                        <i th:attr="data-icon-raw=${menu.menuIcon}" class="sidebar-menu-icon me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                        <span class="truncate" th:text="${menu.menuName}">Group</span>
+                        <i data-lucide="chevron-down" class="h-3.5 w-3.5 ms-auto text-slate-400 transition-transform duration-200 sidebar-chevron"></i>
+                    </a>
+                    <div class="collapse" th:id="'menu-adm-' + ${menu.menuId}" data-bs-parent="#sidebar-module-badge">
+                        <ul class="list-unstyled ps-2 mt-1 space-y-1" th:id="'sidebar-nav-adm-' + ${menu.menuId}">
+                            <th:block th:each="child : ${menu.children}" th:if="${!#strings.containsIgnoreCase(child.menuName, 'sticker')}">
+                                <li th:if="${!child.children.isEmpty()}" class="mb-1">
+                                    <a class="flex items-center px-3 py-1.5 text-slate-400 rounded-lg text-xs font-medium sidebar-item-sub collapsed transition-colors"
+                                        data-bs-toggle="collapse" th:href="@{'#menu-adm-' + ${child.menuId}}" role="button"
+                                        th:attr="data-menu-title=${child.menuName}">
+                                        <i th:attr="data-icon-raw=${child.menuIcon}" class="sidebar-sub-icon me-2 h-3.5 w-3.5 shrink-0 inline-block text-slate-400"></i>
+                                        <span class="truncate" th:text="${child.menuName}">Sub Group</span>
+                                        <i data-lucide="chevron-down" class="h-3 w-3 ms-auto text-slate-500 sidebar-chevron"></i>
+                                    </a>
+                                    <div class="collapse" th:id="'menu-adm-' + ${child.menuId}"
+                                        th:attr="data-bs-parent='#sidebar-nav-adm-' + ${menu.menuId}">
+                                        <ul class="list-unstyled ps-2 mt-1 space-y-1">
+                                            <li th:each="leaf : ${child.children}" class="mb-1">
+                                                <a class="flex items-center px-3 py-1.5 text-slate-400 rounded-lg text-xs font-normal sidebar-leaf transition-colors"
+                                                    th:href="@{${leaf.menuUrl}}" th:attr="data-menu-title=${leaf.menuName}">
+                                                    <i th:attr="data-icon-raw=${leaf.menuIcon}" class="sidebar-leaf-icon me-2 h-3 w-3 shrink-0 inline-block text-slate-400"></i>
+                                                    <span class="truncate" th:text="${leaf.menuName}">Leaf</span>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </li>
+                                <li th:if="${child.children.isEmpty()}" class="mb-1">
+                                    <a class="flex items-center px-3 py-1.5 text-slate-300 rounded-lg text-xs font-normal sidebar-leaf transition-colors"
+                                        th:href="@{${child.menuUrl}}" th:attr="data-menu-title=${child.menuName}">
+                                        <i th:attr="data-icon-raw=${child.menuIcon}" class="sidebar-leaf-icon me-2 h-3 w-3 shrink-0 inline-block text-slate-400"></i>
+                                        <span class="truncate" th:text="${child.menuName}">Item</span>
+                                    </a>
+                                </li>
+                            </th:block>
+                        </ul>
+                    </div>
+                </li>
+            </th:block>
+
+            <!-- Category 2: Badge Request Operasional -->
+            <li class="px-3 pt-3 pb-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Badge Request</li>
+
+            <th:block th:each="menu : ${sidebarMenus}" th:if="${!#strings.containsIgnoreCase(menu.menuName, 'sticker') and !#strings.containsIgnoreCase(menu.menuName, 'administration') and !#strings.containsIgnoreCase(menu.menuName, 'ses (admin)') and !#strings.containsIgnoreCase(menu.menuName, 'ses form configuration')}">
+
+                <!-- Top-level with children (collapsible) -->
+                <li th:if="${!menu.children.isEmpty()}" class="mb-1">
+                    <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item collapsed transition-colors"
+                        data-bs-toggle="collapse" th:href="@{'#menu-' + ${menu.menuId}}"
+                        role="button" aria-expanded="false" th:attr="data-menu-title=${menu.menuName}">
+                        <i th:attr="data-icon-raw=${menu.menuIcon}" class="sidebar-menu-icon me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                        <span class="truncate" th:text="${menu.menuName}">Group</span>
+                        <i data-lucide="chevron-down" class="h-3.5 w-3.5 ms-auto text-slate-400 transition-transform duration-200 sidebar-chevron"></i>
+                    </a>
+                    <div class="collapse" th:id="'menu-' + ${menu.menuId}" data-bs-parent="#sidebar-module-badge">
+                        <ul class="list-unstyled ps-2 mt-1 space-y-1" th:id="'sidebar-nav-' + ${menu.menuId}">
+                            <th:block th:each="child : ${menu.children}" th:if="${!#strings.containsIgnoreCase(child.menuName, 'sticker')}">
+
+                                <!-- Second-level with children -->
+                                <li th:if="${!child.children.isEmpty()}" class="mb-1">
+                                    <a class="flex items-center px-3 py-1.5 text-slate-400 rounded-lg text-xs font-medium sidebar-item-sub collapsed transition-colors"
+                                        data-bs-toggle="collapse" th:href="@{'#menu-' + ${child.menuId}}" role="button"
+                                        th:attr="data-menu-title=${child.menuName}">
+                                        <i th:attr="data-icon-raw=${child.menuIcon}" class="sidebar-sub-icon me-2 h-3.5 w-3.5 shrink-0 inline-block text-slate-400"></i>
+                                        <span class="truncate" th:text="${child.menuName}">Sub Group</span>
+                                        <i data-lucide="chevron-down" class="h-3 w-3 ms-auto text-slate-500 sidebar-chevron"></i>
+                                    </a>
+                                    <div class="collapse" th:id="'menu-' + ${child.menuId}"
+                                        th:attr="data-bs-parent='#sidebar-nav-' + ${menu.menuId}">
+                                        <ul class="list-unstyled ps-2 mt-1 space-y-1">
+                                            <li th:each="leaf : ${child.children}" class="mb-1">
+                                                <a class="flex items-center px-3 py-1.5 text-slate-400 rounded-lg text-xs font-normal sidebar-leaf transition-colors"
+                                                    th:href="@{${leaf.menuUrl}}" th:attr="data-menu-title=${leaf.menuName}">
+                                                    <i th:attr="data-icon-raw=${leaf.menuIcon}" class="sidebar-leaf-icon me-2 h-3 w-3 shrink-0 inline-block text-slate-400"></i>
+                                                    <span class="truncate" th:text="${leaf.menuName}">Leaf</span>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </li>
+
+                                <!-- Second-level leaf -->
+                                <li th:if="${child.children.isEmpty()}" class="mb-1">
+                                    <a class="flex items-center px-3 py-1.5 text-slate-300 rounded-lg text-xs font-normal sidebar-leaf transition-colors"
+                                        th:href="@{${child.menuUrl}}" th:attr="data-menu-title=${child.menuName}">
+                                        <i th:attr="data-icon-raw=${child.menuIcon}" class="sidebar-leaf-icon me-2 h-3.5 w-3.5 shrink-0 inline-block text-slate-400"></i>
+                                        <span class="truncate" th:text="${child.menuName}">Item</span>
+                                    </a>
+                                </li>
+
+                            </th:block>
+                        </ul>
+                    </div>
+                </li>
+
+                <!-- Top-level leaf (no children) -->
+                <li th:if="${menu.children.isEmpty()}" class="mb-1">
+                    <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item transition-colors"
+                        th:href="@{${menu.menuUrl}}" th:attr="data-menu-title=${menu.menuName}">
+                        <i th:attr="data-icon-raw=${menu.menuIcon}" class="sidebar-menu-icon me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                        <span class="truncate" th:text="${menu.menuName}">Item</span>
+                    </a>
+                </li>
+
+            </th:block>
+        </ul>
+
+        <!-- ================================================================= -->
+        <!-- 2. MODULE: VEHICLE STICKER MENU TREE                              -->
+        <!-- ================================================================= -->
+        <ul class="list-unstyled ps-0 mt-3 px-2 space-y-1 ses-sidebar-mod-nav d-none" id="sidebar-module-sticker">
+
+            <!-- Category 1: Administrasi & Review (DIATAS) -->
+            <li class="px-3 pt-2 pb-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider"
+                sec:authorize="hasAnyRole('ADMIN', 'SECURITY_ADMIN', 'SYSADM')">Administrasi &amp; Review</li>
+
+            <!-- Administration Platform tree placed DIATAS -->
+            <th:block th:each="menu : ${sidebarMenus}" th:if="${#strings.containsIgnoreCase(menu.menuName, 'administration')}">
+                <li class="mb-1" sec:authorize="hasAnyRole('ADMIN', 'SECURITY_ADMIN', 'SYSADM')">
+                    <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item collapsed transition-colors"
+                        data-bs-toggle="collapse" th:href="@{'#menu-plt-sticker-' + ${menu.menuId}}"
+                        role="button" aria-expanded="false" th:attr="data-menu-title=${menu.menuName}">
+                        <i data-lucide="settings" class="sidebar-menu-icon me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                        <span class="truncate" th:text="${menu.menuName}">Administration</span>
+                        <i data-lucide="chevron-down" class="h-3.5 w-3.5 ms-auto text-slate-400 transition-transform duration-200 sidebar-chevron"></i>
+                    </a>
+                    <div class="collapse" th:id="'menu-plt-sticker-' + ${menu.menuId}">
+                        <ul class="list-unstyled ps-2 mt-1 space-y-1">
+                            <th:block th:each="child : ${menu.children}">
+                                <li th:if="${!child.children.isEmpty()}" class="mb-1">
+                                    <a class="flex items-center px-3 py-1.5 text-slate-400 rounded-lg text-xs font-medium sidebar-item-sub collapsed transition-colors"
+                                        data-bs-toggle="collapse" th:href="@{'#menu-plt-sticker-' + ${child.menuId}}" role="button"
+                                        th:attr="data-menu-title=${child.menuName}">
+                                        <i data-lucide="sliders" class="sidebar-sub-icon me-2 h-3.5 w-3.5 shrink-0 inline-block text-slate-400"></i>
+                                        <span class="truncate" th:text="${child.menuName}">Sub Group</span>
+                                        <i data-lucide="chevron-down" class="h-3 w-3 ms-auto text-slate-500 sidebar-chevron"></i>
+                                    </a>
+                                    <div class="collapse" th:id="'menu-plt-sticker-' + ${child.menuId}">
+                                        <ul class="list-unstyled ps-2 mt-1 space-y-1">
+                                            <li th:each="leaf : ${child.children}" class="mb-1">
+                                                <a class="flex items-center px-3 py-1.5 text-slate-400 rounded-lg text-xs font-normal sidebar-leaf transition-colors"
+                                                    th:href="@{${leaf.menuUrl}}" th:attr="data-menu-title=${leaf.menuName}">
+                                                    <i th:attr="data-icon-raw=${leaf.menuIcon}" class="sidebar-leaf-icon me-2 h-3 w-3 shrink-0 inline-block text-slate-400"></i>
+                                                    <span class="truncate" th:text="${leaf.menuName}">Leaf</span>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </li>
+                                <li th:if="${child.children.isEmpty()}" class="mb-1">
+                                    <a class="flex items-center px-3 py-1.5 text-slate-300 rounded-lg text-xs font-normal sidebar-leaf transition-colors"
+                                        th:href="@{${child.menuUrl}}" th:attr="data-menu-title=${child.menuName}">
+                                        <i th:attr="data-icon-raw=${child.menuIcon}" class="sidebar-leaf-icon me-2 h-3 w-3 shrink-0 inline-block text-slate-400"></i>
+                                        <span class="truncate" th:text="${child.menuName}">Item</span>
+                                    </a>
+                                </li>
+                            </th:block>
+                        </ul>
+                    </div>
+                </li>
+            </th:block>
+
+            <li class="mb-1" sec:authorize="hasAnyRole('ADMIN', 'SECURITY_ADMIN', 'SYSADM')">
+                <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item transition-colors"
+                   th:href="@{/admin/sticker-type}">
+                    <i data-lucide="tag" class="me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                    <span class="truncate">Konfigurasi Jenis Stiker</span>
+                </a>
+            </li>
+            <li class="mb-1">
+                <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item transition-colors"
+                   th:href="@{/approval}">
+                    <i data-lucide="check-square" class="me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                    <span class="truncate">Persetujuan Stiker</span>
+                </a>
+            </li>
+
+            <!-- Category 2: Stiker Kendaraan -->
+            <li class="px-3 pt-3 pb-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Stiker Kendaraan</li>
+            <li class="mb-1" sec:authorize="hasAnyRole('ADMIN', 'SECURITY', 'SYSADM')">
+                <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item transition-colors"
+                   th:href="@{/sticker/dashboard}">
+                    <i data-lucide="layout-dashboard" class="me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                    <span class="truncate">Dashboard</span>
+                </a>
+            </li>
+            <li class="mb-1">
+                <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item transition-colors"
+                   th:href="@{/sticker/new}">
+                    <i data-lucide="file-plus" class="me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                    <span class="truncate">Pengajuan Stiker Baru</span>
+                </a>
+            </li>
+            <li class="mb-1">
+                <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item transition-colors"
+                   th:href="@{/sticker}">
+                    <i data-lucide="car-front" class="me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                    <span class="truncate">Daftar Stiker Saya</span>
+                </a>
+            </li>
+            <li class="mb-1">
+                <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item transition-colors"
+                   th:href="@{/history}">
+                    <i data-lucide="history" class="me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                    <span class="truncate">Riwayat Stiker</span>
+                </a>
+            </li>
+        </ul>
+
+        <!-- ================================================================= -->
+        <!-- 3. MODULE: GOODS ENTRY PERMIT MENU TREE                           -->
+        <!-- ================================================================= -->
+        <ul class="list-unstyled ps-0 mt-3 px-2 space-y-1 ses-sidebar-mod-nav d-none" id="sidebar-module-goods">
+
+            <!-- Category 1: Security & Administrasi (DIATAS) -->
+            <li class="px-3 pt-2 pb-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider"
+                sec:authorize="hasAnyRole('ADMIN', 'SECURITY_ADMIN', 'SYSADM')">Security &amp; Administrasi</li>
+
+            <!-- Administration Platform tree placed DIATAS -->
+            <th:block th:each="menu : ${sidebarMenus}" th:if="${#strings.containsIgnoreCase(menu.menuName, 'administration')}">
+                <li class="mb-1" sec:authorize="hasAnyRole('ADMIN', 'SECURITY_ADMIN', 'SYSADM')">
+                    <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item collapsed transition-colors"
+                        data-bs-toggle="collapse" th:href="@{'#menu-plt-goods-' + ${menu.menuId}}"
+                        role="button" aria-expanded="false" th:attr="data-menu-title=${menu.menuName}">
+                        <i data-lucide="settings" class="sidebar-menu-icon me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                        <span class="truncate" th:text="${menu.menuName}">Administration</span>
+                        <i data-lucide="chevron-down" class="h-3.5 w-3.5 ms-auto text-slate-400 transition-transform duration-200 sidebar-chevron"></i>
+                    </a>
+                    <div class="collapse" th:id="'menu-plt-goods-' + ${menu.menuId}">
+                        <ul class="list-unstyled ps-2 mt-1 space-y-1">
+                            <th:block th:each="child : ${menu.children}">
+                                <li th:if="${!child.children.isEmpty()}" class="mb-1">
+                                    <a class="flex items-center px-3 py-1.5 text-slate-400 rounded-lg text-xs font-medium sidebar-item-sub collapsed transition-colors"
+                                        data-bs-toggle="collapse" th:href="@{'#menu-plt-goods-' + ${child.menuId}}" role="button"
+                                        th:attr="data-menu-title=${child.menuName}">
+                                        <i data-lucide="sliders" class="sidebar-sub-icon me-2 h-3.5 w-3.5 shrink-0 inline-block text-slate-400"></i>
+                                        <span class="truncate" th:text="${child.menuName}">Sub Group</span>
+                                        <i data-lucide="chevron-down" class="h-3 w-3 ms-auto text-slate-500 sidebar-chevron"></i>
+                                    </a>
+                                    <div class="collapse" th:id="'menu-plt-goods-' + ${child.menuId}">
+                                        <ul class="list-unstyled ps-2 mt-1 space-y-1">
+                                            <li th:each="leaf : ${child.children}" class="mb-1">
+                                                <a class="flex items-center px-3 py-1.5 text-slate-400 rounded-lg text-xs font-normal sidebar-leaf transition-colors"
+                                                    th:href="@{${leaf.menuUrl}}" th:attr="data-menu-title=${leaf.menuName}">
+                                                    <i th:attr="data-icon-raw=${leaf.menuIcon}" class="sidebar-leaf-icon me-2 h-3 w-3 shrink-0 inline-block text-slate-400"></i>
+                                                    <span class="truncate" th:text="${leaf.menuName}">Leaf</span>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </li>
+                                <li th:if="${child.children.isEmpty()}" class="mb-1">
+                                    <a class="flex items-center px-3 py-1.5 text-slate-300 rounded-lg text-xs font-normal sidebar-leaf transition-colors"
+                                        th:href="@{${child.menuUrl}}" th:attr="data-menu-title=${child.menuName}">
+                                        <i th:attr="data-icon-raw=${child.menuIcon}" class="sidebar-leaf-icon me-2 h-3 w-3 shrink-0 inline-block text-slate-400"></i>
+                                        <span class="truncate" th:text="${child.menuName}">Item</span>
+                                    </a>
+                                </li>
+                            </th:block>
+                        </ul>
+                    </div>
+                </li>
+            </th:block>
+
+            <li class="mb-1">
+                <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item transition-colors gep-side-link"
+                   href="javascript:void(0)" onclick="window.navGep('verify')">
+                    <i data-lucide="shield-check" class="me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                    <span class="truncate">Verifikasi Master Dokumen</span>
+                </a>
+            </li>
+            <li class="mb-1">
+                <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item transition-colors gep-side-link"
+                   href="javascript:void(0)" onclick="window.navGep('flow')">
+                    <i data-lucide="workflow" class="me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                    <span class="truncate">Alur Persetujuan (Flow)</span>
+                </a>
+            </li>
+            <li class="mb-1">
+                <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item transition-colors gep-side-link"
+                   href="javascript:void(0)" onclick="window.navGep('checklist')">
+                    <i data-lucide="clipboard-check" class="me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                    <span class="truncate">Checklist Inspeksi Gerbang</span>
+                </a>
+            </li>
+            <li class="mb-1">
+                <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item transition-colors gep-side-link"
+                   href="javascript:void(0)" onclick="window.navGep('secusers')">
+                    <i data-lucide="user-check" class="me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                    <span class="truncate">User Mobile Security</span>
+                </a>
+            </li>
+            <li class="mb-1">
+                <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item transition-colors gep-side-link"
+                   href="javascript:void(0)" onclick="window.navGep('gatelog')">
+                    <i data-lucide="activity" class="me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                    <span class="truncate">Monitoring Gate Log</span>
+                </a>
+            </li>
+
+            <!-- Category 2: Goods Entry Permit -->
+            <li class="px-3 pt-3 pb-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Goods Entry Permit</li>
+            <li class="mb-1">
+                <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item transition-colors gep-side-link"
+                   th:href="@{/goods-permit/dashboard}" onclick="if (window.navGep && window.location.pathname.indexOf('/goods-permit') !== -1) { window.navGep('home'); return false; }">
+                    <i data-lucide="layout-dashboard" class="me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                    <span class="truncate">Dashboard</span>
+                </a>
+            </li>
+            <li class="mb-1">
+                <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item transition-colors gep-side-link"
+                   href="javascript:void(0)" onclick="window.navGep('create')">
+                    <i data-lucide="file-plus-2" class="me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                    <span class="truncate">Buat Permohonan (PO/DO)</span>
+                </a>
+            </li>
+            <li class="mb-1">
+                <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item transition-colors gep-side-link"
+                   href="javascript:void(0)" onclick="window.navGep('requests')">
+                    <i data-lucide="file-text" class="me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                    <span class="truncate">Daftar Permohonan &amp; QR</span>
+                </a>
+            </li>
+
+            <!-- Category 3: Master Data Vendor -->
+            <li class="px-3 pt-3 pb-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Master Data Vendor</li>
+            <li class="mb-1">
+                <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item transition-colors gep-side-link"
+                   href="javascript:void(0)" onclick="window.navGep('drivers')">
+                    <i data-lucide="users" class="me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                    <span class="truncate">Master Driver</span>
+                </a>
+            </li>
+            <li class="mb-1">
+                <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item transition-colors gep-side-link"
+                   href="javascript:void(0)" onclick="window.navGep('vehicles')">
+                    <i data-lucide="truck" class="me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                    <span class="truncate">Master Kendaraan</span>
+                </a>
+            </li>
+
+            <!-- Category 4: Approval & Lapangan -->
+            <li class="px-3 pt-3 pb-1 text-[11px] font-bold text-slate-400 uppercase tracking-wider">Approval &amp; Lapangan</li>
+            <li class="mb-1">
+                <a class="flex items-center px-3 py-2 text-slate-200 rounded-lg text-xs font-semibold sidebar-item transition-colors gep-side-link"
+                   href="javascript:void(0)" onclick="window.navGep('inbox')">
+                    <i data-lucide="inbox" class="me-2.5 h-4 w-4 shrink-0 inline-block text-slate-400"></i>
+                    <span class="truncate">Kotak Masuk Persetujuan</span>
+                </a>
+            </li>
+        </ul>
+        <!-- ================================================================= -->
+        <!-- JAVASCRIPT: DYNAMIC MODULE SWITCHER & LUCIDE ICONS                -->
+        <!-- ================================================================= -->
+        <script>
+            (function() {
+                function toPascalCase(str) {
+                    if (!str) return '';
+                    return str.split(/[-_ ]+/).map(function(w) {
+                        return w.charAt(0).toUpperCase() + w.slice(1);
+                    }).join('');
+                }
+
+                function isValidLucide(iconName) {
+                    if (!iconName || !window.lucide || !window.lucide.icons) return false;
+                    var pascal = toPascalCase(iconName);
+                    return !!(window.lucide.icons[pascal] || window.lucide[pascal]);
+                }
+
+                function resolveLucideIcon(raw, isLeaf, title) {
+                    var t = (title || '').toLowerCase().trim();
+
+                    if (t.indexOf('user management') !== -1 || t === 'user management') return 'users';
+                    if (t.indexOf('menu management') !== -1 || t === 'menu management') return 'layout-list';
+                    if (t.indexOf('role management') !== -1) return 'shield-check';
+                    if (t.indexOf('page management') !== -1) return 'file-text';
+                    if (t.indexOf('activity log') !== -1 || t.indexOf('activity') !== -1) return 'activity';
+                    if (t.indexOf('catalog') !== -1) return 'book-open';
+                    if (t.indexOf('error log') !== -1 || t.indexOf('error') !== -1) return 'alert-triangle';
+                    if (t.indexOf('scheduler monitor') !== -1 || t.indexOf('scheduler') !== -1) return 'timer';
+                    if (t.indexOf('job management') !== -1) return 'history';
+                    if (t.indexOf('mail log') !== -1 || t.indexOf('mail') !== -1) return 'mail';
+                    if (t.indexOf('parameters') !== -1) return 'sliders';
+
+                    if (t === 'dashboard' || t.indexOf('dashboard') !== -1) return 'layout-dashboard';
+                    if (t.indexOf('verifikasi pembayaran') !== -1) return 'badge-check';
+                    if (t.indexOf('pengeluaran kas') !== -1) return 'wallet';
+                    if (t.indexOf('pemasukan kas') !== -1) return 'trending-up';
+                    if (t.indexOf('pembayaran') !== -1 || t.indexOf('payment') !== -1) return 'receipt';
+                    if (t.indexOf('request sticker') !== -1 || t.indexOf('pengajuan sticker') !== -1) return 'file-badge';
+                    if (t.indexOf('konfigurasi jenis sticker') !== -1 || t.indexOf('konfigurasi jenis stiker') !== -1) return 'tag';
+                    if (t.indexOf('konfigurasi jenis pengajuan') !== -1) return 'list-checks';
+                    if (t.indexOf('approval chains') !== -1 || t.indexOf('approval chain') !== -1) return 'workflow';
+                    if (t.indexOf('approval form mapping') !== -1 || t.indexOf('approval map') !== -1) return 'route';
+                    if (t.indexOf('tanda pengenal pekerja') !== -1) return 'id-card';
+                    if (t.indexOf('badge karyawan') !== -1) return 'file-plus';
+                    if (t.indexOf('sticker') !== -1 || t.indexOf('stiker') !== -1) return 'car-front';
+                    if (t.indexOf('ses (admin)') !== -1) return 'shield';
+                    if (t.indexOf('ses form configuration') !== -1) return 'settings';
+                    if (t.indexOf('administration') !== -1) return 'settings';
+                    if (t.indexOf('jadwal') !== -1 || t.indexOf('calendar') !== -1) return 'calendar';
+                    if (t.indexOf('riwayat') !== -1 || t.indexOf('history') !== -1) return 'history';
+
+                    if (!raw) return isLeaf ? 'chevron-right' : 'folder';
+
+                    var cleanRaw = raw.replace(/^bi\s+bi-|^bi-/, '').trim().toLowerCase();
+                    if (isValidLucide(cleanRaw)) return cleanRaw;
+
+                    var s = raw.toLowerCase();
+                    if (s.indexOf('dashboard') !== -1) return 'layout-dashboard';
+                    if (s.indexOf('workflow') !== -1) return 'workflow';
+                    if (s.indexOf('signpost') !== -1 || s.indexOf('route') !== -1) return 'route';
+                    if (s.indexOf('badge-check') !== -1) return 'badge-check';
+                    if (s.indexOf('file-badge') !== -1) return 'file-badge';
+                    if (s.indexOf('id-card') !== -1) return 'id-card';
+                    if (s.indexOf('wallet') !== -1) return 'wallet';
+                    if (s.indexOf('receipt') !== -1 || s.indexOf('cash-coin') !== -1) return 'receipt';
+                    if (s.indexOf('car') !== -1 || s.indexOf('vehicle') !== -1) return 'car-front';
+                    if (s.indexOf('calendar') !== -1) return 'calendar';
+                    if (s.indexOf('clock') !== -1 || s.indexOf('history') !== -1) return 'history';
+                    if (s.indexOf('users') !== -1 || s.indexOf('people') !== -1) return 'users';
+                    if (s.indexOf('shield-check') !== -1) return 'shield-check';
+                    if (s.indexOf('shield') !== -1) return 'shield';
+                    if (s.indexOf('check-square') !== -1) return 'check-square';
+
+                    return isLeaf ? 'chevron-right' : 'folder';
+                }
+
+                function initSidebarLucideIcons() {
+                    var items = document.querySelectorAll('#sidebar-wrapper i[data-icon-raw]');
+                    items.forEach(function(el) {
+                        var raw = el.getAttribute('data-icon-raw');
+                        var isLeaf = el.classList.contains('sidebar-leaf-icon');
+                        var parentLink = el.closest('a');
+                        var title = (parentLink && (parentLink.getAttribute('data-menu-title') || parentLink.textContent)) || '';
+                        var name = resolveLucideIcon(raw, isLeaf, title);
+                        el.setAttribute('data-lucide', name);
+                    });
+                    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+                        window.lucide.createIcons();
+                    }
+                }
+
+                function applyActiveModuleSidebar(forcedMod) {
+                    var mod = forcedMod;
+                    if (!mod && typeof window.getSesActiveModule === 'function') {
+                        mod = window.getSesActiveModule();
+                    } else if (!mod) {
+                        var p = window.location.pathname.toLowerCase();
+                        if (p.indexOf('/goods-permit') !== -1 || p.indexOf('/material-permit') !== -1) {
+                            mod = 'goods';
+                        } else if (p.indexOf('/sticker') !== -1 || p.indexOf('/admin/sticker-type') !== -1) {
+                            mod = 'sticker';
+                        } else {
+                            try {
+                                var s = localStorage.getItem('ses_active_module');
+                                if (s === 'goods' || s === 'sticker' || s === 'badge') mod = s;
+                            } catch (e) {}
+                            if (!mod) mod = 'badge';
+                        }
+                    }
+
+                    var badgeNav = document.getElementById('sidebar-module-badge');
+                    var stickerNav = document.getElementById('sidebar-module-sticker');
+                    var goodsNav = document.getElementById('sidebar-module-goods');
+                    var titleEl = document.getElementById('sidebarModuleTitle');
+
+                    if (badgeNav) badgeNav.classList.add('d-none');
+                    if (stickerNav) stickerNav.classList.add('d-none');
+                    if (goodsNav) goodsNav.classList.add('d-none');
+
+                    if (mod === 'goods') {
+                        if (goodsNav) goodsNav.classList.remove('d-none');
+                        if (titleEl) {
+                            titleEl.textContent = 'Goods Entry Permit';
+                            titleEl.className = 'mt-2.5 text-sm font-bold uppercase tracking-wider text-white';
+                        }
+                    } else if (mod === 'sticker') {
+                        if (stickerNav) stickerNav.classList.remove('d-none');
+                        if (titleEl) {
+                            titleEl.textContent = 'Vehicle Sticker';
+                            titleEl.className = 'mt-2.5 text-sm font-bold uppercase tracking-wider text-white';
+                        }
+                    } else {
+                        if (badgeNav) badgeNav.classList.remove('d-none');
+                        if (titleEl) {
+                            titleEl.textContent = 'Badge Request';
+                            titleEl.className = 'mt-2.5 text-sm font-bold uppercase tracking-wider text-white';
+                        }
+                    }
+                }
+                window.applyActiveModuleSidebar = applyActiveModuleSidebar;
+
+                window.navGep = function(view) {
+                    var p = window.location.pathname.toLowerCase();
+                    if (p.indexOf('/goods-permit') !== -1 && typeof window.go === 'function') {
+                        window.go(view);
+                    } else {
+                        var cp = (window.contextPath || '/');
+                        if (cp.charAt(cp.length - 1) !== '/') cp += '/';
+                        window.location.href = cp + 'goods-permit?view=' + view;
+                    }
+                };
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', function() {
+                        applyActiveModuleSidebar();
+                        initSidebarLucideIcons();
+                    });
+                } else {
+                    applyActiveModuleSidebar();
+                    initSidebarLucideIcons();
+                }
+            })();
+        </script>
+    </nav>
+</body>
+
+</html>

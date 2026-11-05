@@ -1,6 +1,6 @@
 # Dokumentasi Teknis: Implementasi DevSecOps Bean Validation & Hibernate Validator
 
-**Aplikasi:** Secure Entry System (SES) • PT BADAK NGL  
+**Aplikasi:** Secure Entry System (SES) • PT SETERAH (PT. S)  
 **Standar Keamanan:** OWASP Top 10 (A03:2021 – Injection & Boundary Input Control)  
 **Versi Platform:** Spring Boot 2.7.18 • Java 8 • Hibernate Validator 6.2.5.Final (JSR-380)  
 **Status:** Terverifikasi & Aktif  

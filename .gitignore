@@ -1,8 +1,50 @@
 HELP.md
 target/
+**/target/
+
+### Flutter / Mobile Artifacts ###
+**/build/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.pub-cache/
+**/.pub/
+*.apk
+*.aab
+*.app
+*.ipa
+
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
+**/target/
+
+### Flutter / Mobile Artifacts ###
+**/build/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.pub-cache/
+**/.pub/
+*.apk
+*.aab
+*.app
+*.ipa
+
 !**/src/test/**/target/
+**/target/
+
+### Flutter / Mobile Artifacts ###
+**/build/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.pub-cache/
+**/.pub/
+*.apk
+*.aab
+*.app
+*.ipa
+
 
 ### IntelliJ IDEA ###
 .idea
@@ -98,10 +140,8 @@ db.zip
 scratch/
 docs/*
 *.md
-!README.md
-!ses-app/README.md
-!ses-core/README.md
-!ses-ext/README.md
+!**/README.md
+!docs/fdd-and-user-guide/**
 !sql/README.md
 !sql/**/README.md
 !docs/DOKUMENTASI_IMPLEMENTASI_DEVSECOPS_VALIDATOR.md
