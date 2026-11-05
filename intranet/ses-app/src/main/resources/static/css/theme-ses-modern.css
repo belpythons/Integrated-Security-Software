@@ -1,0 +1,1076 @@
+/* ==========================================================================
+   theme-ses-modern.css
+   Unified Badak LNG Secure Entry System (SES) Design System
+   Based on SAP Fiori Horizon & Claude Prototype Reference Standards
+   ========================================================================== */
+
+:root {
+  --shell: #1d2d3e;
+  --shell-fg: #ffffff;
+  --shell-muted: #a9b4be;
+  --bg: #f5f6f7;
+  --card: #ffffff;
+  --fg: #1d2d3e;
+  --muted: #556b82;
+  --line: #d9dee3;
+  --line-soft: #eaecee;
+  --brand: #0064d9;
+  --brand-hover: #0058c0;
+  --on-brand: #ffffff;
+  --brand-soft: #ebf4ff;
+  --sel: #e8f2ff;
+  --ok: #256f3a;
+  --ok-bg: #f5fae5;
+  --warn: #a93e00;
+  --warn-bg: #fff8d6;
+  --err: #aa0808;
+  --err-bg: #ffeaf4;
+  --info: #0064d9;
+  --info-bg: #e1f4ff;
+  --neutral: #556b82;
+  --neutral-bg: #eff1f2;
+  --font: "Noto Sans", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --mono: "Noto Sans Mono", ui-monospace, Menlo, Consolas, monospace;
+  --shadow: 0 0 .125rem rgba(34,53,72,.2), 0 .125rem .25rem rgba(34,53,72,.15);
+  --shadow-lg: 0 .625rem 2rem rgba(34,53,72,.25);
+  --r: 12px;
+  --r-sm: 8px;
+}
+
+/* ==========================================================================
+   1. File-Manager Style Breadcrumb Path Bar
+   ========================================================================== */
+.ses-pathbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 8px 14px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--muted);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  margin-bottom: 16px;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.ses-pathbar .path-root {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--brand);
+  text-decoration: none;
+}
+
+.ses-pathbar .path-sep {
+  color: var(--line);
+  user-select: none;
+}
+
+.ses-pathbar a.path-node {
+  color: var(--fg);
+  text-decoration: none;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 5px;
+  transition: all 0.15s ease;
+}
+
+.ses-pathbar a.path-node:hover {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+.ses-pathbar .path-leaf {
+  color: var(--brand);
+  font-weight: 600;
+  background: var(--sel);
+  padding: 3px 10px;
+  border-radius: 5px;
+  border: 1px solid rgba(0, 100, 217, 0.2);
+}
+
+/* ==========================================================================
+   2. Multi-Step Form Wizard Tabs & Navigation
+   ========================================================================== */
+.ses-wizard-nav {
+  display: flex;
+  gap: 6px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 6px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
+  overflow-x: auto;
+}
+
+.ses-wizard-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 170px;
+  padding: 10px 14px;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.ses-wizard-step:hover:not(.disabled) {
+  background: var(--neutral-bg);
+  color: var(--fg);
+}
+
+.ses-wizard-step.active {
+  background: var(--brand-soft);
+  color: var(--brand);
+  border-color: rgba(0, 100, 217, 0.3);
+  box-shadow: inset 0 0 0 1px var(--brand);
+}
+
+.ses-wizard-step.completed {
+  color: var(--ok);
+}
+
+.ses-wizard-step .step-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--neutral-bg);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.ses-wizard-step.active .step-badge {
+  background: var(--brand);
+  color: var(--on-brand);
+}
+
+.ses-wizard-step.completed .step-badge {
+  background: var(--ok);
+  color: #fff;
+}
+
+.ses-wizard-pane {
+  display: none;
+}
+
+.ses-wizard-pane.active {
+  display: block;
+  animation: sesFadeIn 0.2s ease-in-out;
+}
+
+@keyframes sesFadeIn {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Padding container for pages using sticky footer to prevent content overlap */
+.has-sticky-footer {
+  padding-bottom: 90px !important;
+}
+
+/* ==========================================================================
+   3. Sticky Action Footer
+   ========================================================================== */
+.ses-sticky-footer {
+  position: fixed;
+  left: 236px;
+  right: 0;
+  bottom: 0;
+  z-index: 1020;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.07);
+  padding: 12px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .ses-sticky-footer {
+    left: 0;
+    padding: 10px 16px;
+  }
+}
+
+.ses-sticky-footer .footer-left,
+.ses-sticky-footer .footer-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ==========================================================================
+   4. Jump-to-Error Validation Highlights
+   ========================================================================== */
+.ses-field-error-pulse {
+  border-color: var(--err) !important;
+  box-shadow: 0 0 0 4px rgba(170, 8, 8, 0.25) !important;
+  background-color: var(--err-bg) !important;
+  animation: sesPulseError 1.6s infinite;
+}
+
+@keyframes sesPulseError {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(170, 8, 8, 0.25); }
+  50% { box-shadow: 0 0 0 7px rgba(170, 8, 8, 0.45); }
+}
+
+.ses-error-hint {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--err);
+  font-size: 11.5px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+/* ==========================================================================
+   5. Modern Status Tag Pills
+   ========================================================================== */
+.tag-ses {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.tag-ses::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.tag-ses.ok { background: var(--ok-bg); color: var(--ok); }
+.tag-ses.warn { background: var(--warn-bg); color: var(--warn); }
+.tag-ses.err { background: var(--err-bg); color: var(--err); }
+.tag-ses.info { background: var(--info-bg); color: var(--info); }
+.tag-ses.neutral { background: var(--neutral-bg); color: var(--neutral); }
+
+/* ==========================================================================
+   6. Single-Page Quick Approval Slide-out Drawer & Overlay
+   ========================================================================== */
+.ses-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+  z-index: 1050;
+  display: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.ses-drawer-overlay.show {
+  display: block;
+  opacity: 1;
+}
+
+.ses-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(640px, 92vw);
+  background: var(--card);
+  box-shadow: -8px 0 28px rgba(0, 0, 0, 0.16);
+  z-index: 1055;
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.ses-drawer.show {
+  transform: translateX(0);
+}
+
+.ses-drawer-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg);
+}
+
+.ses-drawer-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.ses-drawer-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ses-drawer-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  background: var(--bg);
+}
+
+/* ==========================================================================
+   7. Drag and Drop Direct Upload Dropzone
+   ========================================================================== */
+.ses-dropzone {
+  border: 2px dashed var(--line);
+  border-radius: var(--r);
+  padding: 24px;
+  text-align: center;
+  background: var(--bg);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ses-dropzone:hover,
+.ses-dropzone.dragover {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+
+.ses-dropzone .dropzone-icon {
+  width: 42px;
+  height: 42px;
+  color: var(--brand);
+  margin-bottom: 8px;
+}
+
+.ses-dropzone .dropzone-title {
+  font-weight: 600;
+  color: var(--fg);
+  font-size: 14px;
+}
+
+.ses-dropzone .dropzone-subtitle {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* ==========================================================================
+   Fiori Horizon Shell: Consistent Modern Module Switcher Dropdown
+   ========================================================================== */
+.ses-module-switcher {
+  position: relative;
+  display: inline-block;
+}
+
+.ses-module-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-top: 2.5px solid transparent !important;
+  border-bottom: 2.5px solid transparent !important;
+  color: #ffffff !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  padding: 6px 13px !important;
+  border-radius: var(--radius-sm, 8px) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: none !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  line-height: 1.4 !important;
+}
+
+.ses-module-btn:hover,
+.ses-module-btn:focus,
+.ses-module-btn.show,
+.dropdown.show .ses-module-btn {
+  background: rgba(0, 84, 166, 0.28) !important;
+  border-color: rgba(56, 189, 248, 0.4) !important;
+  border-top: 2.5px solid #0054a6 !important;
+  border-bottom: 2.5px solid #38bdf8 !important;
+  color: #ffffff !important;
+  box-shadow: inset 0 2px 6px rgba(0, 84, 166, 0.3), inset 0 -2px 6px rgba(56, 189, 248, 0.35), 0 2px 10px rgba(0, 84, 166, 0.25) !important;
+}
+
+.ses-module-btn .mod-tag {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(255, 255, 255, 0.16);
+  color: #bae6fd;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.ses-module-btn .mod-chevron {
+  transition: transform 0.2s ease;
+  color: #cbd5e1;
+}
+
+.dropdown.show .ses-module-btn .mod-chevron {
+  transform: rotate(180deg);
+}
+
+.ses-module-menu {
+  min-width: 310px !important;
+  padding: 6px !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 84, 166, 0.12) !important;
+  border-radius: var(--radius, 12px) !important;
+  box-shadow: 0 12px 32px rgba(0, 30, 60, 0.16), 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+  margin-top: 8px !important;
+  animation: fadeInSlideUp 0.18s ease-out !important;
+}
+
+.ses-module-header {
+  padding: 8px 12px 6px !important;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  color: #64748b !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  margin-bottom: 4px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.ses-module-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 10px 12px !important;
+  border-radius: 8px !important;
+  text-decoration: none !important;
+  color: #1e293b !important;
+  transition: all 0.15s ease !important;
+  cursor: pointer !important;
+  position: relative !important;
+  border-left: 3px solid transparent !important;
+  margin-bottom: 2px !important;
+}
+
+.ses-module-item:hover {
+  background-color: var(--blue-subtle-bg, #e6f0fa) !important;
+  color: var(--blue, #0054a6) !important;
+  transform: translateX(2px) !important;
+}
+
+.ses-module-item.active {
+  background-color: #f0f7ff !important;
+  border-left-color: var(--blue, #0054a6) !important;
+}
+
+.ses-module-icon-wrap {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  transition: transform 0.15s ease !important;
+}
+
+.ses-module-item:hover .ses-module-icon-wrap {
+  transform: scale(1.08) !important;
+}
+
+.ses-module-icon-badge {
+  background: #eff6ff !important;
+  color: #0064d9 !important;
+  border: 1px solid #bfdbfe !important;
+}
+
+.ses-module-icon-sticker {
+  background: #ecfdf5 !important;
+  color: #059669 !important;
+  border: 1px solid #a7f3d0 !important;
+}
+
+.ses-module-icon-gep {
+  background: #fffbeb !important;
+  color: #d97706 !important;
+  border: 1px solid #fde68a !important;
+}
+
+.ses-module-title {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #0f172a !important;
+  line-height: 1.25 !important;
+}
+
+.ses-module-desc {
+  font-size: 11px !important;
+  color: #64748b !important;
+  margin-top: 2px !important;
+  line-height: 1.3 !important;
+}
+
+.ses-module-check {
+  margin-left: auto !important;
+  color: #0064d9 !important;
+  display: none !important;
+}
+
+.ses-module-item.active .ses-module-check {
+  display: inline-block !important;
+}
+
+.iconbtn {
+  background: none;
+  border: 0;
+  color: inherit;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  text-decoration: none;
+}
+
+.iconbtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   Full-Width Top Navbar & Sub-Docked Sidebar Layout (Fiori Horizon Standard)
+   Navbar spans 100% width across the top; Sidebar is docked strictly underneath.
+   ========================================================================== */
+
+:root {
+  --navbar-height: 56px;
+  --sidebar-width: 240px;
+}
+
+/* 1. Navbar: Full width 100vw, always at the very top */
+.navbar.fixed-top {
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  height: var(--navbar-height) !important;
+  min-height: var(--navbar-height) !important;
+  z-index: 1040 !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* 2. Sidebar: Always docked strictly UNDER the navbar */
+#sidebar-wrapper {
+  top: var(--navbar-height) !important;
+  height: calc(100vh - var(--navbar-height)) !important;
+  left: 0 !important;
+  width: var(--sidebar-width) !important;
+  z-index: 1030 !important;
+  border-right: 1px solid rgba(0, 84, 166, 0.18) !important;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.06) !important;
+  transition: width 0.25s ease, transform 0.25s ease !important;
+}
+
+#sidebar-wrapper .sidebar-heading {
+  padding: 1rem 0.75rem !important;
+  border-bottom: 1px solid rgba(0, 84, 166, 0.18) !important;
+}
+
+#sidebar-wrapper .sidebar-heading img {
+  max-width: 5.5rem !important;
+  height: auto !important;
+}
+
+/* Sidebar collapsed on Desktop (min-width: 992px) */
+@media (min-width: 992px) {
+  body.sidebar-collapsed #sidebar-wrapper {
+    width: 0 !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    border-right: none !important;
+    visibility: hidden;
+  }
+}
+
+/* 3. Page Content Wrapper: Sits below navbar, beside sidebar */
+#page-content-wrapper {
+  position: fixed !important;
+  top: var(--navbar-height) !important;
+  left: var(--sidebar-width) !important;
+  right: 0 !important;
+  bottom: 0 !important; /* Footer removed */
+  height: calc(100vh - var(--navbar-height)) !important;
+  overflow-y: auto !important;
+  transition: left 0.25s ease !important;
+  background-color: var(--surface-bg, #f4f7fb) !important;
+}
+
+/* Page content when sidebar is collapsed on Desktop */
+@media (min-width: 992px) {
+  body.sidebar-collapsed #page-content-wrapper {
+    left: 0 !important;
+  }
+}
+
+/* 4. Mobile off-canvas behavior (< 992px) */
+@media (max-width: 991.98px) {
+  #sidebar-wrapper {
+    top: var(--navbar-height) !important;
+    height: calc(100vh - var(--navbar-height)) !important;
+    transform: translateX(-100%) !important;
+    width: var(--sidebar-width) !important;
+    z-index: 1050 !important;
+  }
+
+  body.sidebar-collapsed #sidebar-wrapper {
+    transform: translateX(0) !important;
+    visibility: visible !important;
+  }
+
+  #page-content-wrapper {
+    left: 0 !important;
+    width: 100% !important;
+  }
+
+  .mobile-sidebar-backdrop {
+    top: var(--navbar-height) !important;
+    height: calc(100vh - var(--navbar-height)) !important;
+  }
+}
+
+/* ==========================================================================
+   Dark Navy Navbar Theme, Deep Shadow Border, & Unified Cyberpunk Lite Neon Hover
+   ========================================================================== */
+.navbar.fixed-top,
+.navbar.navbar-dark,
+.navbar.bg-navy,
+.navbar {
+  background-color: var(--navy, #001e3c) !important;
+  border-bottom: 2px solid #000c18 !important; /* Border bawah gelap untuk shadow */
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.65), 0 2px 4px rgba(0, 0, 0, 0.45) !important; /* Shadow mendalam */
+}
+
+/* Eliminate any upward hover animation across the entire navbar */
+.navbar .btn:hover,
+.navbar .btn:focus,
+.navbar a:hover,
+.navbar a:focus,
+.navbar button:hover,
+.navbar button:focus,
+.navbar .nav-link:hover,
+.navbar .nav-link:focus,
+.navbar .iconbtn-neon:hover,
+.navbar .iconbtn-neon:focus,
+.navbar .ses-module-btn:hover,
+.navbar .ses-module-btn:focus,
+.navbar .navbar-brand:hover,
+.navbar .navbar-brand:focus,
+.navbar .dropdown-profile-toggle:hover,
+.navbar .dropdown-profile-toggle:focus,
+#navbarQuickApprovalBtn:hover,
+#navbarQuickApprovalBtn:focus {
+  transform: none !important;
+}
+
+/* ==========================================================================
+   SEMUA TULISAN & ICON DI NAVBAR: 100% PUTIH BERSIH (#ffffff)
+   ========================================================================== */
+.navbar,
+.navbar > .container-fluid,
+.navbar > .container-fluid a:not(.dropdown-item),
+.navbar > .container-fluid button:not(.dropdown-item),
+.navbar > .container-fluid span:not(.badge):not(.dropdown-item),
+.navbar .navbar-brand,
+.navbar .nav-link,
+.navbar .nav-link span,
+.navbar .ses-module-btn,
+.navbar .ses-module-btn span,
+.navbar .dropdown-profile-toggle,
+.navbar .dropdown-profile-toggle span {
+  color: #ffffff !important;
+}
+
+/* Semua Icon di Navbar (Normal & Hover) menggunakan stroke putih bersih */
+.navbar i:not(.dropdown-item i),
+.navbar svg:not(.dropdown-item svg),
+.navbar .iconbtn-neon i,
+.navbar .iconbtn-neon svg,
+.navbar .nav-link i,
+.navbar .nav-link svg,
+.navbar .ses-module-btn i,
+.navbar .ses-module-btn svg,
+.navbar .dropdown-profile-toggle i,
+.navbar .dropdown-profile-toggle svg,
+.navbar #sidebarToggle i,
+.navbar #sidebarToggle svg,
+.navbar #navbarQuickApprovalBtn i,
+.navbar #navbarQuickApprovalBtn svg,
+.navbar #currentModuleIcon,
+.navbar .iconbtn-neon:hover i,
+.navbar .iconbtn-neon:hover svg,
+.navbar .nav-link:hover i,
+.navbar .nav-link:hover svg,
+.navbar .ses-module-btn:hover i,
+.navbar .ses-module-btn:hover svg,
+.navbar .dropdown-profile-toggle:hover i,
+.navbar .dropdown-profile-toggle:hover svg,
+.navbar #sidebarToggle:hover i,
+.navbar #sidebarToggle:hover svg,
+.navbar #navbarQuickApprovalBtn:hover i,
+.navbar #navbarQuickApprovalBtn:hover svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* 1. Neon Icon Buttons (#sidebarToggle, #navbarQuickApprovalBtn, .iconbtn-neon) */
+.iconbtn-neon,
+#sidebarToggle,
+#navbarQuickApprovalBtn {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-top: 2.5px solid transparent !important;
+  border-bottom: 2.5px solid transparent !important;
+  border-left: none !important;
+  border-right: none !important;
+  color: #ffffff !important;
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.18s ease !important;
+  position: relative !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  transform: none !important;
+}
+
+.iconbtn-neon:hover,
+.iconbtn-neon:focus,
+.iconbtn-neon.show,
+#sidebarToggle:hover,
+#sidebarToggle:focus,
+#navbarQuickApprovalBtn:hover,
+#navbarQuickApprovalBtn:focus {
+  color: #ffffff !important;
+  background: rgba(0, 84, 166, 0.28) !important;
+  border-color: transparent !important;
+  border-top: 2.5px solid #0054a6 !important;
+  border-bottom: 2.5px solid #38bdf8 !important;
+  box-shadow: inset 0 2px 6px rgba(0, 84, 166, 0.35), inset 0 -2px 6px rgba(56, 189, 248, 0.4), 0 0 14px rgba(56, 189, 248, 0.4) !important;
+  transform: none !important;
+}
+
+/* 2. Module Switcher Button Neon Hover */
+.ses-module-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-top: 2.5px solid transparent !important;
+  border-bottom: 2.5px solid transparent !important;
+  border-radius: 8px !important;
+  color: #ffffff !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  padding: 5px 12px !important;
+  transition: all 0.18s ease !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  transform: none !important;
+}
+
+.ses-module-btn:hover,
+.ses-module-btn:focus,
+.ses-module-btn.show,
+.dropdown.show .ses-module-btn {
+  background: rgba(0, 84, 166, 0.28) !important;
+  border-color: rgba(56, 189, 248, 0.4) !important;
+  border-top: 2.5px solid #0054a6 !important;
+  border-bottom: 2.5px solid #38bdf8 !important;
+  box-shadow: inset 0 2px 6px rgba(0, 84, 166, 0.35), inset 0 -2px 6px rgba(56, 189, 248, 0.4), 0 0 14px rgba(56, 189, 248, 0.4) !important;
+  color: #ffffff !important;
+  transform: none !important;
+}
+
+/* 3. Navbar Text / Link Items (Switch User, etc.) Neon Hover */
+.navbar a.nav-link,
+.navbar button.nav-link {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-top: 2.5px solid transparent !important;
+  border-bottom: 2.5px solid transparent !important;
+  border-radius: 8px !important;
+  padding: 0.38rem 0.75rem !important;
+  transition: all 0.18s ease !important;
+  text-decoration: none !important;
+  transform: none !important;
+}
+
+.navbar a.nav-link:hover,
+.navbar a.nav-link:focus,
+.navbar button.nav-link:hover,
+.navbar button.nav-link:focus {
+  color: #ffffff !important;
+  background: rgba(0, 84, 166, 0.28) !important;
+  border-top: 2.5px solid #0054a6 !important;
+  border-bottom: 2.5px solid #38bdf8 !important;
+  box-shadow: inset 0 2px 6px rgba(0, 84, 166, 0.35), inset 0 -2px 6px rgba(56, 189, 248, 0.4), 0 0 14px rgba(56, 189, 248, 0.4) !important;
+  transform: none !important;
+}
+
+/* 4. User Profile Dropdown Toggle Neon Hover & Contrast Fix */
+.navbar .dropdown-profile-toggle {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 0.32rem 0.65rem !important;
+  border-radius: 8px !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-top: 2.5px solid transparent !important;
+  border-bottom: 2.5px solid transparent !important;
+  transition: all 0.18s ease !important;
+  text-decoration: none !important;
+  transform: none !important;
+}
+
+.navbar .dropdown-profile-toggle:hover,
+.navbar .dropdown-profile-toggle:focus {
+  color: #ffffff !important;
+  background: rgba(0, 84, 166, 0.28) !important;
+  border-top: 2.5px solid #0054a6 !important;
+  border-bottom: 2.5px solid #38bdf8 !important;
+  box-shadow: inset 0 2px 6px rgba(0, 84, 166, 0.35), inset 0 -2px 6px rgba(56, 189, 248, 0.4), 0 0 14px rgba(56, 189, 248, 0.4) !important;
+  transform: none !important;
+}
+
+/* User Profile Toggle Opened State: Dark text on white background for high contrast */
+.navbar .dropdown-profile-toggle.show,
+.navbar .dropdown.show .dropdown-profile-toggle,
+.navbar .nav-link.dropdown-toggle.show,
+.navbar .dropdown.show > .nav-link.dropdown-toggle {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius: 8px 8px 0 0 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12) !important;
+  transform: none !important;
+}
+
+.navbar .dropdown-profile-toggle.show span,
+.navbar .dropdown-profile-toggle.show .profile-name-text,
+.navbar .dropdown.show .dropdown-profile-toggle span,
+.navbar .dropdown.show .dropdown-profile-toggle .profile-name-text,
+.navbar .nav-link.dropdown-toggle.show span,
+.navbar .dropdown.show > .nav-link.dropdown-toggle span {
+  color: #0f172a !important;
+}
+
+.navbar .dropdown-profile-toggle.show img,
+.navbar .dropdown.show .dropdown-profile-toggle img {
+  border: 2px solid #0054a6 !important;
+  box-shadow: 0 0 6px rgba(0, 84, 166, 0.35) !important;
+}
+
+/* 5. Brand Logo Text-Only Neon Glow (No Box, Pure Glowing Text) */
+.navbar-brand-neon {
+  display: inline-block !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 0.2rem 0 !important;
+  color: #ffffff !important;
+  font-size: 1.05rem !important;
+  font-weight: 800 !important;
+  text-decoration: none !important;
+  transition: text-shadow 0.25s ease, color 0.25s ease !important;
+  transform: none !important;
+}
+
+.navbar-brand-neon:hover,
+.navbar-brand-neon:focus,
+.navbar-brand-neon:hover span,
+.navbar-brand-neon:focus span {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.95), 0 0 20px rgba(56, 189, 248, 0.75), 0 0 30px rgba(0, 84, 166, 0.85) !important;
+  transform: none !important;
+}
+
+/* 6. Dedicated Nav Divider & Brand Section aligned with sidebar boundary (240px) */
+.ses-navbar-brand-section {
+  width: calc(var(--sidebar-width) - 1.5rem);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+}
+
+@media (max-width: 991.98px) {
+  .ses-navbar-brand-section {
+    width: calc(var(--sidebar-width) - 1rem);
+  }
+}
+
+.ses-brand-wrap {
+  min-width: 190px;
+}
+
+.ses-nav-divider {
+  width: 1px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.25);
+  margin-left: 0;
+  margin-right: 16px;
+  flex-shrink: 0;
+}
+
+/* 7. Module Switcher Button & Dropdown (Shadcn/Bootstrap with Neon Glow) */
+.ses-module-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 0.35rem 0.75rem !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-top: 2.5px solid transparent !important;
+  border-bottom: 2.5px solid transparent !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+  font-size: 13px !important;
+  transition: all 0.18s ease !important;
+  outline: none !important;
+  cursor: pointer !important;
+}
+
+.ses-module-btn:hover,
+.ses-module-btn:focus,
+.ses-module-dropdown.show .ses-module-btn {
+  color: #ffffff !important;
+  background: rgba(0, 84, 166, 0.28) !important;
+  border-color: rgba(56, 189, 248, 0.4) !important;
+  border-top: 2.5px solid #0054a6 !important;
+  border-bottom: 2.5px solid #38bdf8 !important;
+  box-shadow: inset 0 2px 6px rgba(0, 84, 166, 0.35), inset 0 -2px 6px rgba(56, 189, 248, 0.4), 0 0 14px rgba(56, 189, 248, 0.4) !important;
+}
+
+.ses-module-menu {
+  min-width: 300px !important;
+  background: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+  padding: 6px !important;
+}
+
+.ses-mod-item {
+  border-radius: 8px !important;
+  padding: 8px 10px !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s ease !important;
+}
+
+.ses-mod-item:hover {
+  background-color: #f1f5f9 !important;
+}
+
+/* 8. Full-Viewport Flex Layout (No-Scroll Page Action & Flow) */
+html, body {
+  height: 100%;
+}
+
+#wrapper {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#sidebar-wrapper {
+  height: 100vh;
+  overflow-y: auto;
+  flex-shrink: 0;
+  transition: all 0.25s ease;
+}
+
+#page-content-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-width: 0;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem 1.5rem !important;
+  padding-top: 4.5rem !important;
+  scroll-behavior: smooth;
+}
+
+.ses-pathbar {
+  flex-shrink: 0;
+  margin-bottom: 0.75rem;
+}
+
+.page-header {
+  flex-shrink: 0;
+  margin-bottom: 1rem;
+}
+
+/* Sidebar Header Module Title & Tagline (design-system.md) */
+#sidebarModuleTitle {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  color: #ffffff !important;
+  line-height: 1.3 !important;
+}
+
+#sidebarModuleTagline {
+  display: none !important;
+}

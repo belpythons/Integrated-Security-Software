@@ -1,0 +1,2259 @@
+﻿<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{layout/base}">
+<th:block layout:fragment="head-extra">
+<link rel="stylesheet" th:href="@{/css/pdf-splitter.css}"/>
+<style>
+    /* Worker table: breathing room between columns. */
+    #requestForm .table th,
+    #requestForm .table td {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    /* Worker lookup custom combobox (see the .worker-lookup-input delegated handlers
+       in scripts-extra) — plain text input plus a suggestion dropdown, not select2. The
+       dropdown is a single box appended to <body> and positioned via JS with
+       `position: fixed` + coordinates from the input's getBoundingClientRect(), NOT
+       absolutely inside the input's own cell — this table sits in a .table-responsive
+       wrapper (overflow-x: auto), and per the CSS overflow spec setting overflow-x to
+       anything but visible/clip forces the computed overflow-y to auto too, so an
+       absolutely-positioned dropdown nested inside it gets clipped and turns the whole
+       table into a scroll box instead of floating over it. Fixed positioning escapes
+       that ancestor entirely; the JS also flips the dropdown above the input when
+       there isn't room below in the viewport. */
+    .worker-name-suggestions {
+        position: fixed;
+        display: none;
+        /* Above a Bootstrap modal (1055), not just above the page: the worker
+           lookup now runs inside #workerModal, and at the old 1050 the
+           dropdown rendered behind the dialog it belongs to. */
+        z-index: 1080;
+        background: #fff;
+        border: 1px solid #ced4da;
+        overflow-y: auto;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, .15);
+    }
+    .worker-name-suggestion-item {
+        padding: 4px 8px;
+        cursor: pointer;
+        border-bottom: 1px solid #f1f1f1;
+    }
+    .worker-name-suggestion-item:last-child {
+        border-bottom: none;
+    }
+    .worker-name-suggestion-item:hover,
+    .worker-name-suggestion-item.active {
+        background: #e9ecef;
+    }
+
+    .contract-suggestions {
+        position: fixed;
+        display: none;
+        z-index: 1050;
+        background: #fff;
+        border: 1px solid #ced4da;
+        border-radius: 0.375rem;
+        overflow-y: auto;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, .15);
+    }
+    .contract-suggestion-item {
+        padding: 6px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid #f1f1f1;
+    }
+    .contract-suggestion-item:last-child {
+        border-bottom: none;
+    }
+    .contract-suggestion-item:hover,
+    .contract-suggestion-item.active {
+        background: #e9ecef;
+    }
+
+    /* Worker table stays a real <table> at every width (see the SesRepeat markup
+       contract note above the table below for why each worker is now a <tbody> of
+       TWO <tr>s, not one). Only the primary columns (#, Badge, Name, NIK, Document,
+       Action) render inline; the secondary ones (Department, Section, Jabatan,
+       Gender) live in a per-worker .worker-detail-row, collapsed by default and
+       expanded via the .worker-row-toggle chevron (delegated handler in
+       scripts-extra) — same idea as DataTables' Responsive child row, hand-rolled
+       because the cells hold live inputs (comboboxes, a <select>) that a real
+       DataTables redraw would fight with SesRepeat over. */
+    #requestForm .worker-detail-row {
+        display: none;
+    }
+    #requestForm tr.worker-row-expanded + tr.worker-detail-row {
+        display: table-row;
+    }
+    #requestForm .worker-detail-row > td {
+        background: #f8f9fa;
+        padding: .75rem 1rem;
+    }
+    #requestForm .worker-detail-fields {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .75rem 1.5rem;
+    }
+    #requestForm .worker-detail-field {
+        flex: 1 1 160px;
+        min-width: 140px;
+    }
+    #requestForm .worker-detail-field label {
+        display: block;
+        font-size: .72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .02em;
+        color: #6c757d;
+        margin-bottom: .15rem;
+    }
+</style>
+</th:block>
+<body>
+<div layout:fragment="content">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <span class="text-muted">
+            <span th:if="${requestForm.requestId == null}">New Request</span>
+            <span th:if="${requestForm.requestId != null}">Editing request</span>
+        </span>
+        <a th:href="@{/request}" class="btn btn-outline-secondary btn-sm">
+            <i data-lucide="arrow-left" class="h-4 w-4 inline-block me-1"></i>Back to list
+        </a>
+    </div>
+
+    <!--
+      NO DOCUMENT INPUTS ON THIS FORM (changed 2026-10-07).
+
+      Worker documents are held by the contractor, not the requestor, so they
+      arrive through a token link emailed to "Email Penerima Dokumen" and are
+      collected on request/upload-docs.html instead. Submitting here leaves the
+      request in WAITING_FOR_UPLOAD and sends that email; the approval chain
+      starts only once the upload completes.
+
+      What the worker modal still collects is identity only — name, NIK, badge,
+      department, section, jabatan, gender. Proof of Payment stays here: that
+      one is the requestor's own business and never the contractor's.
+    -->
+
+    <!-- Modern Multi-Step Wizard Nav (Fiori Horizon Tokens) -->
+    <div class="ses-wizard-nav mb-4" id="wizardStepper">
+        <button type="button" class="ses-wizard-step active" id="wStep1" onclick="switchWizardStep(1)">
+            <span class="step-badge">1</span>
+            <div>
+                <div class="fw-bold">1. Detail Izin &amp; Kontrak</div>
+                <small class="text-muted d-none d-md-block">Departemen, zona, &amp; periode</small>
+            </div>
+        </button>
+        <button type="button" class="ses-wizard-step" id="wStep2" onclick="switchWizardStep(2)">
+            <span class="step-badge">2</span>
+            <div>
+                <div class="fw-bold">2. Data Pekerja Mitra</div>
+                <small class="text-muted d-none d-md-block">Daftar identitas &amp; badge</small>
+            </div>
+        </button>
+        <button type="button" class="ses-wizard-step" id="wStep3" onclick="switchWizardStep(3)">
+            <span class="step-badge">3</span>
+            <div>
+                <div class="fw-bold">3. Bukti Pembayaran</div>
+                <small class="text-muted d-none d-md-block">Upload bukti &amp; QRIS</small>
+            </div>
+        </button>
+        <button type="button" class="ses-wizard-step" id="wStep4" onclick="switchWizardStep(4)">
+            <span class="step-badge">4</span>
+            <div>
+                <div class="fw-bold">4. Ringkasan &amp; Submit</div>
+                <small class="text-muted d-none d-md-block">Review alur persetujuan</small>
+            </div>
+        </button>
+    </div>
+
+    <form th:action="@{/request/save}" method="post" th:object="${requestForm}"
+          enctype="multipart/form-data" id="requestForm" >
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <input type="hidden" th:field="*{requestId}"/>
+
+        <!-- ==================== WIZARD STEP 1: DETAIL IZIN & KONTRAK ==================== -->
+        <div class="wizard-pane" id="wizardPane1">
+            <div class="card shadow-sm mb-4 bt-primary">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-bold" style="color: var(--navy);">
+                        <i data-lucide="receipt" class="h-4 w-4 inline-block text-primary me-2"></i>Informasi Permohonan &amp; Kontrak
+                    </h6>
+                    <span class="badge bg-primary-subtle text-primary fw-semibold px-2 py-1">Langkah 1 dari 3</span>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Types of Request <span class="text-danger">*</span></label>
+                            <select class="select2-field form-select" id="typeCode" th:field="*{typeCode}" required>
+                                <option value="">— select type —</option>
+                                <option th:each="t : ${requestTypes}" th:value="${t.typeCode}" th:text="${t.typeName}">Screening</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Contract Number</label>
+                            <input type="text" class="form-control" id="contractNo" th:field="*{contractNo}"
+                                   placeholder="Type or search contract number..." autocomplete="off"/>
+                            <div class="form-text">Pick an existing contract to autofill the fields below, or type a new contract number freely.</div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Contract Type</label>
+                            <select class="form-select" id="contractType" th:field="*{contractType}">
+                                <option value="">— select —</option>
+                                <option value="UNIT_RATE">Unit Rate</option>
+                                <option value="LUMP_SUM">Lump Sum</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Contract Title</label>
+                            <input type="text" class="form-control" id="contractTitle" th:field="*{contractTitle}" maxlength="300"/>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Zone Access</label>
+                            <select class="select2-field form-select" id="zoneCode" th:field="*{zoneCode}">
+                                <option value="">— select zone —</option>
+                                <option th:each="z : ${zones}" th:value="${z.zoneCode}" th:text="${z.zoneName}">Zone 01</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Instansi</label>
+                            <input type="text" class="form-control" id="instance" th:field="*{instance}" maxlength="200"/>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Address</label>
+                            <textarea class="form-control" id="address" th:field="*{address}" rows="2" maxlength="500"></textarea>
+                        </div>
+
+                        <!-- The address the document-upload link is sent to (when Need EXT Page Upload is enabled). -->
+                        <div class="col-12" id="emailWrap" style="display:none;">
+                            <label class="form-label fw-semibold" for="email">
+                                Email Penerima Dokumen <span class="text-danger">*</span>
+                            </label>
+                            <input type="email" class="form-control" id="email"
+                                   th:field="*{email}" maxlength="150"
+                                   placeholder="nama@kontraktor.co.id"/>
+                            <div class="form-text">
+                                Tautan unggah dokumen pekerja dikirim ke alamat ini — biasanya
+                                PIC kontraktor yang memegang berkasnya, bukan Anda. Tautan
+                                berlaku <b>7 hari</b> dan hanya bisa dipakai sekali.
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Start Period <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control flatpickr-field" id="startPeriod"
+                                   th:field="*{startPeriod}" autocomplete="off" placeholder="YYYY-MM-DD" required/>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Finish Period</label>
+                            <input type="text" class="form-control flatpickr-field" id="finishPeriod"
+                                   th:field="*{finishPeriod}" autocomplete="off" placeholder="YYYY-MM-DD"/>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold" for="evaluatorEmplIds">
+                                Additional Routing (Evaluator)
+                                <span class="badge bg-secondary-subtle text-secondary-emphasis fw-normal">opsional</span>
+                            </label>
+                            <select class="form-select" id="evaluatorEmplIds" multiple
+                                    th:field="*{evaluatorEmplIds}" data-placeholder="Pilih satu atau lebih evaluator (opsional)">
+                                <option th:each="ev : ${securityEvaluators}"
+                                        th:value="${ev.emplId}"
+                                        th:text="${ev.displayText}">
+                                    NAMA — JABATAN (DEPARTEMEN / SEKSI)
+                                </option>
+                            </select>
+                            <div class="form-text">
+                                Lakukan pengisian additional ini ketika memerlukan approval supervisor/officer
+                                requestor sebelum ke manajer user requestor.
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <div id="reqCard" class="collapse">
+                                <div class="alert alert-info mb-0">
+                                    <strong>Dokumen yang diperlukan untuk jenis pengajuan ini:</strong>
+                                    <ul id="reqCardList" class="mb-0 mt-1"></ul>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+                <div class="card-footer bg-light py-3 d-flex justify-content-between align-items-center">
+                    <a th:href="@{/request}" class="btn btn-outline-secondary btn-sm">Batal</a>
+                    <button type="button" class="btn btn-primary px-4 shadow-sm" onclick="wizardNext(1)">
+                        Lanjut ke Data Pekerja <i data-lucide="arrow-right" class="h-4 w-4 inline-block ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== WIZARD STEP 2: DATA PEKERJA MITRA ==================== -->
+        <div class="wizard-pane" id="wizardPane2" style="display:none;">
+            <div class="card shadow-sm mb-4 bt-primary">
+                <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0 fw-bold" style="color: var(--navy);">
+                            <i data-lucide="users" class="h-4 w-4 inline-block text-primary me-2"></i>Daftar Pekerja Mitra
+                        </h6>
+                        <small class="text-muted">Tambahkan identitas pekerja yang diajukan untuk mendapatkan izin masuk.</small>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm px-3 shadow-sm" id="btnAddWorker">
+                        <i data-lucide="user-plus" class="h-4 w-4 inline-block me-1"></i>Tambah Pekerja
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm w-100 align-middle mb-0" id="workerTable">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th style="width:3rem">#</th>
+                                    <th>Nama Pekerja</th>
+                                    <th style="width:11rem">NIK / Paspor</th>
+                                    <th style="width:12rem">Jabatan</th>
+                                    <th style="width:5rem">Gender</th>
+                                    <th style="width:20%">Dokumen</th>
+                                    <th style="width:8rem" class="text-end">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="workerTableBody">
+                                <tr><td colspan="7" class="text-center text-muted py-4">Belum ada data pekerja. Silakan klik tombol <b>Tambah Pekerja</b> di atas.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-light py-3 d-flex justify-content-between align-items-center">
+                    <button type="button" class="btn btn-outline-secondary" onclick="switchWizardStep(1)">
+                        <i data-lucide="arrow-left" class="h-4 w-4 inline-block me-1"></i> Kembali ke Detail Izin
+                    </button>
+                    <button type="button" class="btn btn-primary px-4 shadow-sm" onclick="wizardNext(2)">
+                        Lanjut ke Pembayaran &amp; Konfirmasi <i data-lucide="arrow-right" class="h-4 w-4 inline-block ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== WIZARD STEP 3: PEMBAYARAN & KONFIRMASI ==================== -->
+        <div class="wizard-pane" id="wizardPane3" style="display:none;">
+            <div class="card shadow-sm mb-4 bt-primary">
+                <div class="card-header bg-white py-3">
+                    <h6 class="mb-0 fw-bold" style="color: var(--navy);">
+                        <i data-lucide="clipboard-check" class="h-4 w-4 inline-block text-success me-2"></i>Bukti Pembayaran &amp; Konfirmasi Pengajuan
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div id="paymentWrap" class="mb-4" style="display:none">
+                        <div class="card border-primary-subtle bg-light mb-3">
+                            <div class="card-body d-flex align-items-center gap-3">
+                                <div class="position-relative text-center">
+                                    <img th:src="@{/image/qris-loket-badge.jpg}" alt="QRIS Loket Badge"
+                                         style="max-width:130px;border-radius:8px;cursor:pointer;" class="shadow-sm border"
+                                         data-bs-toggle="modal" data-bs-target="#qrisDetailModal" title="Klik untuk memperbesar"/>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-1">
+                                        <h6 class="fw-bold mb-0" style="color: var(--navy);">
+                                            <i data-lucide="qr-code" class="h-4 w-4 inline-block me-2 text-primary"></i>Pembayaran via QRIS
+                                        </h6>
+                                        <button type="button" class="btn btn-sm btn-primary shadow-sm"
+                                                data-bs-toggle="modal" data-bs-target="#qrisDetailModal">
+                                            <i data-lucide="maximize-2" class="h-4 w-4 inline-block me-1"></i>Perbesar QRIS (Scan Mode)
+                                        </button>
+                                    </div>
+                                    <p class="small text-muted mb-0">Silakan scan kode QRIS untuk pembayaran
+                                        biaya permohonan badge (Loket Badge Security PTB). Klik tombol <strong>Perbesar QRIS</strong>
+                                        di atas agar kode QR ditampilkan dalam ukuran besar untuk memudahkan scanner kamera ponsel.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <label class="form-label fw-semibold">Proof of Payment <span class="text-danger">*</span></label>
+                        <div id="paymentAmountNote" class="alert alert-info py-2 px-3 mb-2 small"></div>
+                        <div th:if="${requestForm.existingPaymentFileId != null and !#strings.isEmpty(requestForm.existingPaymentFileId)}"
+                             class="mb-2">
+                            <div th:replace="~{layout/fragments/attachment :: card(${requestForm.existingPaymentFileId}, 'Proof of Payment')}"></div>
+                            <div class="mt-2">
+                                <a th:href="@{/file/{id}(id=${requestForm.existingPaymentFileId})}"
+                                   data-attachment-preview="true"
+                                   class="btn btn-sm btn-outline-primary shadow-sm">
+                                    <i data-lucide="eye" class="h-4 w-4 inline-block me-1"></i>Lihat Dokumen
+                                </a>
+                            </div>
+                            <span class="fst-italic small text-muted d-block mt-1">Pilih berkas di bawah jika ingin mengganti bukti bayar.</span>
+                        </div>
+                        <input type="file" class="form-control" id="paymentFile" th:field="*{paymentFile}"
+                               accept=".pdf,application/pdf,image/*"/>
+                        <div class="form-text">Wajib untuk jenis pengajuan berbayar. Format: PDF atau Gambar.</div>
+                        <div id="paymentFileSelectedWrap" class="mt-2" style="display:none;">
+                            <div class="alert alert-info py-2 px-3 d-flex align-items-center justify-content-between flex-wrap gap-2 mb-0">
+                                <div>
+                                    <i data-lucide="file-check" class="h-4 w-4 inline-block text-primary me-2"></i>
+                                    <span class="fw-semibold" id="paymentFileSelectedName">nama-file.pdf</span>
+                                    <span class="text-muted small ms-2" id="paymentFileSelectedSize">(0 KB)</span>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-primary shadow-sm" id="btnPreviewSelectedPayment">
+                                    <i data-lucide="eye" class="h-4 w-4 inline-block me-1"></i>Lihat Dokumen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-light border p-3 mb-3">
+                        <h6 class="fw-bold mb-2 text-dark"><i data-lucide="info" class="h-4 w-4 inline-block text-primary me-2"></i>Pernyataan Pemohon</h6>
+                        <p class="small text-muted mb-0">
+                            <span th:text="${appParams != null and appParams['SES_TXT_FORM_REQUEST_DECLARATION'] != null
+                                             ? appParams['SES_TXT_FORM_REQUEST_DECLARATION']
+                                             : 'Dengan mengirimkan formulir ini, Anda menyatakan bahwa data yang diisi adalah benar dan mematuhi seluruh protokol keamanan dan K3 Kawasan Kilang PT. S.'}">Dengan mengirimkan formulir ini, Anda menyatakan bahwa data yang diisi adalah benar dan mematuhi seluruh protokol keamanan dan K3 Kawasan Kilang PT. S.</span>
+                        </p>
+                    </div>
+
+                    <div th:if="${pageActions['/request/form'] != null and pageActions['/request/form'].contains('SUBMIT')}">
+                        <div id="noChainWarning" class="alert alert-warning py-2" style="display:none">
+                            <i data-lucide="alert-triangle" class="h-4 w-4 inline-block me-1"></i>
+                            Jenis pengajuan ini belum siap menerima submission. Silakan hubungi administrator.
+                            <ul id="noChainWarningReasons" class="mb-0 small"></ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-light py-3 d-flex justify-content-between align-items-center">
+                    <button type="button" class="btn btn-outline-secondary" onclick="switchWizardStep(2)">
+                        <i data-lucide="arrow-left" class="h-4 w-4 inline-block me-1"></i> Kembali ke Data Pekerja
+                    </button>
+                    <button type="button" class="btn btn-primary px-4 shadow-sm" onclick="wizardNext(3)">
+                        Lanjut ke Ringkasan &amp; Submit <i data-lucide="arrow-right" class="h-4 w-4 inline-block ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== WIZARD STEP 4: RINGKASAN & SUBMIT ==================== -->
+        <div class="wizard-pane" id="wizardPane4" style="display:none;">
+            <div class="card shadow-sm mb-4 bt-primary">
+                <div class="card-header bg-white py-3">
+                    <h6 class="mb-0 fw-bold" style="color: var(--navy);">
+                        <i data-lucide="clipboard-check" class="h-4 w-4 inline-block text-primary me-2"></i>Langkah 4: Ringkasan Pengajuan &amp; Validasi Final
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 bg-light h-100">
+                                <h6 class="fw-bold text-dark border-bottom pb-2 mb-2">
+                                    <i data-lucide="info" class="h-4 w-4 inline-block text-primary me-1"></i>Detail Informasi Izin
+                                </h6>
+                                <dl class="row mb-0 small">
+                                    <dt class="col-5 text-muted">Tipe Pengajuan:</dt>
+                                    <dd class="col-7 fw-semibold" id="sumTypeCode">-</dd>
+                                    <dt class="col-5 text-muted">No. Kontrak:</dt>
+                                    <dd class="col-7 font-mono" id="sumContractNo">-</dd>
+                                    <dt class="col-5 text-muted">Instansi / Mitra:</dt>
+                                    <dd class="col-7" id="sumInstance">-</dd>
+                                    <dt class="col-5 text-muted">Masa Berlaku:</dt>
+                                    <dd class="col-7 font-mono" id="sumPeriod">-</dd>
+                                    <dt class="col-5 text-muted">Zona Akses:</dt>
+                                    <dd class="col-7" id="sumZone">-</dd>
+                                </dl>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="border rounded p-3 bg-light h-100">
+                                <h6 class="fw-bold text-dark border-bottom pb-2 mb-2">
+                                    <i data-lucide="users" class="h-4 w-4 inline-block text-primary me-1"></i>Pekerja &amp; Dokumen
+                                </h6>
+                                <dl class="row mb-0 small">
+                                    <dt class="col-6 text-muted">Jumlah Pekerja:</dt>
+                                    <dd class="col-6 fw-bold text-primary" id="sumWorkerCount">0 Orang</dd>
+                                    <dt class="col-6 text-muted">Status Pembayaran:</dt>
+                                    <dd class="col-6" id="sumPaymentStatus">Gratis / Belum Diperlukan</dd>
+                                </dl>
+                                <div class="alert alert-info py-2 px-3 small mb-0 mt-3">
+                                    <i data-lucide="shield" class="h-3.5 w-3.5 inline-block me-1"></i>
+                                    Alur approval routing akan otomatis diarahkan ke pejabat Departemen / Seksi terkait.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-light py-3 d-flex justify-content-between align-items-center">
+                    <button type="button" class="btn btn-outline-secondary" onclick="switchWizardStep(3)">
+                        <i data-lucide="arrow-left" class="h-4 w-4 inline-block me-1"></i> Kembali ke Bukti Bayar
+                    </button>
+                    <div class="d-flex gap-2">
+                        <button type="button" id="btnCancelRequest" class="btn btn-outline-danger">Batalkan</button>
+                        <button type="submit" id="saveDraftBtn" th:formaction="@{/request/save-draft}" formnovalidate
+                                th:if="${requestStatus == null or requestStatus == 'DRAFT'}"
+                                class="btn btn-outline-secondary">
+                            <i data-lucide="save" class="h-4 w-4 inline-block me-1"></i> Simpan Draf
+                        </button>
+                        <button type="button" id="btnSubmitRequestFinal" class="btn btn-success px-4 shadow-sm fw-bold">
+                            <i data-lucide="send" class="h-4 w-4 inline-block me-1"></i> Submit Permohonan
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </form>
+
+    <!-- Submit Confirmation Modal Dialog -->
+    <div class="modal fade" id="submitConfirmModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg border-0 rounded-xl">
+                <div class="modal-header bg-slate-50 border-bottom py-3 px-4">
+                    <h6 class="modal-title font-bold text-slate-800 d-flex align-items-center gap-2">
+                        <i data-lucide="help-circle" class="h-5 w-5 text-primary"></i>
+                        <span>Konfirmasi Pengiriman Permohonan</span>
+                    </h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p class="text-sm text-slate-700 mb-3">
+                        Apakah Anda yakin seluruh data permohonan badge ini telah lengkap dan siap diajukan ke approver?
+                    </p>
+                    <div class="alert alert-info py-2 px-3 text-xs mb-0">
+                        <i data-lucide="info" class="h-3.5 w-3.5 inline-block me-1"></i>
+                        Pastikan seluruh data pekerja dan lampiran persyaratan sudah sesuai dengan standar protokol PT. S.
+                    </div>
+                </div>
+                <div class="modal-footer bg-slate-50 border-top py-2.5 px-4 d-flex justify-content-between">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Periksa Kembali</button>
+                    <button type="button" id="btnConfirmSubmitExecute" class="btn btn-sm btn-success px-4 fw-bold">
+                        <i data-lucide="check-circle" class="h-4 w-4 inline-block me-1"></i> Ya, Kirim Pengajuan
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!--
+      WORKER MODAL.
+
+      Lives OUTSIDE #requestForm, and nothing in it is bound to that form.
+      static/js/modal-reparent.js relocates every .modal to <body> on load, so
+      a modal nested inside a form would have its inputs silently detached from
+      it. Here that costs nothing, because the modal posts its own FormData.
+
+      The field wrapper carries data-repeat-row so the EXISTING worker-lookup
+      machinery works inside the modal untouched: those handlers are delegated
+      on $(document) and applyWorkerSelection() scopes with
+      .closest('[data-repeat-row]'). Keeping that contract is why the attribute
+      is here on a plain <div> rather than the old <tbody>.
+    -->
+    <div class="modal fade" id="workerModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="workerModalTitle">Tambah Data Pekerja</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <!--
+                  The name="w.*" attributes are NOT how this modal submits —
+                  it builds its own FormData by id. They exist so the EXISTING
+                  applyWorkerSelection() keeps working unchanged: it fills a
+                  row by matching input[name$=".workerName"] and friends. The
+                  modal is reparented out of every form, so these names reach
+                  no server.
+                -->
+                <div class="modal-body" data-repeat-row>
+                    <div class="alert alert-danger d-none" id="workerModalError"></div>
+                    <input type="hidden" id="wmWorkerId" value=""/>
+
+                    <!-- Quick Search & Pick Section for Department / Master Employees -->
+                    <div class="card bg-slate-50 border mb-3">
+                        <div class="card-body p-3">
+                            <label class="form-label fw-bold text-primary mb-1 d-flex align-items-center gap-1.5" for="wmQuickSearch">
+                                <i data-lucide="search" class="h-4 w-4 text-primary"></i>
+                                <span>Cari Karyawan / Rekanan (Klik Langsung Mengisi Form)</span>
+                            </label>
+                            <div class="input-group input-group-sm mb-2">
+                                <span class="input-group-text bg-white"><i data-lucide="user-search" class="h-3.5 w-3.5 text-slate-400"></i></span>
+                                <input type="text" id="wmQuickSearch" class="form-control"
+                                       placeholder="Ketik nama karyawan, NIK 16-digit, nomor badge, atau jabatan..." autocomplete="off"/>
+                                <button type="button" id="wmQuickSearchClear" class="btn btn-outline-secondary">Reset</button>
+                            </div>
+                            <div id="wmQuickSearchResults" style="max-height: 220px; overflow-y: auto; display: none;" class="border rounded bg-white p-0 shadow-sm">
+                                <table class="table table-sm table-hover align-middle mb-0" style="font-size: 0.82rem;">
+                                    <thead class="table-light sticky-top">
+                                        <tr>
+                                            <th>Badge</th>
+                                            <th>Nama</th>
+                                            <th>NIK</th>
+                                            <th>Departemen / Seksi</th>
+                                            <th>Jabatan</th>
+                                            <th class="text-end">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="wmQuickSearchRows"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">No Badge</label>
+                            <input type="text" class="form-control worker-lookup-input worker-badge-input"
+                                   id="wmBadge" name="w.badge" autocomplete="off"/>
+                            <div class="form-text">Ketik untuk mencari; memilih hasil mengisi kolom lain otomatis.</div>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control worker-lookup-input worker-name-input"
+                                   id="wmName" name="w.workerName" autocomplete="off" maxlength="200" required/>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold d-block mb-1">Jenis Identitas <span class="text-danger">*</span></label>
+                            <div class="btn-group btn-group-sm w-100 mb-2" role="group">
+                                <input type="radio" class="btn-check" name="wmIdTypeRadio" id="wmIdTypeNik" value="NIK" checked autocomplete="off"/>
+                                <label class="btn btn-outline-primary fw-semibold" for="wmIdTypeNik"><i data-lucide="badge" class="h-4 w-4 inline-block me-1"></i>NIK</label>
+                                <input type="radio" class="btn-check" name="wmIdTypeRadio" id="wmIdTypePassport" value="PASSPORT" autocomplete="off"/>
+                                <label class="btn btn-outline-primary fw-semibold" for="wmIdTypePassport"><i data-lucide="book-user" class="h-4 w-4 inline-block me-1"></i>Passport</label>
+                            </div>
+                            <input type="hidden" id="wmIdType" name="w.idType" value="NIK"/>
+                            <label class="form-label fw-semibold" id="wmNikLabel" for="wmNik">NIK <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control worker-lookup-input worker-nik-input"
+                                   id="wmNik" name="w.nik" autocomplete="off" maxlength="16" inputmode="numeric" pattern="[0-9]{16}"/>
+                            <div class="form-text" id="wmNikHelp">16 digit angka.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Department</label>
+                            <input type="text" class="form-control worker-department-input"
+                                   id="wmDepartment" name="w.department" autocomplete="off" maxlength="200"/>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Section</label>
+                            <input type="text" class="form-control worker-section-input"
+                                   id="wmSection" name="w.section" autocomplete="off" maxlength="200"/>
+                        </div>
+
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Jabatan</label>
+                            <input type="text" class="form-control worker-jabatan-input"
+                                   id="wmJabatan" name="w.jabatan" autocomplete="off" maxlength="200"/>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Gender <span class="text-danger">*</span></label>
+                            <select class="form-select" id="wmGender" name="w.gender" data-no-select2 required>
+                                <option value="">— select —</option>
+                                <option value="M">Male</option>
+                                <option value="F">Female</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <hr/>
+                    <!-- EXT upload notice (when Need EXT Page Upload is enabled) -->
+                    <div class="alert alert-light border small mb-0" id="wmExtUploadNotice" style="display:none;">
+                        <i data-lucide="mail-check" class="h-4 w-4 inline-block me-1"></i>
+                        Dokumen pekerja <b>tidak diunggah di sini</b>. Setelah pengajuan
+                        disubmit, tautan unggah dikirim ke <b>Email Penerima Dokumen</b>
+                        dan pihak yang memegang berkas mengunggahnya dari sana.
+                    </div>
+
+                    <!-- Direct document upload section (when Need EXT Page Upload is disabled / default) -->
+                    <div id="wmDirectUploadSection">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                            <h6 class="fw-semibold mb-0"><i data-lucide="file-up" class="h-4 w-4 inline-block me-1"></i>Dokumen Pekerja</h6>
+                            <div class="ps-mode-switch">
+                                <button type="button" class="ps-mode-btn active" id="wmBtnModeRegular">File Terpisah</button>
+                                <button type="button" class="ps-mode-btn" id="wmBtnModeBundle"><i class="fa-solid fa-file-pdf text-danger me-1"></i>Bundle PDF Splitter</button>
+                            </div>
+                        </div>
+                        <div id="wmPdfSplitterArea" class="d-none mb-3">
+                            <div id="wmPdfSplitterContainer"></div>
+                        </div>
+                        <div id="wmDocInputsList" class="d-flex flex-column gap-2"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-primary" id="btnSaveWorker">
+                        <span class="spinner-border spinner-border-sm me-1 d-none" id="wmSpinner" role="status"></span>
+                        Simpan
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- WORKER DETAIL MODAL -->
+    <div class="modal fade" id="workerDetailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header py-3 bg-light border-bottom">
+                    <h5 class="modal-title fw-bold" style="color: var(--navy);">
+                        <i data-lucide="badge-check" class="h-4 w-4 inline-block text-primary me-2"></i>Detail Pekerja Mitra
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <!-- Worker Info Card -->
+                    <div class="card border-0 bg-light mb-4">
+                        <div class="card-body p-3">
+                            <h6 class="fw-bold mb-3 border-bottom pb-2 text-primary">
+                                <i data-lucide="user" class="h-4 w-4 inline-block me-2"></i>Informasi Pekerja
+                            </h6>
+                            <div class="row g-3 small">
+                                <div class="col-md-6">
+                                    <div class="text-muted">Nama Pekerja:</div>
+                                    <div class="fw-bold fs-6 text-dark" id="wdmName">-</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="text-muted">No Badge:</div>
+                                    <div class="fw-semibold text-dark" id="wdmBadge">-</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="text-muted">Identitas (NIK / Paspor):</div>
+                                    <div class="fw-semibold" id="wdmIdWrapper">-</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="text-muted">Jabatan:</div>
+                                    <div class="fw-semibold text-dark" id="wdmJabatan">-</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="text-muted">Departemen:</div>
+                                    <div class="fw-semibold text-dark" id="wdmDepartment">-</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="text-muted">Section:</div>
+                                    <div class="fw-semibold text-dark" id="wdmSection">-</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="text-muted">Jenis Kelamin:</div>
+                                    <div class="fw-semibold text-dark" id="wdmGender">-</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Worker Documents Section -->
+                    <h6 class="fw-bold mb-3 border-bottom pb-2 text-primary">
+                        <i data-lucide="folder-open" class="h-4 w-4 inline-block me-2"></i>Dokumen Persyaratan Pekerja
+                    </h6>
+                    <div id="wdmDocsList" class="d-flex flex-column gap-2"></div>
+                </div>
+                <div class="modal-footer py-2 px-3 bg-light border-top d-flex justify-content-between">
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="wdmBtnEdit">
+                        <i data-lucide="pencil" class="h-4 w-4 inline-block me-1"></i>Ubah Data
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- QRIS Detail Zoom Modal (Portrait Fit with Header & Narrative) -->
+    <div class="modal fade" id="qrisDetailModal" tabindex="-1" aria-labelledby="qrisModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" style="width: fit-content; max-width: min(92vw, 480px); margin: 1.5rem auto;">
+            <div class="modal-content shadow border-0 overflow-hidden" style="border-radius: 12px;">
+                <div class="modal-header py-2 px-3 bg-light border-bottom">
+                    <h6 class="modal-title fw-bold mb-0 text-truncate" id="qrisModalLabel" style="color: var(--navy); font-size: 0.95rem;">
+                        <i data-lucide="qr-code" class="h-4 w-4 inline-block text-primary me-2"></i>QRIS Loket Badge Security PTB
+                    </h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-3 text-center bg-white">
+                    <p class="small text-muted mb-2 text-start">
+                        <i data-lucide="camera" class="h-4 w-4 inline-block text-primary me-1"></i>Scan kode QRIS di bawah ini melalui mobile banking / e-wallet untuk pembayaran permohonan badge:
+                    </p>
+                    <div class="border rounded p-1 shadow-sm bg-light d-inline-block">
+                        <img th:src="@{/image/qris-loket-badge.jpg}" alt="QRIS Loket Badge"
+                             class="img-fluid rounded"
+                             style="max-height: 72vh; width: auto; max-width: 100%; display: block; margin: 0 auto; object-fit: contain;"/>
+                    </div>
+                </div>
+                <div class="modal-footer py-2 px-3 bg-light border-top justify-content-between">
+                    <span class="small text-muted"><i data-lucide="shield" class="h-4 w-4 inline-block text-success me-1"></i>Security PTB</span>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<th:block layout:fragment="scripts-extra">
+<script th:src="@{/vendor/pdfjs/pdf.min.js}"></script>
+<script th:src="@{/vendor/pdf-lib/pdf-lib.min.js}"></script>
+<script th:src="@{/js/pdf-splitter-workbench.js}"></script>
+<script th:inline="javascript">
+    var contextPath = /*[[@{/}]]*/ '/';
+
+    // Inlined rather than scraped out of the form's hidden input: the worker
+    // modal posts with fetch(), which needs the HEADER name, and that is not
+    // the same as the form parameter name.
+    var CSRF_HEADER = /*[[${_csrf.headerName}]]*/ 'X-CSRF-TOKEN';
+    var CSRF_TOKEN  = /*[[${_csrf.token}]]*/ '';
+
+    // True only when editing an already-submitted (PENDING) request — resubmitting it
+    // cancels the current approval instance and starts a fresh one from step 1 (see
+    // RequestService#saveAndSubmit), discarding any approval already given. A DRAFT's
+    // first real submit or a brand-new create has no approval instance to discard, so
+    // no warning is shown for those.
+    var isEditOfPendingRequest = /*[[${requestStatus == 'PENDING'}]]*/ false;
+
+    // Built once, server-side, from ${requestTypes} so the Type-change handler can read
+    // needsPaymentFlag without a round trip. Trailing comma after every element is
+    // intentional and harmless (valid ES5+ array-literal syntax) — avoids fragile
+    // "is this the last iteration" inline logic.
+    var requestTypesData = [
+        /*[# th:each="t : ${requestTypes}"]*/
+        { typeCode: /*[[${t.typeCode}]]*/ '', typeName: /*[[${t.typeName}]]*/ '', needsPaymentFlag: /*[[${t.needsPaymentFlag}]]*/ 'N', paymentAmount: /*[[${t.paymentAmount}]]*/ null, needExtPageUpload: /*[[${t.needExtPageUpload}]]*/ 'N' },
+        /*[/]*/
+    ];
+</script>
+<script>
+(function () {
+    var prevTypeCode = $('#typeCode').val();
+    var suppressTypeChange = false;
+    var currentDocs = [];
+    var currentPaymentType = null;
+
+    // Counts SAVED workers. The table is rendered from the server's JSON, so
+    // its row count is the authoritative answer — there are no unsaved rows to
+    // miss any more.
+    function workerRowCount() {
+        return $('#workerTableBody tr[data-worker-id]').length;
+    }
+
+    // Payment amount is a flat per-worker rate (SesRequestType.paymentAmount) — the
+    // amount actually owed is that rate times how many worker rows are on the form
+    // right now, so this is re-run on type change AND every worker add/remove.
+    function updatePaymentAmountNote() {
+        if (!currentPaymentType) return;
+        var count = workerRowCount();
+        var text;
+        if (currentPaymentType.paymentAmount != null) {
+            var total = currentPaymentType.paymentAmount * count;
+            text = 'Amount to pay: Rp ' + Number(total).toLocaleString('id-ID') +
+                ' (' + count + ' worker' + (count === 1 ? '' : 's') + ' × Rp ' +
+                Number(currentPaymentType.paymentAmount).toLocaleString('id-ID') + ')';
+        } else {
+            text = 'Amount to pay: not configured yet — contact the admin.';
+        }
+        $('#paymentAmountNote').text(text);
+    }
+
+    function escapeHtml(s) {
+        return $('<div>').text(s === null || s === undefined ? '' : s).html();
+    }
+
+    function renderRequirementCard(docs, isExt) {
+        var $list = $('#reqCardList');
+        $list.empty();
+        if (!docs || docs.length === 0) {
+            $('#reqCard').removeClass('show');
+            return;
+        }
+        docs.forEach(function (d) {
+            var badge = d.mandatory
+                ? '<span class="badge bg-danger ms-1">Required</span>'
+                : '<span class="badge bg-secondary ms-1">Optional</span>';
+            $list.append('<li>' + escapeHtml(d.docName) + ' ' + badge + '</li>');
+        });
+        if (isExt) {
+            $('#reqCardNote').html('Dokumen <b>tidak diunggah di form ini</b>. Setelah menekan <b>Submit Request</b>, sistem mengirim tautan unggah ke <b>Email Penerima Dokumen</b> di atas, dan pengajuan menunggu di status <b>Menunggu Dokumen</b>.');
+        } else {
+            $('#reqCardNote').html('Dokumen diunggah langsung per pekerja saat mengisi data pekerja pada tombol <b>Add Worker Data</b> di bawah.');
+        }
+        $('#reqCard').addClass('show');
+    }
+
+    function checkApprovalChain(typeCode) {
+        var $btn = $('#submitRequestBtn');
+        var $warn = $('#noChainWarning');
+        var $reasons = $('#noChainWarningReasons');
+        if (!typeCode) {
+            $btn.prop('disabled', false);
+            $warn.hide();
+            $reasons.empty();
+            return;
+        }
+        $.getJSON(contextPath + 'request/approval-chain-status/' + typeCode, function (res) {
+            var available = !!(res && res.available);
+            $btn.prop('disabled', !available);
+            $warn.toggle(!available);
+            $reasons.empty();
+            if (!available && res && res.reasons) {
+                res.reasons.forEach(function (r) {
+                    $reasons.append($('<li>').text(r));
+                });
+            }
+        }).fail(function () {
+            // Fail open on network/lookup errors: don't block submission over a
+            // client-side check that couldn't complete.
+            $btn.prop('disabled', false);
+            $warn.hide();
+            $reasons.empty();
+        });
+    }
+
+    function onTypeChange(initial) {
+        var typeCode = $('#typeCode').val();
+        var type = requestTypesData.filter(function (t) { return t.typeCode === typeCode; })[0];
+        $('#paymentWrap').toggle(!!(type && type.needsPaymentFlag === 'Y'));
+        currentPaymentType = (type && type.needsPaymentFlag === 'Y') ? type : null;
+
+        var isExt = !!(type && type.needExtPageUpload === 'Y');
+        $('#emailWrap').toggle(isExt);
+        $('#email').prop('required', isExt);
+
+        updatePaymentAmountNote();
+        checkApprovalChain(typeCode);
+
+        if (!typeCode) {
+            renderRequirementCard([], false);
+            currentDocs = [];
+            prevTypeCode = typeCode;
+            return;
+        }
+
+        $.getJSON(contextPath + 'request/requirements/' + typeCode, function (docs) {
+            docs = docs || [];
+            currentDocs = docs;
+            renderRequirementCard(docs, isExt);
+            if (initial) {
+                prevTypeCode = typeCode;
+            }
+        }).fail(function () {
+            renderRequirementCard([], false);
+        });
+    }
+
+    $('#typeCode').on('change', function () {
+        if (suppressTypeChange) return;
+        onTypeChange(false);
+    });
+
+    // Contract Number: Free-text input with live suggestion dropdown from CONTRACT_V.
+    // Allows typing any custom contract number freely, while suggesting existing contracts
+    // when matched. Selecting a suggestion autofills the contract fields below.
+    var $contractNo = $('#contractNo');
+    if ($contractNo.data('select2')) {
+        $contractNo.select2('destroy');
+    }
+
+    var $contractSuggestBox = null;
+    var contractSearchTimer = null;
+    var contractSearchSeq = 0;
+
+    function getContractSuggestBox() {
+        if (!$contractSuggestBox) {
+            $contractSuggestBox = $('<div class="contract-suggestions">').appendTo(document.body);
+        }
+        return $contractSuggestBox;
+    }
+
+    function positionContractSuggestBox() {
+        if (!$contractNo.length || !$contractNo.is(':visible')) return;
+        var rect = $contractNo.get(0).getBoundingClientRect();
+        var spaceBelow = window.innerHeight - rect.bottom;
+        var spaceAbove = rect.top;
+        var maxH = 220;
+        var openUp = spaceBelow < maxH && spaceAbove > spaceBelow;
+        var css = {
+            left: rect.left + 'px',
+            width: rect.width + 'px',
+            maxHeight: Math.max(80, Math.min(maxH, (openUp ? spaceAbove : spaceBelow) - 8)) + 'px'
+        };
+        if (openUp) {
+            css.top = 'auto';
+            css.bottom = (window.innerHeight - rect.top) + 'px';
+        } else {
+            css.bottom = 'auto';
+            css.top = rect.bottom + 'px';
+        }
+        getContractSuggestBox().css(css);
+    }
+
+    function closeContractSuggestions() {
+        if ($contractSuggestBox) $contractSuggestBox.hide().empty();
+        $(window).off('scroll.contractSuggest resize.contractSuggest');
+    }
+
+    function applyContractSelection(c) {
+        $contractNo.val(c.contractNo);
+        if (c.contractType) $('#contractType').val(c.contractType).trigger('change');
+        if (c.contractTitle) $('#contractTitle').val(c.contractTitle);
+        if (c.zoneCode) $('#zoneCode').val(c.zoneCode).trigger('change');
+        if (c.instance) $('#instance').val(c.instance);
+        if (c.address) $('#address').val(c.address);
+        if (fpStart && c.startDate) fpStart.setDate(c.startDate, true);
+        if (fpFinish && c.finishDate) fpFinish.setDate(c.finishDate, true);
+        closeContractSuggestions();
+    }
+
+    function searchContracts() {
+        var term = $.trim($contractNo.val());
+        if (term.length < 1) {
+            closeContractSuggestions();
+            return;
+        }
+        var seq = ++contractSearchSeq;
+        $.getJSON(contextPath + 'request/contracts', { q: term })
+            .done(function (data) {
+                if (seq !== contractSearchSeq || !$contractNo.is(':focus')) return;
+                if (!data || data.length === 0) {
+                    closeContractSuggestions();
+                    return;
+                }
+                var $box = getContractSuggestBox().empty();
+                data.forEach(function (c) {
+                    var $item = $('<div class="contract-suggestion-item" tabindex="-1">');
+                    var $line1 = $('<div>')
+                        .append($('<span>').css({ 'font-weight': 'bold', 'color': '#0d6efd' }).text(c.contractNo))
+                        .append($('<span>').css({ 'font-size': '0.85em', 'color': '#333', 'margin-left': '8px' }).text(c.contractTitle || ''));
+                    $item.append($line1);
+                    var sub = [c.contractType, c.instance].filter(Boolean).join(' • ');
+                    if (sub) {
+                        $item.append($('<div>').css({ 'font-size': '0.78em', 'color': '#888' }).text(sub));
+                    }
+                    $item.on('mousedown', function (e) {
+                        e.preventDefault();
+                        applyContractSelection(c);
+                    });
+                    $box.append($item);
+                });
+                positionContractSuggestBox();
+                $box.show();
+                $(window).off('scroll.contractSuggest resize.contractSuggest')
+                         .on('scroll.contractSuggest resize.contractSuggest', positionContractSuggestBox);
+            })
+            .fail(function (xhr) {
+                console.error('Contract search failed:', xhr.status);
+            });
+    }
+
+    $contractNo.on('input', function () {
+        clearTimeout(contractSearchTimer);
+        contractSearchTimer = setTimeout(searchContracts, 200);
+    });
+    $contractNo.on('focus', function () {
+        if ($.trim($contractNo.val()).length >= 1) searchContracts();
+    });
+    $contractNo.on('blur', function () {
+        setTimeout(closeContractSuggestions, 150);
+    });
+    $contractNo.on('keydown', function (e) {
+        var $box = $contractSuggestBox;
+        if (!$box || !$box.is(':visible')) return;
+        var $items = $box.find('.contract-suggestion-item');
+        if ($items.length === 0) return;
+        var idx = $items.index($items.filter('.active'));
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            idx = Math.min(idx + 1, $items.length - 1);
+            $items.removeClass('active').eq(idx).addClass('active');
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            idx = Math.max(idx - 1, 0);
+            $items.removeClass('active').eq(idx).addClass('active');
+        } else if (e.key === 'Enter') {
+            if (idx >= 0) {
+                e.preventDefault();
+                $items.eq(idx).trigger('mousedown');
+            }
+        } else if (e.key === 'Escape') {
+            closeContractSuggestions();
+        }
+    });
+
+    // Worker lookup comboboxes — all custom free-text inputs (deliberately NOT
+    // select2) sharing one search/suggestion positioning/keyboard-nav pipeline,
+    // but split into two distinct behaviors:
+    //   - Badge/Name/NIK (`.worker-lookup-input`) search SES_WORKER_LOOKUP_VIEW
+    //     (RequestController#workerSearch, ses/sql/23_worker_lookup_view.sql —
+    //     a single pre-deduplicated view merging EMP_NIK_VIEW, APP_POSITION_VIEW,
+    //     active APP_PERSON Mitra rows, LDAP APP_USER and past SES_REQUEST_WORKER
+    //     rows, one row per real badge)
+    //     by badge/name/NIK/jabatan, and picking a result autofills the WHOLE
+    //     row (Name, Badge, NIK, Jabatan, Department, Section, Gender — whichever
+    //     the match has).
+    //   - Department/Section/Jabatan (`.worker-department-input` /
+    //     `.worker-section-input` / `.worker-jabatan-input`) each search ONLY
+    //     their own column (RequestController#departmentSearch/sectionSearch/
+    //     jabatanSearch) and autofill ONLY themselves on pick — matching a whole
+    //     person against a typed department/section/position string doesn't
+    //     make sense the way it does for badge/name/NIK.
+    // SINGLE_FIELD_LOOKUPS maps each single-column class to its search endpoint;
+    // singleFieldLookupFor() reads it off the input to decide which behavior applies.
+    // select2's tags+ajax mode only injects the "use what I typed" option once the
+    // debounced AJAX call resolves and processResults runs — that stalls free-text
+    // entry behind a network round trip whenever the typed value has no server
+    // match. Here the plain <input> IS the field's live value at all times; typing
+    // is never gated on search. A suggestion dropdown is layered on top purely as
+    // an optional shortcut.
+    // Delegated on $(document) so no per-row init call is needed after SesRepeat clones
+    // a new worker row — unlike the old select2 wiring, this needs nothing run on add.
+    // The dropdown itself is a SINGLE box appended to <body> (see .worker-name-suggestions
+    // in head-extra for why: nesting it inside the row would get clipped by the table's
+    // .table-responsive wrapper) and repositioned via getBoundingClientRect() every time
+    // it opens, on scroll, and on resize — flipping above the input when there isn't
+    // room below in the viewport.
+    var WORKER_SEARCH_DELAY = 250;
+    var WORKER_SUGGEST_MAX_HEIGHT = 220;
+    var workerSearchTimer = null;
+    var workerSearchSeq = 0;
+    var $workerSuggestBox = null;
+    var $activeWorkerInput = null;
+
+    var SINGLE_FIELD_LOOKUPS = {
+        'worker-department-input': { url: 'request/departments/search' },
+        'worker-section-input':    { url: 'request/sections/search' },
+        'worker-jabatan-input':    { url: 'request/jabatans/search' }
+    };
+    var LOOKUP_SELECTOR = '.worker-lookup-input, .worker-department-input, .worker-section-input, .worker-jabatan-input';
+
+    // null return means "full worker-identity lookup" (.worker-lookup-input) —
+    // the other, more common case doesn't need its own object.
+    function singleFieldLookupFor($input) {
+        for (var cls in SINGLE_FIELD_LOOKUPS) {
+            if ($input.hasClass(cls)) return SINGLE_FIELD_LOOKUPS[cls];
+        }
+        return null;
+    }
+
+    function getWorkerSuggestBox() {
+        if (!$workerSuggestBox) {
+            $workerSuggestBox = $('<div class="worker-name-suggestions">').appendTo(document.body);
+        }
+        return $workerSuggestBox;
+    }
+
+    function positionWorkerSuggestBox($input) {
+        var rect = $input.get(0).getBoundingClientRect();
+        var spaceBelow = window.innerHeight - rect.bottom;
+        var spaceAbove = rect.top;
+        var openUp = spaceBelow < WORKER_SUGGEST_MAX_HEIGHT && spaceAbove > spaceBelow;
+        var css = {
+            left: rect.left + 'px',
+            width: rect.width + 'px',
+            maxHeight: Math.max(80, Math.min(WORKER_SUGGEST_MAX_HEIGHT, (openUp ? spaceAbove : spaceBelow) - 8)) + 'px'
+        };
+        if (openUp) {
+            css.top = 'auto';
+            css.bottom = (window.innerHeight - rect.top) + 'px';
+        } else {
+            css.bottom = 'auto';
+            css.top = rect.bottom + 'px';
+        }
+        getWorkerSuggestBox().css(css);
+    }
+
+    function closeWorkerSuggestions() {
+        $activeWorkerInput = null;
+        if ($workerSuggestBox) $workerSuggestBox.hide().empty();
+        $(window).off('scroll.workerSuggest resize.workerSuggest');
+    }
+
+    // Shared by the Badge/Name/NIK combobox inputs: whichever of the three
+    // the user searched from, picking a suggestion fills the whole row —
+    // name and jabatan always (every source populates them), badge/nik/
+    // department/section only when the matched source actually has them
+    // (left as-is otherwise, so a manually-typed value isn't clobbered by
+    // a source that legitimately doesn't know it).
+    function applyWorkerSelection($input, w) {
+        // .closest('[data-repeat-row]'), NOT .closest('tr') — the repeat unit is the
+        // <tbody> wrapping both the main row and the .worker-detail-row, and
+        // Department/Section/Gender now live in that detail row, a sibling of
+        // $input's own <tr>.
+        var $row = $input.closest('[data-repeat-row]');
+        $row.find('input[name$=".workerName"]').val(w.name || '');
+        $row.find('input[name$=".jabatan"]').val(w.jabatan || '');
+        if (w.badge) {
+            $row.find('input[name$=".badge"]').val(w.badge);
+        }
+        if (w.department) {
+            $row.find('input[name$=".department"]').val(w.department);
+        }
+        if (w.section) {
+            $row.find('input[name$=".section"]').val(w.section);
+        }
+        if (w.nik) {
+            $row.find('input[name$=".nik"]').val(w.nik).trigger('input');
+        }
+        // Only assign a value the <select> actually offers, and trigger change
+        // so any wrapper (Select2 elsewhere on the page, custom listeners) repaints.
+        // jQuery .val() with an unknown value sets selectedIndex = -1 silently,
+        // which renders a blank box and then fails the pre-submit Gender check —
+        // reachable whenever a lookup source hands back an un-normalised gender
+        // ("MALE"/"L"); see sql/42_worker_lookup_view_gender_normalize.sql.
+        if (w.gender) {
+            var $genderSel = $row.find('select[name$=".gender"]');
+            if ($genderSel.find('option[value="' + w.gender + '"]').length) {
+                $genderSel.val(w.gender).trigger('change');
+            }
+        }
+    }
+
+    function renderWorkerSuggestion(w, field) {
+        var $item = $('<div class="worker-name-suggestion-item" tabindex="-1">');
+        if (field === 'badge') {
+            var $line1 = $('<div>')
+                .append($('<span>').css({ 'font-weight': 'bold', 'color': '#0d6efd', 'font-size': '1.05em' }).text(w.badge || '—'))
+                .append($('<span>').css({ 'font-weight': '600', 'color': '#212529', 'margin-left': '10px' }).text(w.name || ''));
+            $item.append($line1);
+            var subParts = [];
+            if (w.nik) subParts.push('NIK: ' + w.nik);
+            if (w.jabatan) subParts.push(w.jabatan);
+            if (w.department) subParts.push(w.department);
+            if (subParts.length > 0) {
+                $item.append($('<div>').css({ 'font-weight': 'normal', color: '#6c757d', 'font-size': '0.8em' }).text(subParts.join(' • ')));
+            }
+        } else {
+            var $line1 = $('<div>').css('font-weight', 'bold').text(w.name);
+            if (w.badge) {
+                $line1.append(
+                    $('<span>').css({ 'font-weight': 'normal', color: '#888', 'font-size': '0.85em' })
+                        .text(' (' + w.badge + ')')
+                );
+            }
+            $item.append($line1);
+            if (w.nik) {
+                $item.append($('<div>').css({ 'font-weight': 'normal', color: '#5dade2', 'font-size': '0.8em' }).text(w.nik));
+            }
+        }
+        $item.data('worker', w);
+        return $item;
+    }
+
+    // Department/Section/Jabatan suggestions are plain strings (their search
+    // endpoints return DISTINCT column values, not worker rows) — no badge/NIK
+    // sub-line to render.
+    function renderFieldSuggestion(value) {
+        return $('<div class="worker-name-suggestion-item" tabindex="-1">').text(value).data('fieldValue', value);
+    }
+
+    // Single entry point for both suggestion types (mousedown pick AND Enter-key
+    // pick route through here) — reads back whichever data() renderWorkerSuggestion/
+    // renderFieldSuggestion stashed on the item to decide whole-row vs single-field
+    // autofill.
+    function pickSuggestionItem($input, $item) {
+        if ($item.data('worker') !== undefined) {
+            applyWorkerSelection($input, $item.data('worker'));
+        } else {
+            $input.val($item.data('fieldValue'));
+        }
+        closeWorkerSuggestions();
+    }
+
+    function showSuggestions($input, items, renderFn, field) {
+        if (!items || items.length === 0) {
+            closeWorkerSuggestions();
+            return;
+        }
+        $activeWorkerInput = $input;
+        var $box = getWorkerSuggestBox().empty();
+        items.forEach(function (item) {
+            renderFn(item, field)
+                // mousedown (not click) fires before the input's blur handler tears the list down
+                .on('mousedown', function (e) {
+                    e.preventDefault();
+                    pickSuggestionItem($input, $(this));
+                })
+                .appendTo($box);
+        });
+        positionWorkerSuggestBox($input);
+        $box.show();
+        $(window).off('scroll.workerSuggest resize.workerSuggest').on('scroll.workerSuggest resize.workerSuggest', function () {
+            if ($activeWorkerInput) {
+                positionWorkerSuggestBox($activeWorkerInput);
+            }
+        });
+    }
+
+    function getLookupField($input) {
+        if ($input.hasClass('worker-badge-input') || ($input.attr('name') && $input.attr('name').endsWith('.badge'))) {
+            return 'badge';
+        }
+        if ($input.hasClass('worker-nik-input') || ($input.attr('name') && $input.attr('name').endsWith('.nik'))) {
+            return 'nik';
+        }
+        return 'name';
+    }
+
+    function searchWorkers($input) {
+        var term = $.trim($input.val());
+        if (term.length < 1) {
+            closeWorkerSuggestions();
+            return;
+        }
+        var single = singleFieldLookupFor($input);
+        var url = single ? single.url : 'request/workers/search';
+        var renderFn = single ? renderFieldSuggestion : renderWorkerSuggestion;
+        var field = single ? null : getLookupField($input);
+        var params = { q: term };
+        if (field) {
+            params.field = field;
+        }
+        var seq = ++workerSearchSeq;
+        $.getJSON(contextPath + url, params)
+            .done(function (data) {
+                if (seq !== workerSearchSeq) return; // stale response, a newer keystroke superseded it
+                if (!$input.is(':focus')) return; // user already moved on
+                showSuggestions($input, data, renderFn, field);
+            })
+            .fail(function (xhr) {
+                // Was previously silent on failure (no suggestions, no error) — log so a
+                // server-side error (e.g. SES_WORKER_LOOKUP_VIEW missing/misconfigured)
+                // is visible in the console instead of looking like "no matches".
+                console.error('Worker lookup search failed:', xhr.status, xhr.responseText);
+            });
+    }
+
+    $(document).on('input', LOOKUP_SELECTOR, function () {
+        var $input = $(this);
+        clearTimeout(workerSearchTimer);
+        workerSearchTimer = setTimeout(function () { searchWorkers($input); }, WORKER_SEARCH_DELAY);
+    });
+
+    $(document).on('focus', LOOKUP_SELECTOR, function () {
+        var $input = $(this);
+        if ($.trim($input.val()).length >= 1) searchWorkers($input);
+    });
+
+    $(document).on('blur', LOOKUP_SELECTOR, function () {
+        // Deferred so a suggestion's mousedown (which preventDefault()s to dodge this
+        // blur) still gets to run its click logic before the list is torn down.
+        setTimeout(closeWorkerSuggestions, 150);
+    });
+
+    $(document).on('keydown', LOOKUP_SELECTOR, function (e) {
+        if (!$activeWorkerInput || $activeWorkerInput.get(0) !== this) return;
+        var $items = getWorkerSuggestBox().find('.worker-name-suggestion-item');
+        if ($items.length === 0) return;
+        var idx = $items.index($items.filter('.active'));
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            idx = Math.min(idx + 1, $items.length - 1);
+            $items.removeClass('active').eq(idx).addClass('active');
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            idx = Math.max(idx - 1, 0);
+            $items.removeClass('active').eq(idx).addClass('active');
+        } else if (e.key === 'Enter') {
+            if (idx >= 0) {
+                e.preventDefault();
+                pickSuggestionItem($(this), $items.eq(idx));
+            }
+        } else if (e.key === 'Escape') {
+            closeWorkerSuggestions();
+        }
+    });
+
+    // NIK red-border feedback: toggles Bootstrap's .is-invalid on blur/input against
+    // the field's own pattern (exactly 16 digits) — covers rows rendered server-side,
+    // template-cloned rows, and pasted values alike since it reads live checkValidity().
+    $(document).on('input blur', 'input[name$=".nik"]', function () {
+        $(this).toggleClass('is-invalid', this.value.length > 0 && !this.checkValidity());
+    });
+
+    // NIK/Passport toggle in the worker modal: swaps the #wmNik constraints and
+    // help text, and mirrors the choice into the hidden #wmIdType field the
+    // modal's FormData actually posts.
+    function applyWmIdType(idType) {
+        $('#wmIdType').val(idType);
+        if (idType === 'PASSPORT') {
+            $('#wmNik').attr({ maxlength: 20, inputmode: 'text', pattern: '[A-Za-z0-9]{6,20}' });
+            $('#wmNikLabel').html('Nomor Passport <span class="text-danger">*</span>');
+            $('#wmNikHelp').text('Alfanumerik, 6-20 karakter.');
+        } else {
+            $('#wmNik').attr({ maxlength: 16, inputmode: 'numeric', pattern: '[0-9]{16}' });
+            $('#wmNikLabel').html('NIK <span class="text-danger">*</span>');
+            $('#wmNikHelp').text('16 digit angka.');
+        }
+        $('#wmNik').trigger('input');
+    }
+    $(document).on('change', 'input[name="wmIdTypeRadio"]', function () {
+        applyWmIdType($(this).val());
+    });
+
+    // Accordion toggle for the worker table's Department/Section/Jabatan/Gender
+    // fields (see .worker-detail-row in head-extra) — expands/collapses the sibling
+    // .worker-detail-row below this button's own <tr> (NOT the [data-repeat-row]
+    // <tbody> — that would also match the detail row itself via CSS descendant
+    // rules). Delegated so it works on template-cloned rows with no extra wiring
+    // needed after SesRepeat appends them.
+    $(document).on('click', '.worker-row-toggle', function () {
+        var $tr = $(this).closest('tr');
+        var expanded = $tr.toggleClass('worker-row-expanded').hasClass('worker-row-expanded');
+        $(this).find('i')
+            .toggleClass('bi-chevron-down', !expanded)
+            .toggleClass('bi-chevron-up', expanded);
+    });
+
+    // Flatpickr on Start/Finish Period. dateFormat 'Y-m-d' keeps the bound input's raw
+    // value ISO ("2026-01-01") for LocalDate binding server-side; contract autofill
+    // calls .setDate(isoString, true) on these instances directly (per the flatpickr
+    // JS API documented in the build spec).
+    var fpStart = flatpickr('#startPeriod', { dateFormat: 'Y-m-d', locale: 'id' });
+    var fpFinish = flatpickr('#finishPeriod', { dateFormat: 'Y-m-d', locale: 'id' });
+
+    // Tracks which button actually triggered the submit event — the native 'submit'
+    // event doesn't say, and the resubmit-confirmation below only applies to
+    // #submitRequestBtn (not #saveDraftBtn, which never touches approval).
+    var lastClickedSubmitId = null;
+    $('#submitRequestBtn, #saveDraftBtn').on('click', function () {
+        lastClickedSubmitId = this.id;
+    });
+
+    // Pre-submit client-side size guard — avoids a raw 413 from the server's upload cap.
+    // Also disables the submit button on a valid submit so a slow request or an
+    // impatient extra click can't fire /request/save twice (each hit cancels the
+    // current approval instance and starts a fresh one — see RequestService).
+    var resubmitConfirmed = false;
+    $('#requestForm').on('submit', function (e) {
+        var $form = $(this);
+        // The total-size guard is gone with the files it guarded: this POST now
+        // carries the header and, at most, one proof of payment. Worker
+        // documents went up one at a time through the modal, each checked
+        // against ses.upload.max-document-size on its own.
+
+        // Draft (formnovalidate) is allowed to be incomplete — only gate the real Submit.
+        // Proof of Payment mirrors RequestService.validate: mandatory for a paying
+        // type unless a previous upload is still carried forward. Not a plain
+        // `required` attribute — #paymentWrap is display:none for non-paying types,
+        // and Chrome refuses to submit (silently, with only a console warning) when
+        // a required control it cannot focus is invalid.
+        if (lastClickedSubmitId === 'submitRequestBtn' && currentPaymentType) {
+            var pf = document.getElementById('paymentFile');
+            var hasNewProof = pf && pf.files && pf.files.length > 0;
+            // :not(.attachment-card-empty) — the fragment renders that variant when
+            // the file id no longer resolves, and a broken attachment is not proof.
+            var hasExistingProof = $('#paymentWrap .attachment-card').not('.attachment-card-empty').length > 0;
+            if (!hasNewProof && !hasExistingProof) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Bukti Bayar Belum Diunggah',
+                    text: 'Jenis pengajuan ini berbayar. Unggah bukti bayar sebelum mengirim, atau simpan sebagai draft dulu.'
+                });
+                return;
+            }
+        }
+
+        // At least one SAVED worker. Everything finer-grained — 16-digit NIK,
+        // gender, mandatory documents — is checked server-side, by the same
+        // rules that run whatever the client does.
+        if (lastClickedSubmitId === 'submitRequestBtn' && workerRowCount() === 0) {
+            e.preventDefault();
+            Swal.fire({
+                icon: 'warning',
+                title: 'Data Pekerja Kosong',
+                text: 'Tambahkan minimal satu data pekerja sebelum mengirim pengajuan.'
+            });
+            return;
+        }
+
+        if (isEditOfPendingRequest && lastClickedSubmitId === 'submitRequestBtn' && !resubmitConfirmed) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Resubmit this request?',
+                text: 'Editing restarts the approval process from the beginning — any approvals already given will be discarded.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Resubmit',
+                cancelButtonText: 'Keep Editing'
+            }).then(function (r) {
+                if (r.isConfirmed) {
+                    resubmitConfirmed = true;
+                    $('#submitRequestBtn, #saveDraftBtn').prop('disabled', true);
+                    $form.trigger('submit');
+                }
+            });
+            return;
+        }
+
+        $('#submitRequestBtn, #saveDraftBtn').prop('disabled', true);
+    });
+
+    // ===============================================================
+    // WORKER MODAL — incremental save
+    // ===============================================================
+    //
+    // Each worker is persisted on its own, with its own documents, as soon as
+    // the user presses Simpan. The table below is a rendering of what is on
+    // disk; nothing in it is unsaved.
+    //
+    // Saving the FIRST worker creates the draft, because a worker row needs a
+    // request_id to hang off. That is why Cancel has a confirmation dialog —
+    // by the time anyone reaches for it, there is real data to clean up.
+
+    var workerModalEl = document.getElementById('workerModal');
+    var workerModal = workerModalEl ? bootstrap.Modal.getOrCreateInstance(workerModalEl) : null;
+    var currentRequestId = $('#requestId').val() || null;
+    // docCode -> fileId of the worker currently open in the modal, so the doc
+    // inputs can show "already uploaded" instead of looking empty.
+
+    function csrfHeaders() {
+        var h = {};
+        h[CSRF_HEADER] = CSRF_TOKEN;
+        return h;
+    }
+
+    // fetch, not $.ajax: these calls post multipart bodies and the project
+    // already uses fetch for its one other binary call
+    // (static/js/attachment-preview.js). credentials:'same-origin' keeps the
+    // session cookie on a WAR served under a context path.
+    function postForm(url, formData) {
+        return fetch(contextPath + url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: csrfHeaders(),
+            body: formData
+        }).then(function (res) {
+            return res.json().catch(function () { return null; }).then(function (data) {
+                if (!res.ok) {
+                    // The 400 body carries a message written for the requestor
+                    // reading it. Surface that, never a status code.
+                    throw new Error((data && data.message) || 'Gagal menyimpan (HTTP ' + res.status + ').');
+                }
+                return data;
+            });
+        });
+    }
+
+    function renderWorkers(rows) {
+        var $b = $('#workerTableBody').empty();
+        if (!rows || !rows.length) {
+            $b.append('<tr><td colspan="8" class="text-center text-muted py-3">Belum ada data pekerja.</td></tr>');
+            updatePaymentAmountNote();
+            return;
+        }
+        rows.forEach(function (w) {
+            var docs = (w.docs || []).map(function (d) {
+                if (d.fileId) {
+                    return '<a class="badge bg-success text-decoration-none me-1 mb-1" target="_blank" href="'
+                        + contextPath + 'file/' + encodeURIComponent(d.fileId) + '">'
+                        + '<i data-lucide="paperclip" class="h-4 w-4 inline-block me-1"></i>' + escapeHtml(d.docName) + '</a>';
+                }
+                return '<span class="badge me-1 mb-1 '
+                    + (d.mandatory ? 'bg-danger' : 'bg-secondary') + '">'
+                    + escapeHtml(d.docName) + (d.mandatory ? ' — wajib' : '') + '</span>';
+            }).join('');
+
+            var badgeText = w.badge ? '<div class="small text-muted"><i data-lucide="badge-check" class="h-4 w-4 inline-block me-1"></i>Badge: ' + escapeHtml(w.badge) + '</div>' : '';
+
+            var $tr = $('<tr>').attr('data-worker-id', w.workerId).data('worker', w).html(
+                  '<td>' + escapeHtml(w.lineNo) + '</td>'
+                + '<td><strong>' + escapeHtml(w.workerName) + '</strong>' + badgeText + '</td>'
+                + '<td><span class="badge bg-secondary-subtle text-secondary me-1">'
+                + (w.idType === 'PASSPORT' ? 'PASPOR' : 'NIK') + '</span><code>' + escapeHtml(w.nik) + '</code></td>'
+                + '<td>' + escapeHtml(w.jabatan || '') + '</td>'
+                + '<td>' + (w.gender === 'M' ? 'Male' : (w.gender === 'F' ? 'Female' : '')) + '</td>'
+                + '<td>' + docs + '</td>'
+                + '<td class="text-end text-nowrap">'
+                + '<button type="button" class="btn btn-sm btn-outline-info me-1" data-detail-worker title="Detail Pekerja">'
+                + '<i data-lucide="eye" class="h-4 w-4 inline-block "></i></button>'
+                + '<button type="button" class="btn btn-sm btn-outline-primary me-1" data-edit-worker title="Ubah">'
+                + '<i data-lucide="pencil" class="h-4 w-4 inline-block "></i></button>'
+                + '<button type="button" class="btn btn-sm btn-outline-danger" data-del-worker title="Hapus">'
+                + '<i data-lucide="trash-2" class="h-4 w-4 inline-block "></i></button>'
+                + '</td>');
+            $b.append($tr);
+        });
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+        }
+        updatePaymentAmountNote();
+    }
+
+    function loadWorkers() {
+        if (!currentRequestId) {
+            renderWorkers([]);
+            return;
+        }
+        fetch(contextPath + 'request/' + currentRequestId + '/workers', {credentials: 'same-origin'})
+            .then(function (r) { return r.json(); })
+            .then(function (rows) { renderWorkers(rows.message ? [] : rows); })
+            .catch(function () {
+                $('#workerTableBody').html('<tr><td colspan="8" class="text-danger text-center py-3">'
+                    + 'Gagal memuat data pekerja.</td></tr>');
+            });
+    }
+
+    /**
+     * Makes sure a draft exists before the first worker can be saved, and
+     * remembers its id for every later call.
+     */
+    function ensureDraft() {
+        if (currentRequestId) {
+            return Promise.resolve(currentRequestId);
+        }
+        var typeCode = $('#typeCode').val() || '';
+        if (!typeCode) {
+            return Promise.reject(new Error('Silakan pilih Jenis Pengajuan (Type of Request) terlebih dahulu.'));
+        }
+        var fd = new FormData();
+        fd.append('typeCode', typeCode);
+        fd.append('contractNo', $('#contractNo').val() || '');
+        fd.append('contractType', $('#contractType').val() || '');
+        fd.append('contractTitle', $('#contractTitle').val() || '');
+        fd.append('zoneCode', $('#zoneCode').val() || '');
+        fd.append('instance', $('#instance').val() || '');
+        fd.append('address', $('#address').val() || '');
+        var startVal = $.trim($('#startPeriod').val() || '');
+        if (startVal) fd.append('startPeriod', startVal);
+        var finishVal = $.trim($('#finishPeriod').val() || '');
+        if (finishVal) fd.append('finishPeriod', finishVal);
+        ($('#evaluatorEmplIds').val() || []).forEach(function (id) {
+            fd.append('evaluatorEmplIds', id);
+        });
+        return postForm('request/draft/ensure', fd).then(function (res) {
+            currentRequestId = res.requestId;
+            // Writing it into the hidden field matters: the main Submit posts
+            // this form, and without the id it would try to create a second
+            // request instead of submitting the draft the workers belong to.
+            $('#requestId').val(currentRequestId);
+            return currentRequestId;
+        });
+    }
+
+        var wmSplitterInitialized = false;
+    $('#wmBtnModeRegular').on('click', function () {
+        $(this).addClass('active');
+        $('#wmBtnModeBundle').removeClass('active');
+        $('#wmPdfSplitterArea').addClass('d-none');
+    });
+    $('#wmBtnModeBundle').on('click', function () {
+        $(this).addClass('active');
+        $('#wmBtnModeRegular').removeClass('active');
+        $('#wmPdfSplitterArea').removeClass('d-none');
+
+        if (!wmSplitterInitialized && window.PdfSplitterWorkbench) {
+            window.wmSplitterWorkbench = new window.PdfSplitterWorkbench({
+                containerId: 'wmPdfSplitterContainer',
+                workerPath: contextPath + 'vendor/pdfjs/pdf.worker.min.js',
+                maxFileSizeMb: 200
+            });
+            wmSplitterInitialized = true;
+        }
+    });
+
+    function renderFileInputBadge($previewBox, $fileInput, file) {
+        $previewBox.empty().removeClass('d-none');
+        var $badge = $('<div class="alert alert-success py-1 px-2 mb-0 d-flex align-items-center justify-content-between">'
+            + '<span class="small fw-semibold text-truncate" style="max-width: 250px;"><i data-lucide="file-check" class="h-3 w-3 inline-block me-1"></i>' + escapeHtml(file.name) + ' <span class="text-muted">(' + (file.size / 1024).toFixed(1) + ' KB)</span></span>'
+            + '<span class="d-flex gap-1">'
+            + '  <button type="button" class="btn btn-outline-primary btn-xs py-0 px-1 js-view-btn" title="Lihat di tab baru"><i data-lucide="eye" class="h-3 w-3"></i></button>'
+            + '  <button type="button" class="btn btn-outline-danger btn-xs py-0 px-1 js-clear-btn" title="Hapus"><i data-lucide="x" class="h-3 w-3"></i></button>'
+            + '</span>'
+            + '</div>');
+        $badge.find('.js-view-btn').on('click', function (e) {
+            e.preventDefault();
+            window.open(URL.createObjectURL(file), '_blank');
+        });
+        $badge.find('.js-clear-btn').on('click', function (e) {
+            e.preventDefault();
+            $fileInput.val('');
+            $previewBox.empty().addClass('d-none');
+        });
+        $previewBox.append($badge);
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function openWorkerModal(worker) {
+        $('#workerModalError').addClass('d-none').text('');
+        $('#wmWorkerId').val(worker ? worker.workerId : '');
+        $('#wmBadge').val(worker ? (worker.badge || '') : '');
+        $('#wmName').val(worker ? worker.workerName : '');
+        $('#wmNik').val(worker ? worker.nik : '');
+        var idType = worker && worker.idType === 'PASSPORT' ? 'PASSPORT' : 'NIK';
+        $('#wmIdTypeNik, #wmIdTypePassport').prop('checked', false);
+        $('#' + (idType === 'PASSPORT' ? 'wmIdTypePassport' : 'wmIdTypeNik')).prop('checked', true);
+        applyWmIdType(idType);
+        $('#wmDepartment').val(worker ? (worker.department || '') : '');
+        $('#wmSection').val(worker ? (worker.section || '') : '');
+        $('#wmJabatan').val(worker ? (worker.jabatan || '') : '');
+        var currentType = requestTypesData.filter(function (t) { return t.typeCode === $('#typeCode').val(); })[0];
+        var isExt = !!(currentType && currentType.needExtPageUpload === 'Y');
+        if (isExt) {
+            $('#wmExtUploadNotice').show();
+            $('#wmDirectUploadSection').hide();
+        } else {
+            $('#wmExtUploadNotice').hide();
+            $('#wmDirectUploadSection').show();
+
+            var $docList = $('#wmDocInputsList').empty();
+            if (!currentDocs || currentDocs.length === 0) {
+                $docList.html('<div class="text-muted small">Tidak ada dokumen yang diwajibkan untuk jenis pengajuan ini.</div>');
+            } else {
+                var docsMap = {};
+                if (worker && worker.docs) {
+                    worker.docs.forEach(function (d) { docsMap[d.docCode] = d; });
+                }
+                currentDocs.forEach(function (req) {
+                    var existing = docsMap[req.docCode];
+                    var existingFileId = existing ? existing.fileId : null;
+                    var $item = $('<div class="border rounded p-2 bg-light req-drop-zone">');
+                    $item.attr('data-doc-code', req.docCode);
+                    $item.attr('data-doc-name', req.docName);
+                    var labelHtml = '<div class="d-flex justify-content-between align-items-center mb-1">'
+                        + '<span class="fw-semibold small">' + escapeHtml(req.docName) + '</span>'
+                        + (req.mandatory
+                            ? '<span class="badge bg-danger">Wajib</span>'
+                            : '<span class="badge bg-secondary">Opsional</span>')
+                        + '</div>';
+                    $item.append(labelHtml);
+
+                    if (existingFileId) {
+                        var previewLink = '<div class="mb-1 small">'
+                            + '<a href="' + contextPath + 'file/' + encodeURIComponent(existingFileId) + '" target="_blank" class="badge bg-success text-decoration-none me-1">'
+                            + '<i data-lucide="paperclip" class="h-4 w-4 inline-block me-1"></i>Dokumen Terunggah</a> '
+                            + '<span class="text-muted fst-italic">Pilih file baru jika ingin mengganti</span>'
+                            + '</div>';
+                        $item.append(previewLink);
+                    }
+
+                    var $fileInput = $('<input type="file" class="form-control form-control-sm" accept=".pdf,application/pdf,image/jpeg,image/png"/>')
+                        .attr('data-doc-code', req.docCode);
+                    $item.append($fileInput);
+
+                    var $previewBox = $('<div class="d-none mt-1"></div>');
+                    $item.append($previewBox);
+
+                    (function (docReq, fInput, pBox, containerItem) {
+                        containerItem.on('dragenter dragover', function (e) {
+                            e.preventDefault();
+                            containerItem.addClass('drag-active');
+                        });
+                        containerItem.on('dragleave drop', function () {
+                            containerItem.removeClass('drag-active');
+                        });
+                        containerItem.on('drop', function (e) {
+                            e.preventDefault();
+                            var file = null;
+                            if (window.PdfSplitterWorkbench && window.PdfSplitterWorkbench.currentDragItem) {
+                                var dragItem = window.PdfSplitterWorkbench.currentDragItem;
+                                var workerName = $.trim($('#wmName').val()) || 'Pekerja';
+                                var formattedName = docReq.docName + ' - ' + workerName + '.pdf';
+                                file = new File([dragItem.blob], formattedName, { type: 'application/pdf' });
+                                if (window.wmSplitterWorkbench) {
+                                    window.wmSplitterWorkbench.markItemUsed(dragItem.id, docReq.docName + ' (' + workerName + ')');
+                                }
+                                window.PdfSplitterWorkbench.currentDragItem = null;
+                            } else if (e.originalEvent && e.originalEvent.dataTransfer && e.originalEvent.dataTransfer.files.length) {
+                                file = e.originalEvent.dataTransfer.files[0];
+                            }
+                            if (file) {
+                                var dt = new DataTransfer();
+                                dt.items.add(file);
+                                fInput[0].files = dt.files;
+                                renderFileInputBadge(pBox, fInput, file);
+                            }
+                        });
+                    })(req, $fileInput, $previewBox, $item);
+
+                    $docList.append($item);
+                });
+            }
+        }
+
+        $('#wmGender').val(worker ? (worker.gender || '') : '');
+        $('#workerModalTitle').text(worker ? 'Ubah Data Pekerja' : 'Tambah Data Pekerja');
+
+        workerModal.show();
+    }
+
+    $('#btnAddWorker').on('click', function () {
+        if (!$('#typeCode').val()) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Pilih Jenis Pengajuan',
+                text: 'Jenis pengajuan menentukan dokumen apa saja yang diperlukan, jadi pilih dulu sebelum menambah pekerja.'
+            });
+            return;
+        }
+        openWorkerModal(null);
+    });
+
+    var workerDetailModalEl = document.getElementById('workerDetailModal');
+    var workerDetailModal = workerDetailModalEl ? bootstrap.Modal.getOrCreateInstance(workerDetailModalEl) : null;
+    var currentDetailWorker = null;
+
+    $('#workerTableBody').on('click', '[data-detail-worker]', function () {
+        var w = $(this).closest('tr').data('worker');
+        if (!w) return;
+        currentDetailWorker = w;
+        $('#wdmName').text(w.workerName || '');
+        $('#wdmBadge').text(w.badge || '');
+        var idLabel = (w.idType === 'PASSPORT' ? 'PASPOR' : 'NIK');
+        $('#wdmIdWrapper').html('<span class="badge bg-secondary-subtle text-secondary me-1">' + idLabel + '</span><code>' + escapeHtml(w.nik || '') + '</code>');
+        $('#wdmJabatan').text(w.jabatan || '');
+        $('#wdmDepartment').text(w.department || '');
+        $('#wdmSection').text(w.section || '');
+        $('#wdmGender').text(w.gender === 'M' ? 'Laki-laki (Male)' : (w.gender === 'F' ? 'Perempuan (Female)' : ''));
+
+        var $docsList = $('#wdmDocsList').empty();
+        if (!w.docs || w.docs.length === 0) {
+            $docsList.html('<div class="text-muted small py-2">Tidak ada dokumen yang dipersyaratkan.</div>');
+        } else {
+            w.docs.forEach(function (d) {
+                var $dCard = $('<div class="p-2 border rounded bg-white">');
+                var headerHtml = '<div class="d-flex justify-content-between align-items-center mb-1">'
+                    + '<span class="fw-semibold small">' + escapeHtml(d.docName) + '</span>'
+                    + (d.mandatory ? '<span class="badge bg-danger">Wajib</span>' : '<span class="badge bg-secondary">Opsional</span>')
+                    + '</div>';
+                $dCard.append(headerHtml);
+
+                if (d.fileId) {
+                    var attachHtml = '<div class="d-flex align-items-center justify-content-between bg-light border rounded p-2 mt-1">'
+                        + '<div class="d-flex align-items-center gap-2 overflow-hidden">'
+                        + '<i data-lucide="file-text" class="h-4 w-4 inline-block fs-4 text-danger"></i>'
+                        + '<div class="text-truncate small fw-semibold">' + escapeHtml(d.fileName || d.docName) + '</div>'
+                        + '</div>'
+                        + '<a href="' + contextPath + 'file/' + encodeURIComponent(d.fileId) + '" data-attachment-preview="true" class="btn btn-sm btn-outline-primary">'
+                        + '<i data-lucide="eye" class="h-4 w-4 inline-block me-1"></i>Lihat Dokumen</a>'
+                        + '</div>';
+                    $dCard.append(attachHtml);
+                } else {
+                    $dCard.append('<div class="text-muted small fst-italic py-1"><i data-lucide="file-x" class="h-4 w-4 inline-block me-1"></i>Belum diunggah</div>');
+                }
+                $docsList.append($dCard);
+            });
+        }
+
+        if (workerDetailModal) {
+            workerDetailModal.show();
+        }
+    });
+
+    $('#wdmBtnEdit').on('click', function () {
+        if (workerDetailModal) {
+            workerDetailModal.hide();
+        }
+        if (currentDetailWorker) {
+            openWorkerModal(currentDetailWorker);
+        }
+    });
+
+    $('#workerTableBody').on('click', '[data-edit-worker]', function () {
+        openWorkerModal($(this).closest('tr').data('worker'));
+    });
+
+    $('#workerTableBody').on('click', '[data-del-worker]', function () {
+        var w = $(this).closest('tr').data('worker');
+        Swal.fire({
+            title: 'Hapus pekerja ini?',
+            html: '<strong>' + escapeHtml(w.workerName) + '</strong> beserta dokumen yang sudah diunggah '
+                + 'akan dihapus permanen dari pengajuan ini.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Hapus',
+            cancelButtonText: 'Batal',
+            confirmButtonColor: '#dc3545'
+        }).then(function (r) {
+            if (!r.isConfirmed) { return; }
+            postForm('request/' + currentRequestId + '/worker/' + w.workerId + '/delete', new FormData())
+                .then(renderWorkers)
+                .catch(function (err) { Swal.fire('Tidak bisa dihapus', err.message, 'error'); });
+        });
+    });
+
+    $('#btnSaveWorker').on('click', function () {
+        var $btn = $(this);
+        $('#workerModalError').addClass('d-none').text('');
+        $btn.prop('disabled', true);
+        $('#wmSpinner').removeClass('d-none');
+
+        ensureDraft().then(function (requestId) {
+            var fd = new FormData();
+            fd.append('workerId', $('#wmWorkerId').val() || '');
+            fd.append('workerName', $('#wmName').val() || '');
+            fd.append('nik', $('#wmNik').val() || '');
+            fd.append('idType', $('#wmIdType').val() || 'NIK');
+            fd.append('badge', $('#wmBadge').val() || '');
+            fd.append('jabatan', $('#wmJabatan').val() || '');
+            fd.append('department', $('#wmDepartment').val() || '');
+            fd.append('section', $('#wmSection').val() || '');
+            fd.append('gender', $('#wmGender').val() || '');
+
+            var currentType = requestTypesData.filter(function (t) { return t.typeCode === $('#typeCode').val(); })[0];
+            var isExt = !!(currentType && currentType.needExtPageUpload === 'Y');
+            if (!isExt) {
+                var docIdx = 0;
+                $('#wmDocInputsList input[type="file"]').each(function () {
+                    var docCode = $(this).attr('data-doc-code');
+                    var file = this.files && this.files.length > 0 ? this.files[0] : null;
+                    if (docCode) {
+                        fd.append('docs[' + docIdx + '].docCode', docCode);
+                        if (file) {
+                            fd.append('docs[' + docIdx + '].file', file);
+                        }
+                        docIdx++;
+                    }
+                });
+            }
+
+            return postForm('request/' + requestId + '/worker/save', fd);
+        }).then(function (rows) {
+            renderWorkers(rows);
+            workerModal.hide();
+        }).catch(function (err) {
+            $('#workerModalError').removeClass('d-none').text(err.message);
+        }).then(function () {
+            $btn.prop('disabled', false);
+            $('#wmSpinner').addClass('d-none');
+        });
+    });
+
+    // ---- Cancel ----------------------------------------------------
+    // The old Cancel was a plain link back to the list. With saved drafts that
+    // is misleading: leaving the page now abandons a real row, with real
+    // uploads, that will sit in the requestor's list forever. The dialog says
+    // what will actually happen and, when there is something to clean up,
+    // cancels the draft instead of just navigating away.
+    $('#btnCancelRequest').on('click', function (e) {
+        e.preventDefault();
+        if (!currentRequestId) {
+            window.location.href = contextPath + 'request';
+            return;
+        }
+        Swal.fire({
+            title: 'Batalkan pengajuan ini?',
+            html: 'Draf yang sudah tersimpan — termasuk <strong>' + workerRowCount()
+                + ' data pekerja</strong> dan seluruh dokumen yang sudah diunggah — akan '
+                + '<strong>dibatalkan dan dibersihkan</strong>.<br/><br/>'
+                + '<span class="text-muted small">Tindakan ini tidak dapat dibatalkan. '
+                + 'Jika hanya ingin melanjutkan nanti, tutup dialog ini dan gunakan '
+                + '<em>Save as Draft</em>.</span>',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Ya, batalkan',
+            cancelButtonText: 'Kembali ke form',
+            confirmButtonColor: '#dc3545'
+        }).then(function (r) {
+            if (!r.isConfirmed) { return; }
+            postForm('request/' + currentRequestId + '/cancel', new FormData())
+                .then(function () { window.location.href = contextPath + 'request'; })
+                .catch(function () {
+                    // cancel() redirects rather than returning JSON, so a parse
+                    // failure here is the SUCCESS path, not an error.
+                    window.location.href = contextPath + 'request';
+                });
+        });
+    });
+
+    // ---- Modern 4-Step Wizard & Sticky Footer Functions ------------
+    var currentActiveStep = 1;
+
+    function updateStep4Summary() {
+        var typeText = $('#typeCode option:selected').text() || '-';
+        $('#sumTypeCode').text(typeText);
+        $('#sumContractNo').text($('#contractNo').val() || '-');
+        $('#sumInstance').text($('#instance').val() || '-');
+        var startP = $('#startPeriod').val() || '';
+        var finishP = $('#finishPeriod').val() || '';
+        $('#sumPeriod').text(startP ? (startP + (finishP ? ' s/d ' + finishP : '')) : '-');
+        var zoneText = $('#zoneCode option:selected').text() || '-';
+        $('#sumZone').text(zoneText);
+
+        var count = workerRowCount();
+        $('#sumWorkerCount').text(count + ' Orang');
+
+        if ($('#paymentWrap').is(':visible')) {
+            var hasPayment = ($('#paymentFile')[0] && $('#paymentFile')[0].files.length > 0)
+                || (existingPaymentFileId && existingPaymentFileId.length > 0);
+            $('#sumPaymentStatus').html(hasPayment
+                ? '<span class="badge bg-success">Bukti Bayar Terlampir</span>'
+                : '<span class="badge bg-warning text-dark">Bukti Bayar Belum Diunggah</span>');
+        } else {
+            $('#sumPaymentStatus').html('<span class="badge bg-secondary">Gratis / Tidak Perlu Bayar</span>');
+        }
+    }
+
+    window.switchWizardStep = function (step) {
+        if (step < 1 || step > 4) return;
+        currentActiveStep = step;
+        for (var i = 1; i <= 4; i++) {
+            var pane = document.getElementById('wizardPane' + i);
+            var stepIndicator = document.getElementById('wStep' + i);
+            if (pane) {
+                pane.style.display = (i === step) ? 'block' : 'none';
+            }
+            if (stepIndicator) {
+                stepIndicator.classList.remove('active');
+                if (i === step) {
+                    stepIndicator.classList.add('active');
+                } else if (i < step) {
+                    stepIndicator.classList.add('completed');
+                } else {
+                    stepIndicator.classList.remove('completed');
+                }
+            }
+        }
+
+        // Update sticky footer navigation states
+        $('#btnStickyPrev').prop('disabled', step === 1);
+        if (step === 4) {
+            $('#btnStickyNext').hide();
+            $('#btnSubmitRequestFinal').addClass('btn-lg pulse-success');
+            updateStep4Summary();
+        } else {
+            $('#btnStickyNext').show();
+            $('#btnSubmitRequestFinal').removeClass('btn-lg pulse-success');
+        }
+
+        var stepper = document.getElementById('wizardStepper');
+        if (stepper) {
+            window.scrollTo({ top: stepper.offsetTop - 20, behavior: 'smooth' });
+        }
+    };
+
+    window.wizardStepPrev = function () {
+        if (currentActiveStep > 1) {
+            switchWizardStep(currentActiveStep - 1);
+        }
+    };
+
+    window.wizardStepNext = function () {
+        wizardNext(currentActiveStep);
+    };
+
+    window.wizardNext = function (currentStep) {
+        if (currentStep === 1) {
+            var typeCode = document.getElementById('typeCode');
+            var startPeriod = document.getElementById('startPeriod');
+            var email = document.getElementById('email');
+            var emailWrap = document.getElementById('emailWrap');
+
+            if (typeCode && !typeCode.value) {
+                triggerFieldJump('#typeCode', 1, 'Jenis Pengajuan (Types of Request) wajib dipilih.');
+                return;
+            }
+            if (startPeriod && !startPeriod.value) {
+                triggerFieldJump('#startPeriod', 1, 'Start Period permohonan wajib diisi.');
+                return;
+            }
+            if (emailWrap && emailWrap.style.display !== 'none' && email && !email.value) {
+                triggerFieldJump('#email', 1, 'Email Penerima Dokumen wajib diisi.');
+                return;
+            }
+            switchWizardStep(2);
+        } else if (currentStep === 2) {
+            if (workerRowCount() === 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Data Pekerja Kosong',
+                    text: 'Silakan tambahkan minimal satu orang pekerja pada daftar sebelum melanjutkan.'
+                });
+                return;
+            }
+            switchWizardStep(3);
+        } else if (currentStep === 3) {
+            switchWizardStep(4);
+        }
+    };
+
+    // ---- Auto-Jump & Focus Validator (Jump directly to missing required fields) ----
+    function triggerFieldJump(selector, stepNum, message) {
+        switchWizardStep(stepNum);
+        setTimeout(function () {
+            var $el = $(selector);
+            if ($el.length) {
+                $el.addClass('ses-field-error-pulse is-invalid');
+                $el[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                $el.focus();
+                setTimeout(function () {
+                    $el.removeClass('ses-field-error-pulse');
+                }, 3500);
+            }
+            Swal.fire({
+                icon: 'warning',
+                title: 'Data Wajib Belum Lengkap',
+                text: message,
+                confirmButtonText: 'Lengkapi Sekarang'
+            });
+        }, 120);
+    }
+
+    function validateWholeFormWithAutoJump() {
+        // 1. Check Step 1
+        var typeCode = $('#typeCode').val();
+        if (!typeCode) {
+            triggerFieldJump('#typeCode', 1, 'Jenis Pengajuan (Types of Request) wajib dipilih.');
+            return false;
+        }
+        var startPeriod = $('#startPeriod').val();
+        if (!startPeriod) {
+            triggerFieldJump('#startPeriod', 1, 'Tanggal Mulai Periode (Start Period) wajib diisi.');
+            return false;
+        }
+        var email = $('#email').val();
+        if ($('#emailWrap').is(':visible') && (!email || !email.trim())) {
+            triggerFieldJump('#email', 1, 'Email Penerima Dokumen wajib diisi.');
+            return false;
+        }
+
+        // 2. Check Step 2
+        if (workerRowCount() === 0) {
+            switchWizardStep(2);
+            Swal.fire({
+                icon: 'warning',
+                title: 'Data Pekerja Belum Ditambahkan',
+                text: 'Harap menambahkan minimal 1 orang pekerja pada pengajuan ini.'
+            });
+            return false;
+        }
+
+        // 3. Check Step 3 (Payment Proof)
+        if ($('#paymentWrap').is(':visible')) {
+            var hasPayment = ($('#paymentFile')[0] && $('#paymentFile')[0].files.length > 0)
+                || (existingPaymentFileId && existingPaymentFileId.length > 0);
+            if (!hasPayment) {
+                triggerFieldJump('#paymentFile', 3, 'Bukti Pembayaran (Proof of Payment) wajib diunggah.');
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // Submit button triggers the confirmation dialog
+    $('#btnSubmitRequestFinal').on('click', function (e) {
+        e.preventDefault();
+        if (validateWholeFormWithAutoJump()) {
+            var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('submitConfirmModal'));
+            modal.show();
+        }
+    });
+
+    $('#btnConfirmSubmitExecute').on('click', function () {
+        var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('submitConfirmModal'));
+        modal.hide();
+        $('#requestForm').submit();
+    });
+
+    $('#btnCancelRequestSticky').on('click', function (e) {
+        e.preventDefault();
+        $('#btnCancelRequest').trigger('click');
+    });
+
+    // ---- Worker Modal: Quick Search & Pick -----------------------------
+    var wmQuickSearchTimer = null;
+    $('#wmQuickSearch').on('input', function () {
+        clearTimeout(wmQuickSearchTimer);
+        var q = $.trim($(this).val());
+        if (q.length < 1) {
+            $('#wmQuickSearchResults').hide();
+            $('#wmQuickSearchRows').empty();
+            return;
+        }
+        wmQuickSearchTimer = setTimeout(function () {
+            $.getJSON(contextPath + 'request/workers/search', { q: q })
+                .done(function (data) {
+                    var $rows = $('#wmQuickSearchRows').empty();
+                    if (!data || data.length === 0) {
+                        $rows.append('<tr><td colspan="6" class="text-center text-muted py-2">Tidak ditemukan karyawan atau rekanan dengan kata kunci tersebut.</td></tr>');
+                        $('#wmQuickSearchResults').show();
+                        return;
+                    }
+                    data.forEach(function (w) {
+                        var $tr = $('<tr>');
+                        $tr.append('<td class="font-mono fw-bold text-primary">' + escapeHtml(w.badge || '-') + '</td>');
+                        $tr.append('<td class="fw-semibold text-dark">' + escapeHtml(w.workerName || '-') + '</td>');
+                        $tr.append('<td class="font-mono text-muted">' + escapeHtml(w.nik || '-') + '</td>');
+                        $tr.append('<td>' + escapeHtml((w.department || '') + (w.section ? ' / ' + w.section : '')) + '</td>');
+                        $tr.append('<td>' + escapeHtml(w.jabatan || '-') + '</td>');
+                        var $pickBtn = $('<button type="button" class="btn btn-xs btn-primary px-2 py-0.5">Pilih</button>');
+                        $pickBtn.on('click', function () {
+                            $('#wmBadge').val(w.badge || '');
+                            $('#wmName').val(w.workerName || '');
+                            $('#wmNik').val(w.nik || '');
+                            $('#wmDepartment').val(w.department || '');
+                            $('#wmSection').val(w.section || '');
+                            $('#wmJabatan').val(w.jabatan || '');
+                            if (w.gender) {
+                                $('#wmGender').val(w.gender);
+                            }
+                            applyWmIdType('NIK');
+                            $('#wmQuickSearchResults').slideUp(150);
+                            $('#wmQuickSearch').val('');
+                            // Visual flash to show fields populated
+                            $('#wmName, #wmNik, #wmBadge').addClass('bg-success-subtle');
+                            setTimeout(function () {
+                                $('#wmName, #wmNik, #wmBadge').removeClass('bg-success-subtle');
+                            }, 1200);
+                        });
+                        $tr.append($('<td class="text-end">').append($pickBtn));
+                        $rows.append($tr);
+                    });
+                    $('#wmQuickSearchResults').show();
+                });
+        }, 220);
+    });
+
+    $('#wmQuickSearchClear').on('click', function () {
+        $('#wmQuickSearch').val('');
+        $('#wmQuickSearchResults').hide();
+        $('#wmQuickSearchRows').empty();
+    });
+    // ---- Proof of Payment Interactive Preview -------------------------
+    var paymentSelectedObjectUrl = null;
+
+    $('#paymentFile').on('change', function () {
+        if (paymentSelectedObjectUrl) {
+            URL.revokeObjectURL(paymentSelectedObjectUrl);
+            paymentSelectedObjectUrl = null;
+        }
+        var file = this.files && this.files[0];
+        if (file) {
+            $('#paymentFileSelectedName').text(file.name);
+            var sizeKb = Math.round(file.size / 1024);
+            var sizeStr = sizeKb >= 1024 ? (sizeKb / 1024).toFixed(1) + ' MB' : sizeKb + ' KB';
+            $('#paymentFileSelectedSize').text('(' + sizeStr + ')');
+            $('#paymentFileSelectedWrap').slideDown(150);
+        } else {
+            $('#paymentFileSelectedWrap').slideUp(150);
+        }
+    });
+
+    $('#btnPreviewSelectedPayment').on('click', function (e) {
+        e.preventDefault();
+        var file = $('#paymentFile')[0].files && $('#paymentFile')[0].files[0];
+        if (!file) return;
+
+        if (paymentSelectedObjectUrl) {
+            URL.revokeObjectURL(paymentSelectedObjectUrl);
+        }
+        paymentSelectedObjectUrl = URL.createObjectURL(file);
+
+        var body = document.getElementById('attachmentPreviewModalBody');
+        var modalTitle = document.querySelector('#attachmentPreviewModal .modal-title');
+        if (modalTitle) modalTitle.textContent = file.name;
+
+        var downloadBtn = document.getElementById('attachmentPreviewModalDownload');
+        if (downloadBtn) downloadBtn.classList.add('d-none'); // Hidden during form drafting
+
+        if (file.type && file.type.indexOf('image/') === 0) {
+            body.innerHTML = '<div class="text-center p-2"><img src="' + paymentSelectedObjectUrl + '" class="img-fluid rounded shadow-sm" style="max-height:75vh"/></div>';
+        } else if (file.type === 'application/pdf') {
+            body.innerHTML = '<embed src="' + paymentSelectedObjectUrl + '" type="application/pdf" style="width:100%;height:75vh;border:0"/>';
+        } else {
+            body.innerHTML = '<div class="text-center text-muted py-4"><i data-lucide="file" class="h-4 w-4 inline-block display-4 d-block mb-2"></i>Berkas: ' + file.name + '</div>';
+        }
+
+        var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('attachmentPreviewModal'));
+        modal.show();
+    });
+
+    $(document).ready(function () {
+        // SesRepeat.bind() is NOT called: this form no longer has a repeating
+        // row anywhere. The helper is still loaded globally for other screens.
+        onTypeChange(true);
+        loadWorkers();
+    });
+})();
+</script>
+</th:block>
+</body>
+</html>

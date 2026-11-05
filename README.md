@@ -1,6 +1,6 @@
-# SES — Secure Entry System (PT Badak LNG)
+# SES — Secure Entry System (PT Seterah / PT. S)
 
-A web-based **Secure Entry System (SES)** for PT Badak LNG built on top of the Badak LNG **Platform** library (`com.badaklng:platform:1.4.7`). SES provides an enterprise workflow for managing personnel security badges, external contractor document verification, multi-tiered approval chains, worker screening scheduling, vehicle stickers, payments, and financial cash reports.
+A web-based **Secure Entry System (SES)** for PT Seterah (PT. S) built on top of the enterprise **Platform** library (`com.badaklng:platform:1.4.7`). SES provides an enterprise workflow for managing personnel security badges, external contractor document verification, multi-tiered approval chains, worker screening scheduling, vehicle stickers, payments, and financial cash reports.
 
 ---
 
@@ -28,7 +28,7 @@ A web-based **Secure Entry System (SES)** for PT Badak LNG built on top of the B
   - Completing upload locks the token and triggers the internal approval engine.
 - **Worker Auto-Lookup**: Search existing worker profiles (`/request/workers/search`) with NIK/Passport and badge validation.
 - **Official Permit Document Generation (`/request/{id}/document.pdf`)**:
-  - Generates standardized official permit PDF with PT Badak NGL letterhead (*Bontang, East Kalimantan, Indonesia — Security Suite*).
+  - Generates standardized official permit PDF with PT. Seterah letterhead (*Bontang, East Kalimantan, Indonesia — Security Suite*).
   - Embeds dual verification barcodes (QR Codes) for **Procurement Manager** and **Site Manager** linking to external verification page (`/verify/{requestNo}`) via `APP_LINK_EXT`.
   - Accessible directly for approved requests (`APPROVED`) from Request View, Request List, Admin History (`/history`), and Approval Detail (`/approval/detail`).
 - **Public Verification Page (`/verify/{requestNo}`)**:
@@ -78,7 +78,7 @@ A web-based **Secure Entry System (SES)** for PT Badak LNG built on top of the B
 
 ### 8. Modular Push Email SMTP & Lightweight Content Storage
 - **Clean Content Snippets in DB**: `APP_MAIL.MAIL_BODY` stores only clean, semantic HTML fragments (~1 KB) without bloated boilerplate `<html>`, `<body>`, or image tags.
-- **Dynamic Master Layout**: Decorated dynamically at SMTP dispatch time by `EmailLayoutDecorator` in `SesMailJob`, attaching the official PT Badak NGL logo via inline CID (`cid:badakLogo`) and dark-blue branding.
+- **Dynamic Master Layout**: Decorated dynamically at SMTP dispatch time by `EmailLayoutDecorator` in `SesMailJob`, attaching the official PT. S logo via inline CID (`cid:badakLogo`) and dark-blue branding.
 - **Bilingual Notifications**: Document upload notifications (`ext upload-docs`) are formatted bilingually (Indonesian & English) with direct action buttons and copyable fallback links.
 
 ---
@@ -123,46 +123,68 @@ Configured via `/admin/parameter` or seeded through SQL scripts:
 
 ---
 
-## 🚀 Running & Building
+## 🏗️ 3-Tier Enterprise Codebase Architecture
 
-### 1. Rebuild `ses-core` Utility Script
-For fast local iteration when updating shared entities or services in `ses-core`:
-- Double-click **`rebuild-ses-core.bat`** in the project root, or execute:
-  ```cmd
-  rebuild-ses-core.bat
-  ```
-  This runs `mvn clean install -DskipTests` inside `ses-core` and installs the updated JAR into your local `.m2` repository without rebuilding the entire multi-module reactor.
+Struktur proyek SES dipisahkan secara fisik menjadi 3 tier arsitektur mandiri:
 
-### 2. Run Locally (Development)
-Run Spring Boot applications locally across separate terminals:
+```
+ses/
+├── platform/               # [TIER 1] Domain Entities, Repositories & Platform Abstraction
+│   └── ses-core/           # Shared business entities, repositories, workflow & file service
+├── intranet/               # [TIER 2] Internal Corporate Network Applications
+│   └── ses-app/            # Intranet Web Backoffice (Port 8082, LDAP + Local Auth)
+├── internet/               # [TIER 3] External DMZ, Public Gateway & Mobile
+│   ├── ses-ext/            # External Vendor Portal & Public Verification Gateway (Port 8083)
+│   ├── ses-api/            # Stateless RESTful API Gateway (Port 8084)
+│   └── ses-mobo/           # Flutter Mobile Application (Gate Security & Field POSKO)
+├── docs/                   # Dokumentasi Resmi, FDD, Arsitektur, dan Audit Schema
+├── tests/                  # Kebutuhan Pengujian, Testing Mock & Automation Scripts
+├── localdev/               # Tooling & Konfigurasi Development Lokal (ELLDEV & Offline)
+└── ses.bat                 # Master Control Script Windows (Menu Interaktif [1]-[10])
+```
+
+---
+
+## 🚀 Master Control Script (`ses.bat`)
+
+Seluruh operasional disatukan ke dalam **1 skrip tunggal** di root direktori: **[`ses.bat`](file:///d:/GIT/Gitea/Integrated-Security-Software/ses.bat)**.
+Cukup klik ganda (double-click) **`ses.bat`**, lalu ketik nomor menu `1`, `2`, `3`, dst.:
+
+- **`[1]`** Jalankan Intranet Backoffice (`ses-app` : Port `8082`)
+- **`[2]`** Jalankan Internet Extranet Portal (`ses-ext` : Port `8083`)
+- **`[3]`** Jalankan RESTful API Gateway (`ses-api` : Port `8084`)
+- **`[4]`** Jalankan Mobile App di Android Emulator (`ses-mobo`)
+- **`[5]`** **LAUNCH SEMUA SERVICE WEB** (Membuka 3 jendela otomatis: :8082, :8083, :8084)
+- **`[6]`** Build Seluruh Proyek (Java Web Modules + Flutter APK)
+- **`[7]`** Build Cepat Java Web Saja (`mvn clean install -DskipTests`)
+- **`[8]`** Build APK Android Debug (`flutter build apk`)
+- **`[9]`** Rebuild Pustaka Bersama (`platform/ses-core`)
+- **`[10]`** Uji Koneksi Database Oracle ELLDEV (`10.10.214.48:1521`)
+
+---
+
+## 🚀 Running & Building (CLI Manual)
+
+### 1. Run Locally via Maven
 ```bash
 # Internal Intranet App (Port 8082)
-mvn spring-boot:run -pl ses-app
+mvn spring-boot:run -pl intranet/ses-app "-Dspring-boot.run.profiles=local"
 
 # External Gateway DMZ Portal (Port 8083)
-mvn spring-boot:run -pl ses-ext
-```
-- **Internal App**: `http://localhost:8082` (Default local credentials: `admin` / `admin123`)
-- **External Gateway**: `http://localhost:8083/ses-ext`
+mvn spring-boot:run -pl internet/ses-ext "-Dspring-boot.run.profiles=local"
 
-### 3. Automated Test Suite
-```bash
-mvn test
+# RESTful API Gateway (Port 8084)
+mvn spring-boot:run -pl internet/ses-api "-Dspring-boot.run.profiles=local"
 ```
 
-### 4. Build Multi-Module Production WAR Packages
+### 2. Build Multi-Module Production Packages
 ```bash
 mvn clean package -DskipTests
 ```
-Produces two standalone WAR artifacts:
+Menghasilkan artefak WAR/JAR:
 ```
-ses-app/target/ses-app.war   (Internal Application, context-root: /ses)
-ses-ext/target/ses-ext.war   (External Gateway, context-root: /ses-ext)
+platform/ses-core/target/ses-core.jar
+intranet/ses-app/target/ses-app.war     (Internal Application, context-root: /ses)
+internet/ses-ext/target/ses-ext.war     (External Gateway, context-root: /ses-ext)
+internet/ses-api/target/ses-api.war     (RESTful API Gateway, context-root: /api)
 ```
-
-### 5. Production Database Execution (ELLPRD)
-From `sql/production/261019/`:
-```bash
-sqlplus ses@//10.10.217.252:1521/ELLPRD @INSTALL-261019.sql
-```
-Verifies all objects, applies migrations idempotently, compiles schema, and runs `99_verify.sql`.
